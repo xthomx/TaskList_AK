@@ -19,6 +19,10 @@
     <button class="btn" data-v="week">Tydzień</button>
     <button class="btn" data-v="day">Dzień</button>
   </div>
+  <div class="seg" id="themeSeg" title="Motyw">
+    <button class="btn" data-t="light">☀ Jasny</button>
+    <button class="btn" data-t="dark">🌙 Ciemny</button>
+  </div>
   <div class="seg" id="layoutSeg" title="Układ: kafelki lub siatka">
     <button class="btn" data-l="board">▦ Kafelki</button>
     <button class="btn" data-l="grid">☰ Siatka</button>
@@ -73,6 +77,8 @@
         <input type="range" id="fProg" min="0" max="100" step="25" list="progTicks">
         <datalist id="progTicks"><option value="0" label="0"></option><option value="25" label="25"></option><option value="50" label="50"></option><option value="75" label="75"></option><option value="100" label="100"></option></datalist></div>
     </div>
+    <label>Kolor zadania (domyślnie wg priorytetu)</label>
+    <div class="swatches" id="fColors"></div>
     <label>Notatki</label><textarea id="fNotes" rows="10"></textarea>
     <label>Osoby</label>
     <button class="btn peoplebtn" type="button" id="fPeopleBtn">👥 Wybierz osoby…</button>

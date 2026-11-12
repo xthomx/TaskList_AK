@@ -80,6 +80,9 @@ class Api:
     def set_view(self, view):
         return self._storage.set_view(view)
 
+    def set_theme(self, theme):
+        return self._storage.set_theme(theme)
+
     def set_layout(self, layout):
         return self._storage.set_layout(layout)
 

@@ -35,6 +35,9 @@ const STATUS = {
   done:     {icon: "✅", label: "Zrobione"}
 };
 const STEPS = [0, 25, 50, 75, 100];
+/* ---- kolor zadania: domyślnie wg priorytetu, można wybrać własny ---- */
+const PALETTE = ["#d9453d", "#e8833a", "#e0a100", "#2e9e5b", "#1fa5a0", "#3b6cf6", "#6b5be6", "#a855c7", "#e0529c", "#7a8499"];
+const colorStyle = t => t.color ? `--tc:${t.color};` : "";
 function applyStatus(t, s){        // zrobione = 100%, oczekujące = 0%
   t.status = s;
   if(s === "done") t.progress = 100;
@@ -55,6 +58,7 @@ function fixTask(t){               // wersje < 1.2 miały tylko pole done
   if(!o.end_date || o.end_date < o.date) o.end_date = o.date;       // zadanie wielodniowe: end_date > date
   if(o.end_date > o.date){ o.start = ""; o.end = ""; }
   o.series = typeof o.series === "string" ? o.series : "";
+  o.color = /^#[0-9a-fA-F]{6}$/.test(o.color || "") ? o.color.toLowerCase() : "";   // pusty = kolor wg priorytetu
   if(o.status === "done") o.progress = 100; else if(!STEPS.includes(o.progress)) o.progress = 0;
   return o;
 }
@@ -84,6 +88,18 @@ function saveView(){
   if(view === savedView) return; savedView = view;
   if(DESKTOP){ if(api()) api().set_view(view).catch(() => {}); }
   else { try{ localStorage.setItem(KEY + "_view", view); }catch(e){} }
+}
+/* ---- motyw jasny / ciemny: wybór użytkownika ma pierwszeństwo, bez wyboru obowiązuje motyw systemu ---- */
+let theme = "";                                  // "" = wg systemu, "light" lub "dark"
+const systemDark = () => !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+const effectiveTheme = () => theme || (systemDark() ? "dark" : "light");
+function applyTheme(){
+  if(theme) document.documentElement.setAttribute("data-theme", theme); else document.documentElement.removeAttribute("data-theme");
+  document.querySelectorAll("#themeSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.t === effectiveTheme()));
+}
+function saveTheme(){
+  if(DESKTOP){ if(api()) api().set_theme(theme).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_theme", theme); }catch(e){} }
 }
 let savedLayout = null;
 function saveLayout(){
@@ -130,6 +146,7 @@ function renderCal(){
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
   layoutSeg.hidden = false;                                  // „Kafelki / Siatka” dla miesiąca, tygodnia i dnia
+  applyTheme();
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
   renderCal();
@@ -151,7 +168,7 @@ function chipHTML(t, ds){
   if(multi && ds){ const n = daysBetween(t.date, end) + 1, i = daysBetween(t.date, ds); pg = Math.round(Math.min(1, Math.max(0, (t.progress / 100 - i / n) * n)) * 100); }
   const label = lj ? "&nbsp;" : `${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
   const handle = ds && ds === end ? `<span class="rzd" data-rzd="${t.id}" title="Przeciągnij, aby zmienić liczbę dni"></span>` : "";
-  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="--pg:${pg}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${label}${handle}</span>`;
+  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${label}${handle}</span>`;
 }
 const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
@@ -288,7 +305,7 @@ function cardHTML(t, ds, overdue, compact){
   if(names.length) meta.push(`<span title="${esc(names.join(", "))}">👥 ${esc(names.map(shortName).join(", "))}</span>`);
   if(t.series) meta.push(`<span title="Zadanie cykliczne">🔁</span>`);
   if(t.status === "progress") meta.push(`<span>🔄 ${t.progress}%</span>`);
-  return `<article class="card p${t.priority} st-${t.status}" style="--pg:${t.progress}%" draggable="true" data-id="${esc(t.id)}">` +
+  return `<article class="card p${t.priority} st-${t.status}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="true" data-id="${esc(t.id)}">` +
     `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
     `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
     (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div></article>`;
@@ -408,7 +425,7 @@ function renderTimeGrid(main, isWeek){
     h += `<div class="col${ds===todayS?" today":""}" data-date="${ds}">` + layoutDay(timed).map(ev => {
       const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
       const w = 100/ev.n;
-      return `<div class="ev p${t.priority} st-${t.status}" draggable="true" data-id="${t.id}" style="--pg:${t.progress}%;top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
+      return `<div class="ev p${t.priority} st-${t.status}" draggable="true" data-id="${t.id}" style="${colorStyle(t)}--pg:${t.progress}%;top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
              `${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small><span class="rz" data-rz="${t.id}"></span></div>`;
     }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
   }
@@ -494,6 +511,7 @@ function openDialog(id, date, start, pre){          // pre = {title, notes} — 
   fTitle.value = t.title; fDate.value = t.date; fDate2.value = isMulti(t) ? endOf(t) : ""; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
   draft = {status: t.status, progress: t.progress}; syncDraft();
+  draftColor = t.color || ""; drawColors();
   pickSel = new Set(t.assignees || []); updatePeopleBtn();
   syncMulti();
   // powtarzanie: dla nowego (lub jeszcze niecyklicznego) zadania wybór reguły, dla wystąpienia serii informacja
@@ -507,6 +525,16 @@ function openDialog(id, date, start, pre){          // pre = {title, notes} — 
   document.getElementById("del").style.visibility = editing ? "visible" : "hidden";
   fNext.style.visibility = "visible";
   dlg.showModal(); fTitle.focus();
+}
+// wybór koloru zadania w oknie edycji: ↺ = domyślny (wg priorytetu), paleta, własny kolor
+let draftColor = "";
+function drawColors(){
+  const on = c => (c === draftColor ? " on" : "");
+  fColors.innerHTML = `<button type="button" class="swatch def${on("")}" data-c="" title="Domyślny (wg priorytetu)">↺</button>` +
+    PALETTE.map(c => `<button type="button" class="swatch${on(c)}" data-c="${c}" style="background:${c}" title="${c}"></button>`).join("") +
+    `<input type="color" id="fColorCustom" value="${draftColor || "#3b6cf6"}" title="Własny kolor">`;
+  fColors.querySelectorAll(".swatch").forEach(b => b.onclick = () => { draftColor = b.dataset.c; drawColors(); });
+  fColors.querySelector("#fColorCustom").oninput = e => { draftColor = e.target.value.toLowerCase(); fColors.querySelectorAll(".swatch").forEach(s => s.classList.remove("on")); };
 }
 let draft = {status: "pending", progress: 0};
 function syncDraft(){ fStatus.value = draft.status; fProg.value = draft.progress; fProgVal.textContent = draft.progress + "%"; }
@@ -606,12 +634,12 @@ form.addEventListener("submit", e => {
   t.title = fTitle.value.trim(); t.date = d1; t.end_date = d2; t.priority = +fPrio.value;
   t.start = multi ? "" : fStart.value; t.end = (multi || !fStart.value) ? "" : (fEnd.value || toHM(toMin(fStart.value)+60));
   if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
-  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = [...pickSel];
+  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = [...pickSel]; t.color = draftColor;
   let extra = [];
   if(!t.series && fRec.value !== "none") extra = makeSeries(t, fRec.value, fRecN.value, fRecUntil.value);
   else if(editing && t.series && fApplyNext.checked){        // zmiany do kolejnych zadań serii (bez dat i statusu)
     tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).forEach(x => {
-      x.title = t.title; x.priority = t.priority; x.notes = t.notes; x.assignees = [...t.assignees];
+      x.title = t.title; x.priority = t.priority; x.notes = t.notes; x.assignees = [...t.assignees]; x.color = t.color;
       if(!isMulti(x)){ x.start = t.start; x.end = t.end; }
     });
   }
@@ -694,7 +722,7 @@ function renderList(){
       const cls = ["trow", t.date !== prev && prev ? "newday" : "", occursOn(t, todayS) ? "istoday" : "", endOf(t) < todayS && !done ? "late" : "", "st-" + t.status].join(" ");
       prev = t.date;
       const when = fmtDate(t.date) + (t.series ? " 🔁" : "");      // lista: tylko początek (zakres wielodniowy widać w kalendarzu)
-      h += `<tr class="${cls}" data-id="${esc(t.id)}"><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
+      h += `<tr class="${cls}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
            `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
@@ -759,6 +787,8 @@ function showCtx(id, x, y){
     `<div class="ctx-icons">` + Object.keys(STATUS).map(s =>
       `<button type="button" data-s="${s}" class="${t.status === s ? "on" : ""}" title="${STATUS[s].label}"><span>${STATUS[s].icon}</span><small>${STATUS[s].label}</small></button>`).join("") + `</div>` +
     `<div class="ctx-prog"><label>Postęp: <b id="ctxPv">${t.progress}%</b></label><input type="range" id="ctxP" min="0" max="100" step="25" value="${t.progress}" list="progTicks"></div>` +
+    `<div class="ctx-colors" title="Kolor zadania"><button type="button" class="swatch def${t.color ? "" : " on"}" data-cc="" title="Domyślny (wg priorytetu)">↺</button>` +
+      PALETTE.map(c => `<button type="button" class="swatch${t.color === c ? " on" : ""}" data-cc="${c}" style="background:${c}" title="${c}"></button>`).join("") + `</div>` +
     `<hr><button type="button" class="ctx-item" data-act="next">➡ Przenieś na przyszły tydzień</button>` +
     `<button type="button" class="ctx-item" data-act="edit">✏ Edytuj…</button>` +
     `<button type="button" class="ctx-item ctx-del" data-act="del">🗑 Usuń zadanie</button>`;
@@ -767,6 +797,7 @@ function showCtx(id, x, y){
   ctx.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 6)) + "px";
   ctx.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 6)) + "px";
   ctx.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { applyStatus(t, b.dataset.s); save(); hideCtx(); render(); });
+  ctx.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => { t.color = b.dataset.cc; save(); hideCtx(); render(); });
   const p = ctx.querySelector("#ctxP");
   p.oninput = () => { ctx.querySelector("#ctxPv").textContent = p.value + "%"; };
   p.onchange = () => { applyProgress(t, +p.value); save(); hideCtx(); render(); };
@@ -812,6 +843,7 @@ today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
 add.onclick = () => openDialog(null, iso(cur));
 document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
 document.querySelectorAll("#layoutSeg .btn").forEach(b => b.onclick = () => { layout = b.dataset.l; render(); });
+document.querySelectorAll("#themeSeg .btn").forEach(b => b.onclick = () => { theme = b.dataset.t; applyTheme(); saveTheme(); });
 document.addEventListener("keydown", e => {
   if(dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
@@ -968,6 +1000,7 @@ function initUpdates(){
 /* ================= start ================= */
 function seed(){
   const t = iso(new Date()), a = {id:uid(), name:"Nowak Anna"}, b = {id:uid(), name:"Kowalski Jan"};
+      theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
   return {people: [a, b], tasks: [
     {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, status:"progress", progress:50, notes:"", assignees:[a.id, b.id]},
     {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, status:"pending", progress:0, notes:"", assignees:[]},
@@ -992,6 +1025,7 @@ async function boot(){
       try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}
       try{ view = localStorage.getItem(KEY + "_view") || "month"; }catch(e){}
       try{ layout = localStorage.getItem(KEY + "_layout") === "grid" ? "grid" : "board"; savedLayout = layout; }catch(e){}
+      try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }

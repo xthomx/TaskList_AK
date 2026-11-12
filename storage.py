@@ -13,6 +13,7 @@ MAX_TASKS = 20000
 MAX_PEOPLE = 1000
 VIEWS = ('month', 'week', 'day')
 LAYOUTS = ('board', 'grid')                  # tydzień/dzień: kafelki (domyślnie) lub siatka godzinowa
+THEMES = ('light', 'dark')                    # brak wyboru = motyw systemowy
 STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakcie, zrobione
 PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
@@ -30,6 +31,10 @@ def _is_date(s):
     except ValueError:
         return False
     return True
+
+
+def _is_color(s):
+    return len(s) == 7 and s[0] == '#' and all(c in '0123456789abcdef' for c in s[1:])
 
 
 def _is_time(s):
@@ -66,6 +71,9 @@ def validate_data(data):
         assignees = t.get('assignees', [])
         end_date = t.get('end_date') or t.get('date')            # zadanie wielodniowe: end_date > date
         series = t.get('series', '')                              # zadania cykliczne: wspólny identyfikator serii
+        color = t.get('color', '')                                # własny kolor zadania (#rrggbb); pusty = wg priorytetu
+        if isinstance(color, str) and color:
+            color = color.lower()
         status = t.get('status') or ('done' if t.get('done') else 'pending')   # 'done' pochodzi z wersji < 1.2
         progress = t.get('progress', 100 if status == 'done' else 0)
         if status == 'done':
@@ -75,10 +83,11 @@ def validate_data(data):
                 or not isinstance(t.get('notes', ''), str)
                 or not isinstance(assignees, list) or any(a not in pids for a in assignees)
                 or not _is_date(end_date) or end_date < t['date']
-                or not isinstance(series, str) or len(series) > 64):
+                or not isinstance(series, str) or len(series) > 64
+                or not isinstance(color, str) or not (color == '' or _is_color(color))):
             raise ValueError('Nieprawidłowe dane zadania: ' + str(title)[:40])
         clean.append({'id': t['id'], 'title': title.strip()[:300], 'date': t['date'],
-                      'end_date': end_date, 'series': series,
+                      'end_date': end_date, 'series': series, 'color': color,
                       'start': start if end_date == t['date'] else '', 'end': end if (start and end_date == t['date']) else '',
                       'priority': t['priority'],
                       'status': status, 'progress': progress, 'notes': t.get('notes', '')[:5000],
@@ -140,16 +149,18 @@ class Storage:
             data = json.loads(self.prefs_path.read_text(encoding='utf-8'))
             view = data.get('view')
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
-            layout = data.get('layout')
-            return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board',
+            layout, theme = data.get('layout'), data.get('theme')
+            return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board', 'theme': theme if theme in THEMES else '',
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'last_xlsx': '', 'xlsx_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'last_xlsx', 'xlsx_fp'}:
             raise ValueError('Nieznane ustawienie.')
+        if 'theme' in changes and changes['theme'] not in THEMES:
+            raise ValueError('Nieprawidłowy motyw.')
         if 'layout' in changes and changes['layout'] not in LAYOUTS:
             raise ValueError('Nieprawidłowy układ.')
         if 'view' in changes and changes['view'] not in VIEWS:
@@ -159,6 +170,10 @@ class Storage:
             values.update(changes)
             self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
         return values
+
+    def set_theme(self, theme):
+        self.set_prefs(theme=theme)
+        return True
 
     def set_layout(self, layout):
         self.set_prefs(layout=layout)
@@ -174,7 +189,7 @@ def fingerprint(data):
     clean = validate_data(data)
     names = {p['id']: p['name'] for p in clean['people']}
     tasks = sorted(json.dumps([t['title'], t['date'], t['end_date'], t['start'], t['end'], t['priority'], t['status'],
-                               t['progress'], t['notes'], sorted(names[a] for a in t['assignees'])],
+                               t['progress'], t['notes'], t['color'], sorted(names[a] for a in t['assignees'])],
                               ensure_ascii=False) for t in clean['tasks'])
     people = sorted(p['name'] for p in clean['people'])
     return hashlib.sha256(json.dumps([people, tasks], ensure_ascii=False).encode('utf-8')).hexdigest()

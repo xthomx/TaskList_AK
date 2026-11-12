@@ -108,3 +108,13 @@ class XlsxTests(unittest.TestCase):
         by = {t['title']: t for t in xlsx_format.loads(xlsx_format.dumps(source))['tasks']}
         self.assertEqual(by['Zadanie 1']['series'], 'abc123')
         self.assertEqual(by['Zadanie 2']['series'], '')
+
+    def test_color_roundtrip_and_import(self):
+        source = validate_data({'people': [], 'tasks': [task(1, color='#e0529c', assignees=[]), task(2, assignees=[])]})
+        by = {t['title']: t for t in xlsx_format.loads(xlsx_format.dumps(source))['tasks']}
+        self.assertEqual(by['Zadanie 1']['color'], '#e0529c')
+        self.assertEqual(by['Zadanie 2']['color'], '')
+        ok = xlsx_format.loads(workbook([('A', '2026-12-01', 'E0529C')], header=('Tytuł', 'Data', 'Kolor')))
+        self.assertEqual(ok['tasks'][0]['color'], '#e0529c')
+        with self.assertRaisesRegex(ValueError, 'Wiersz 2'):
+            xlsx_format.loads(workbook([('A', '2026-12-01', 'czerwony')], header=('Tytuł', 'Data', 'Kolor')))

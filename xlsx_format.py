@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from storage import validate_data, MAX_TASKS, MAX_PEOPLE
 
 TASK_SHEET, PEOPLE_SHEET = 'Zadania', 'Osoby'
-HEADERS = ['Tytuł', 'Data', 'Data do', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki', 'Seria']
+HEADERS = ['Tytuł', 'Data', 'Data do', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki', 'Seria', 'Kolor']
 PRIORITY = {1: 'Niski', 2: 'Średni', 3: 'Wysoki'}
 PRIORITY_BACK = {'niski': 1, 'sredni': 2, 'średni': 2, 'wysoki': 3, '1': 1, '2': 2, '3': 3,
                  'low': 1, 'medium': 2, 'high': 3}
@@ -25,7 +25,7 @@ def _status(value):
     return 'done' if s in DONE_WORDS else 'progress' if s in PROGRESS_WORDS else 'pending'
 
 
-WIDTHS = [40, 12, 12, 8, 8, 11, 13, 11, 30, 50, 14]
+WIDTHS = [40, 12, 12, 8, 8, 11, 13, 11, 30, 50, 14, 10]
 
 
 
@@ -41,7 +41,7 @@ def dumps(data):
         ws.append([t['title'], dt.date.fromisoformat(t['date']),
                    dt.date.fromisoformat(t['end_date']) if t['end_date'] != t['date'] else None, t['start'], t['end'],
                    PRIORITY[t['priority']], STATUS_LABEL[t['status']], t['progress'],
-                   '; '.join(names[a] for a in t['assignees']), t['notes'], t['series'] or None])
+                   '; '.join(names[a] for a in t['assignees']), t['notes'], t['series'] or None, t['color'] or None])
         for column in (2, 3):
             ws.cell(row=ws.max_row, column=column).number_format = 'yyyy-mm-dd'
     people = wb.create_sheet(PEOPLE_SHEET)
@@ -79,6 +79,14 @@ def _progress(v, status):
     if 0 < n <= 1 and not isinstance(v, str):      # komórka w formacie procentowym (0,5 = 50%)
         n *= 100
     return min(100, max(0, round(n / 25) * 25))
+
+
+def _color(s):
+    s = s.strip().lower()
+    s = s if s.startswith('#') or not s else '#' + s
+    if s and not re.fullmatch(r'#[0-9a-f]{6}', s):
+        raise ValueError('nieprawidłowy kolor: ' + s[:10] + ' (oczekiwano #rrggbb)')
+    return s
 
 
 def _text(v):
@@ -141,6 +149,7 @@ def loads(raw):
     c_prio, c_status, c_people, c_notes = col('priorytet'), col('status'), col('osoby', 'osoba'), col('notatki', 'notatka')
     c_date2 = col('data do', 'do dnia', 'koniec')
     c_series = col('seria')
+    c_color = col('kolor')
     c_prog = col('postęp (%)', 'postęp', 'postep', 'postęp %')
     if c_date is None:
         raise ValueError('Brak kolumny „Data”.')
@@ -186,6 +195,7 @@ def loads(raw):
                           'start': start, 'end': end, 'priority': prio,
                           'status': status, 'progress': progress,
                           'series': _text(get(row, c_series))[:64],
+                          'color': _color(_text(get(row, c_color))),
                           'notes': _text(get(row, c_notes)), 'assignees': [person(x[:100]) for x in names]})
         except ValueError as exc:
             raise ValueError('Wiersz %d: %s' % (n, exc)) from exc

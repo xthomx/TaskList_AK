@@ -112,3 +112,17 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.store.get_prefs()['view'], 'month')
         with self.assertRaises(ValueError):
             self.store.set_layout('lista')
+
+    def test_task_color_and_theme_preference(self):
+        self.assertEqual(validate_data(data(task()))['tasks'][0]['color'], '')
+        self.assertEqual(validate_data(data(task(color='#3B6CF6')))['tasks'][0]['color'], '#3b6cf6')
+        for bad in ('red', '#12345', '#gggggg', 123):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                validate_data(data(task(color=bad)))
+        from storage import fingerprint
+        self.assertNotEqual(fingerprint(data(task())), fingerprint(data(task(color='#3b6cf6'))))
+        self.assertEqual(self.store.get_prefs()['theme'], '')
+        self.store.set_theme('dark')
+        self.assertEqual(self.store.get_prefs()['theme'], 'dark')
+        with self.assertRaises(ValueError):
+            self.store.set_theme('fioletowy')
