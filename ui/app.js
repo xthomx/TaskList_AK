@@ -7,7 +7,9 @@ const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec"
 const DOW = ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
 
 
-let tasks = [];
+let tasks = [], people = [];
+let filterPerson = "";           // "" = wszyscy, "__none" = nieprzypisane, inaczej id osoby
+let listScope = "all", hideDone = false;
 let view = "month";
 let cur = new Date(); cur.setHours(0,0,0,0);
 let drag = null;                 // {id, offY}
@@ -17,16 +19,23 @@ const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; }
 
 /* ---- zapis: w aplikacji do pliku w %LOCALAPPDATA%\TaskListAK, w przeglądarce do localStorage ---- */
+const currentData = () => ({people, tasks});
+function normalize(d){        // akceptuje stary format (sama lista zadań z wersji 1.0)
+  if(Array.isArray(d)) d = {people: [], tasks: d};
+  if(!d || !Array.isArray(d.tasks)) throw new Error("Nieprawidłowy format danych.");
+  const ppl = Array.isArray(d.people) ? d.people : [];
+  return {people: ppl, tasks: d.tasks.map(t => Object.assign({assignees: []}, t))};
+}
 function save(){
-  if(!DESKTOP){ try{ localStorage.setItem(KEY, JSON.stringify(tasks)); }catch(e){} return; }
+  if(!DESKTOP){ try{ localStorage.setItem(KEY, JSON.stringify(currentData())); }catch(e){} return; }
   if(readOnly) return;
   clearTimeout(saveTimer); saveTimer = setTimeout(flush, 150);
 }
 function flush(){
   clearTimeout(saveTimer);
   if(!DESKTOP || readOnly) return chain;
-  const snap = JSON.parse(JSON.stringify(tasks));
-  chain = chain.then(() => api().save_tasks(snap)).then(() => note("")).catch(e => note("Zapis nie powiódł się: " + errText(e)));
+  const snap = JSON.parse(JSON.stringify(currentData()));
+  chain = chain.then(() => api().save_data(snap)).then(() => note("")).catch(e => note("Zapis nie powiódł się: " + errText(e)));
   return chain;
 }
 let savedView = null;
@@ -45,13 +54,20 @@ const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
 const toHM = m => { m = Math.max(0, Math.min(1440, m)); return `${pad(Math.floor(m/60)%24)}:${pad(m%60)}`; };
 const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const byTime = (a,b) => (a.start||"").localeCompare(b.start||"") || a.title.localeCompare(b.title);
-const tasksOn = ds => tasks.filter(t => t.date === ds).sort(byTime);
+const personName = id => { const p = people.find(x => x.id === id); return p ? p.name : ""; };
+const namesOf = t => (t.assignees || []).map(personName).filter(Boolean);
+const initials = n => n.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join("");
+const matchesFilter = t => !filterPerson || (filterPerson === "__none" ? !(t.assignees||[]).length : (t.assignees||[]).includes(filterPerson));
+const visibleTasks = () => tasks.filter(matchesFilter);
+const tasksOn = ds => visibleTasks().filter(t => t.date === ds).sort(byTime);
 
 /* ================= render ================= */
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
-  const main = document.getElementById("main");
-  if(view === "month") renderMonth(main); else renderTimeGrid(main, view === "week");
+  fillPersonFilter();
+  const cal = document.getElementById("cal");
+  if(view === "month") renderMonth(cal); else renderTimeGrid(cal, view === "week");
+  renderList();
   saveView();
 }
 
@@ -59,7 +75,17 @@ function setTitle(s){ document.getElementById("title").textContent = s; }
 
 function chipHTML(t){
   const time = t.start ? t.start + " " : "";
-  return `<span class="chip p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" title="${esc(t.title)}">${time}${esc(t.title)}</span>`;
+  const names = namesOf(t), who = names.length ? ` <span class="who">· ${esc(names.map(initials).join(", "))}</span>` : "";
+  const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "");
+  return `<span class="chip p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" title="${tip}">${time}${esc(t.title)}${who}</span>`;
+}
+
+function fillPersonFilter(){
+  const sel = document.getElementById("fPerson");
+  if(filterPerson && filterPerson !== "__none" && !people.some(p => p.id === filterPerson)) filterPerson = "";
+  sel.innerHTML = `<option value="">Wszystkie osoby</option><option value="__none">Nieprzypisane</option>` +
+    people.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  sel.value = filterPerson;
 }
 
 function renderMonth(main){
@@ -144,7 +170,7 @@ function renderTimeGrid(main, isWeek){
       const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
       const w = 100/ev.n;
       return `<div class="ev p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" style="top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
-             `${esc(t.title)}<small>${t.start}–${toHM(ev.e)}</small><span class="rz" data-rz="${t.id}"></span></div>`;
+             `${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small><span class="rz" data-rz="${t.id}"></span></div>`;
     }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
   }
   main.innerHTML = h + `</div></div></div>`;
@@ -214,23 +240,110 @@ const dlg = document.getElementById("dlg");
 let editing = null;
 function openDialog(id, date, start){
   editing = id ? byId(id) : null;
-  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, done:false, notes:""};
+  const preset = (!editing && filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
+  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, done:false, notes:"", assignees: preset};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
   fTitle.value = t.title; fDate.value = t.date; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || ""; fDone.checked = !!t.done;
+  fNewPerson.value = ""; drawPicker(t.assignees || []);
   document.getElementById("del").style.visibility = editing ? "visible" : "hidden";
   dlg.showModal(); fTitle.focus();
 }
+function drawPicker(selected){
+  fPeople.innerHTML = people.length ? people.map(p =>
+    `<label><input type="checkbox" value="${esc(p.id)}"${selected.includes(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")
+    : `<span class="hint">Brak osób — dodaj poniżej lub w oknie „Osoby”.</span>`;
+}
+const pickedIds = () => [...fPeople.querySelectorAll("input:checked")].map(i => i.value);
+function addPerson(name){
+  name = name.trim().slice(0, 100); if(!name) return null;
+  const known = people.find(p => p.name.toLowerCase() === name.toLowerCase());
+  if(known) return known;
+  const p = {id: uid(), name}; people.push(p); return p;
+}
+fAddPerson.onclick = () => {
+  const keep = pickedIds(), p = addPerson(fNewPerson.value); if(!p) return;
+  if(!keep.includes(p.id)) keep.push(p.id);
+  fNewPerson.value = ""; drawPicker(keep); save(); fillPersonFilter();
+};
+fNewPerson.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); fAddPerson.click(); } });
 form.addEventListener("submit", e => {
   if(e.submitter && e.submitter.value !== "save") return;
   const t = editing || {id: uid()};
   t.title = fTitle.value.trim(); t.date = fDate.value; t.priority = +fPrio.value;
   t.start = fStart.value; t.end = fStart.value ? (fEnd.value || toHM(toMin(fStart.value)+60)) : "";
   if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
-  t.notes = fNotes.value; t.done = fDone.checked;
+  t.notes = fNotes.value; t.done = fDone.checked; t.assignees = pickedIds();
   if(!editing) tasks.push(t);
   save(); render();
 });
+
+/* ================= osoby ================= */
+const pdlg = document.getElementById("pdlg");
+function drawPeople(){
+  pList.innerHTML = people.length ? people.map(p => {
+    const n = tasks.filter(t => (t.assignees||[]).includes(p.id)).length;
+    return `<div class="prow" data-id="${esc(p.id)}"><input type="text" value="${esc(p.name)}" maxlength="100" aria-label="Nazwa osoby"><small>${n} zad.</small><button class="btn danger" type="button" data-del="${esc(p.id)}">Usuń</button></div>`;
+  }).join("") : `<div class="empty">Brak osób.</div>`;
+  pList.querySelectorAll(".prow input").forEach(inp => inp.addEventListener("change", () => {
+    const p = people.find(x => x.id === inp.parentElement.dataset.id), v = inp.value.trim();
+    if(p && v){ p.name = v; save(); render(); } else if(p) inp.value = p.name;
+  }));
+  pList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    const p = people.find(x => x.id === b.dataset.del); if(!p) return;
+    if(!confirm(`Usunąć osobę „${p.name}”? Zostanie zdjęta ze wszystkich zadań.`)) return;
+    people = people.filter(x => x !== p);
+    tasks.forEach(t => { t.assignees = (t.assignees || []).filter(a => a !== p.id); });
+    save(); drawPeople(); render();
+  });
+}
+ppl.onclick = () => { pNew.value = ""; drawPeople(); pdlg.showModal(); pNew.focus(); };
+pAdd.onclick = () => { if(addPerson(pNew.value)){ pNew.value = ""; save(); drawPeople(); render(); } };
+pNew.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); pAdd.click(); } });
+pClose.onclick = () => pdlg.close();
+fPerson.onchange = () => { filterPerson = fPerson.value; render(); };
+
+/* ================= lista zadań pod kalendarzem ================= */
+function periodRange(){
+  if(view === "month") return [iso(new Date(cur.getFullYear(), cur.getMonth(), 1)), iso(new Date(cur.getFullYear(), cur.getMonth()+1, 0))];
+  if(view === "week"){ const m = mondayOf(cur); return [iso(m), iso(addDays(m, 6))]; }
+  return [iso(cur), iso(cur)];
+}
+const WD = ["nd","pon","wt","śr","czw","pt","sob"];
+const fmtDate = ds => { const d = parse(ds); return `${WD[d.getDay()]}, ${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`; };
+// kolejność wykonania: data, potem godzina (zadania całodniowe najpierw), potem priorytet, potem tytuł
+const byDue = (a,b) => a.date.localeCompare(b.date) || (a.start||"").localeCompare(b.start||"") || b.priority - a.priority || a.title.localeCompare(b.title);
+function renderList(){
+  const todayS = iso(new Date()), [from, to] = periodRange();
+  let rows = visibleTasks();
+  if(hideDone) rows = rows.filter(t => !t.done);
+  if(listScope === "today") rows = rows.filter(t => t.date >= todayS);
+  else if(listScope === "period") rows = rows.filter(t => t.date >= from && t.date <= to);
+  rows.sort(byDue);
+  const el = document.getElementById("list");
+  let h = `<div class="list-head"><h2>Lista zadań (${rows.length})</h2>
+    <label>Zakres <select id="lScope"><option value="all">Wszystkie</option><option value="today">Od dziś</option><option value="period">Widoczny okres</option></select></label>
+    <label><input type="checkbox" id="lHide"> Ukryj wykonane</label></div>`;
+  if(!rows.length) h += `<div class="empty">Brak zadań do wyświetlenia.</div>`;
+  else {
+    h += `<table class="tasks"><thead><tr><th></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th></tr></thead><tbody>`;
+    let prev = "";
+    for(const t of rows){
+      const cls = ["trow", t.date !== prev && prev ? "newday" : "", t.date === todayS ? "istoday" : "", t.date < todayS && !t.done ? "late" : "", t.done ? "isdone" : ""].join(" ");
+      prev = t.date;
+      const when = fmtDate(t.date) + (t.start ? ` ${t.start}${t.end ? "–" + t.end : ""}` : " · cały dzień");
+      h += `<tr class="${cls}" data-id="${esc(t.id)}"><td><input type="checkbox" data-done="${esc(t.id)}"${t.done ? " checked" : ""} aria-label="Wykonane"></td>` +
+           `<td>${when}</td><td>${esc(t.title)}</td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td></tr>`;
+    }
+    h += `</tbody></table>`;
+  }
+  el.innerHTML = h;
+  lScope.value = listScope; lHide.checked = hideDone;
+  lScope.onchange = () => { listScope = lScope.value; renderList(); };
+  lHide.onchange = () => { hideDone = lHide.checked; renderList(); };
+  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.matches("input")) openDialog(r.dataset.id); }));
+  el.querySelectorAll("[data-done]").forEach(c => c.addEventListener("change", () => { const t = byId(c.dataset.done); if(t){ t.done = c.checked; save(); render(); } }));
+}
 document.getElementById("del").onclick = () => {
   if(editing && confirm("Usunąć to zadanie?")){ tasks = tasks.filter(t => t !== editing); save(); dlg.close(); render(); }
 };
@@ -246,35 +359,45 @@ today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
 add.onclick = () => openDialog(null, iso(cur));
 document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
 document.addEventListener("keydown", e => {
-  if(dlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if(dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
   else if(e.key === "m") { view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
 });
 
 
 /* ================= eksport / import ================= */
-exp.onclick = async () => {
+const closeMenu = () => { dataMenu.open = false; };
+document.addEventListener("click", e => { if(!e.target.closest("#dataMenu")) closeMenu(); });
+async function doExport(kind){
+  closeMenu();
   try{
-    if(DESKTOP){ const name = await api().export_tasks(tasks); if(name) note("Wyeksportowano: " + name); return; }
+    if(DESKTOP){
+      const name = await (kind === "xlsx" ? api().export_xlsx(currentData()) : api().export_json(currentData()));
+      if(name) note("Wyeksportowano: " + name);
+      return;
+    }
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], {type:"application/json"}));
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(currentData(), null, 2)], {type:"application/json"}));
     a.download = `tasklist-${iso(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href);
   }catch(e){ note("Eksport nie powiódł się: " + errText(e)); }
-};
-async function applyImport(data){
-  if(confirm(`Zaimportować ${data.length} zadań? Obecne zadania zostaną zastąpione.`)){ tasks = data; save(); render(); }
 }
-imp.onclick = async () => {
+function applyImport(raw){
+  const d = normalize(raw);
+  if(confirm(`Zaimportować ${d.tasks.length} zadań i ${d.people.length} osób? Obecne dane zostaną zastąpione.`)){
+    tasks = d.tasks; people = d.people; filterPerson = ""; save(); render(); note("");
+  }
+}
+async function doImport(kind){
+  closeMenu();
   if(!DESKTOP){ file.click(); return; }
-  try{ const data = await api().import_tasks(); if(data) await applyImport(data); }
+  try{ const data = await (kind === "xlsx" ? api().import_xlsx() : api().import_json()); if(data) applyImport(data); }
   catch(e){ note("Import nie powiódł się: " + errText(e)); }
-};
+}
+xlsExp.onclick = () => doExport("xlsx"); exp.onclick = () => doExport("json");
+xlsImp.onclick = () => doImport("xlsx"); imp.onclick = () => doImport("json");
 file.onchange = async () => {
-  try{
-    const data = JSON.parse(await file.files[0].text());
-    if(!Array.isArray(data)) throw 0;
-    await applyImport(data);
-  }catch(e){ alert("Nieprawidłowy plik JSON."); }
+  try{ applyImport(JSON.parse(await file.files[0].text())); }
+  catch(e){ alert("Nieprawidłowy plik JSON."); }
   file.value = "";
 };
 
@@ -309,18 +432,19 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
+  document.getElementById("xlsExp").hidden = false; document.getElementById("xlsImp").hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
 
 /* ================= start ================= */
 function seed(){
-  const t = iso(new Date());
-  return [
-    {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:""},
-    {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:""},
-    {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, done:false, notes:""}
-  ];
+  const t = iso(new Date()), a = {id:uid(), name:"Anna Nowak"}, b = {id:uid(), name:"Jan Kowalski"};
+  return {people: [a, b], tasks: [
+    {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:"", assignees:[a.id, b.id]},
+    {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:"", assignees:[]},
+    {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, done:false, notes:"", assignees:[a.id]}
+  ]};
 }
 async function boot(){
   if(started) return; started = true;
@@ -329,13 +453,16 @@ async function boot(){
       const r = await api().load_state();
       view = (r.prefs && r.prefs.view) || "month";
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
-      tasks = r.tasks || (readOnly ? [] : seed());
+      const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
+      tasks = d.tasks; people = d.people;
       if(r.tasks === null && !readOnly) save();
       note(r.warning || "");
     } else {
-      try{ tasks = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ tasks = []; }
+      let d = null;
+      try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}
       try{ view = localStorage.getItem(KEY + "_view") || "month"; }catch(e){}
-      if(!tasks.length){ tasks = seed(); save(); }
+      if(!d || !d.tasks.length) d = seed();
+      tasks = d.tasks; people = d.people; save();
     }
   }catch(e){ readOnly = true; note("Nie udało się wczytać zadań: " + errText(e)); }
   render(); initUpdates();

@@ -75,3 +75,34 @@ input[type=text],input[type=date],input[type=time],select,textarea{width:100%;pa
 [hidden]{display:none !important}
 #updatebox{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 #note{flex-basis:100%;font-size:13px;color:var(--p3)}
+select.btn{padding:6px 8px;max-width:170px}
+.menu{position:relative}.menu summary{list-style:none;cursor:pointer}.menu summary::-webkit-details-marker{display:none}
+.menu-items{position:absolute;right:0;top:110%;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px;display:flex;flex-direction:column;min-width:230px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.menu-items button{background:none;border:0;text-align:left;padding:8px 10px;border-radius:6px;cursor:pointer}
+.menu-items button:hover{background:var(--today)}
+.people-pick{display:flex;flex-wrap:wrap;gap:4px 12px;max-height:110px;overflow:auto;padding:4px 0;font-size:14px}
+.people-pick label{display:flex;align-items:center;gap:5px;margin:0;color:var(--text);font-size:14px}
+.people-pick input{width:auto}
+.addp{margin-top:6px}
+.hint{font-size:12px;color:var(--muted);margin:0 0 8px}
+#pList{max-height:50vh;overflow:auto}
+.prow{display:flex;gap:8px;align-items:center;margin:4px 0}.prow input{flex:1}.prow small{color:var(--muted);white-space:nowrap}
+.who{opacity:.75;font-size:11px}
+.tg{height:clamp(420px,calc(100vh - 240px),760px)}
+/* lista zadań */
+#list{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.list-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px}
+.list-head h2{margin:0;font-size:16px;margin-right:auto}
+.list-head label{margin:0;font-size:13px;color:var(--text);display:flex;align-items:center;gap:5px}
+.list-head select{width:auto;padding:4px 6px}
+table.tasks{width:100%;border-collapse:collapse;font-size:14px}
+table.tasks th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px;border-bottom:1px solid var(--line)}
+table.tasks td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}
+table.tasks tr.trow{cursor:pointer}table.tasks tr.trow:hover td{background:var(--today)}
+table.tasks tr.newday td{border-top:2px solid var(--line)}
+table.tasks tr.istoday td:nth-child(2){font-weight:700;color:var(--accent)}
+table.tasks tr.late td:nth-child(2){color:var(--p3);font-weight:600}
+table.tasks tr.isdone td:not(:first-child){opacity:.55;text-decoration:line-through}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:var(--p1)}
+.badge.p2{background:var(--p2)}.badge.p3{background:var(--p3)}
+.empty{color:var(--muted);padding:10px 4px}

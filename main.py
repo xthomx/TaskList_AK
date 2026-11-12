@@ -7,7 +7,7 @@ import sys
 import threading
 
 from app_version import APP_VERSION
-from storage import Storage, validate_tasks, MAX_BYTES
+from storage import Storage, validate_data, MAX_BYTES
 from updates import check_updates, RELEASES_URL
 import auto_update
 
@@ -21,40 +21,65 @@ class Api:
 
     # ---- dane ----
     def load_state(self):
-        result = self._storage.load_tasks()
+        result = self._storage.load_data()
+        data = result.pop('data')
+        result['people'] = data['people'] if data else None
+        result['tasks'] = data['tasks'] if data else None
         result['prefs'] = self._storage.get_prefs()
         return result
 
-    def save_tasks(self, tasks):
-        return self._storage.save_tasks(tasks)
+    def save_data(self, data):
+        return self._storage.save_data(data)
 
     def set_view(self, view):
         return self._storage.set_view(view)
 
-    def export_tasks(self, tasks):
+    def _pick_save(self, name, label, ext):
         import webview
-        clean = validate_tasks(tasks)
-        paths = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename='zadania.json',
-                                                file_types=('Zadania (*.json)',))
+        paths = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=name, file_types=(label,))
         if not paths:
             return None
         path = Path(paths[0] if isinstance(paths, (list, tuple)) else paths)
-        if path.suffix.lower() != '.json':
-            path = path.with_suffix('.json')
+        return path if path.suffix.lower() == ext else path.with_suffix(ext)
+
+    def _pick_open(self, label):
+        import webview
+        paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False, file_types=(label,))
+        if not paths:
+            return None
+        path = Path(paths[0] if isinstance(paths, (list, tuple)) else paths)
+        if path.stat().st_size > MAX_BYTES:
+            raise ValueError('Plik przekracza 5 MB.')
+        return path
+
+    def export_json(self, data):
+        clean = validate_data(data)
+        path = self._pick_save('zadania.json', 'Zadania (*.json)', '.json')
+        if not path:
+            return None
         path.write_text(json.dumps(clean, ensure_ascii=False, indent=1), encoding='utf-8')
         return path.name
 
-    def import_tasks(self):
-        import webview
-        paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
-                                                file_types=('Zadania (*.json)',))
-        if not paths:
+    def import_json(self):
+        path = self._pick_open('Zadania (*.json)')
+        return validate_data(json.loads(path.read_bytes().decode('utf-8-sig'))) if path else None
+
+    def export_xlsx(self, data):
+        import xlsx_format
+        payload = xlsx_format.dumps(data)
+        path = self._pick_save('zadania.xlsx', 'Excel (*.xlsx)', '.xlsx')
+        if not path:
             return None
-        path = Path(paths[0] if isinstance(paths, (list, tuple)) else paths)
-        raw = path.read_bytes()
-        if len(raw) > MAX_BYTES:
-            raise ValueError('Plik przekracza 5 MB.')
-        return validate_tasks(json.loads(raw.decode('utf-8-sig')))
+        try:
+            path.write_bytes(payload)
+        except PermissionError as exc:
+            raise PermissionError('Nie można zapisać pliku. Zamknij go w Excelu i sprawdź uprawnienia do folderu.') from exc
+        return path.name
+
+    def import_xlsx(self):
+        import xlsx_format
+        path = self._pick_open('Excel (*.xlsx)')
+        return xlsx_format.loads(path.read_bytes()) if path else None
 
     # ---- aktualizacje ----
     def get_version(self):

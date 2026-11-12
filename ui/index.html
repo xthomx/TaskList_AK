@@ -19,14 +19,23 @@
     <button class="btn" data-v="week">Tydzień</button>
     <button class="btn" data-v="day">Dzień</button>
   </div>
+  <select id="fPerson" class="btn" title="Filtruj po osobie" aria-label="Filtr osoby"></select>
+  <button class="btn" id="ppl" title="Zarządzaj osobami">👥 Osoby</button>
   <button class="btn primary" id="add">+ Zadanie</button>
-  <button class="btn" id="exp" title="Eksport do JSON">Eksport</button>
-  <button class="btn" id="imp" title="Import z JSON">Import</button>
+  <details class="menu" id="dataMenu">
+    <summary class="btn">Dane ▾</summary>
+    <div class="menu-items">
+      <button type="button" id="xlsExp" hidden>Eksport do Excela (.xlsx)</button>
+      <button type="button" id="xlsImp" hidden>Import z Excela (.xlsx)</button>
+      <button type="button" id="exp">Eksport JSON</button>
+      <button type="button" id="imp">Import JSON</button>
+    </div>
+  </details>
   <input type="file" id="file" accept=".json" hidden>
   <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
   <div id="note" role="status" hidden></div>
 </header>
-<main id="main"></main>
+<main id="main"><div id="cal"></div><section id="list" aria-label="Lista zadań"></section></main>
 
 <dialog id="dlg">
   <form method="dialog" id="form">
@@ -41,6 +50,9 @@
       <div><label>Od (puste = cały dzień)</label><input type="time" id="fStart"></div>
       <div><label>Do</label><input type="time" id="fEnd"></div>
     </div>
+    <label>Osoby</label>
+    <div id="fPeople" class="people-pick"></div>
+    <div class="row addp"><input type="text" id="fNewPerson" placeholder="Nowa osoba…" autocomplete="off"><button class="btn" type="button" id="fAddPerson" style="flex:0 0 auto">Dodaj</button></div>
     <label>Notatki</label><textarea id="fNotes" rows="3"></textarea>
     <label class="chk"><input type="checkbox" id="fDone"> Wykonane</label>
     <div class="actions">
@@ -50,6 +62,14 @@
       <button class="btn danger" id="del" type="button">Usuń</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="pdlg">
+  <h2>Osoby</h2>
+  <p class="hint">Zmiana nazwy działa od razu we wszystkich zadaniach. Usunięcie osoby zdejmuje ją z przypisanych zadań.</p>
+  <div id="pList"></div>
+  <div class="row addp"><input type="text" id="pNew" placeholder="Imię i nazwisko…" autocomplete="off"><button class="btn primary" type="button" id="pAdd" style="flex:0 0 auto">Dodaj</button></div>
+  <div class="actions"><button class="btn" type="button" id="pClose">Zamknij</button></div>
 </dialog>
 
 <script src="app.js"></script>

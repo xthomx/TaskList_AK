@@ -1,4 +1,4 @@
-"""Local storage of tasks and preferences. Data lives outside the program folder."""
+"""Local storage of tasks, people and preferences. Data lives outside the program folder."""
 import json
 import os
 from pathlib import Path
@@ -8,6 +8,7 @@ import time
 
 MAX_BYTES = 5_000_000
 MAX_TASKS = 20000
+MAX_PEOPLE = 1000
 VIEWS = ('month', 'week', 'day')
 
 
@@ -24,10 +25,25 @@ def _is_time(s):
                        and int(s[:2]) < 24 and int(s[3:]) < 60)
 
 
-def validate_tasks(tasks):
-    """Return a cleaned list of tasks or raise ValueError."""
-    if not isinstance(tasks, list) or len(tasks) > MAX_TASKS:
-        raise ValueError('Nieprawidłowa lista zadań.')
+def validate_data(data):
+    """Return cleaned {'people': [...], 'tasks': [...]} or raise ValueError.
+
+    Accepts the legacy format (a bare list of tasks, version 1.0.x) as well.
+    """
+    if isinstance(data, list):
+        data = {'people': [], 'tasks': data}
+    if not isinstance(data, dict):
+        raise ValueError('Nieprawidłowy format danych.')
+    people, tasks = data.get('people', []), data.get('tasks', [])
+    if not isinstance(people, list) or len(people) > MAX_PEOPLE or not isinstance(tasks, list) or len(tasks) > MAX_TASKS:
+        raise ValueError('Nieprawidłowa lista zadań lub osób.')
+    pids, clean_people = set(), []
+    for p in people:
+        if (not isinstance(p, dict) or not isinstance(p.get('id'), str) or not p['id'] or p['id'] in pids
+                or not isinstance(p.get('name'), str) or not p['name'].strip()):
+            raise ValueError('Nieprawidłowa osoba.')
+        pids.add(p['id'])
+        clean_people.append({'id': p['id'], 'name': p['name'].strip()[:100]})
     seen, clean = set(), []
     for t in tasks:
         if not isinstance(t, dict) or not isinstance(t.get('id'), str) or not t['id'] or t['id'] in seen:
@@ -35,14 +51,17 @@ def validate_tasks(tasks):
         seen.add(t['id'])
         title = t.get('title')
         start, end = t.get('start', ''), t.get('end', '')
+        assignees = t.get('assignees', [])
         if (not isinstance(title, str) or not title.strip() or not _is_date(t.get('date'))
                 or not _is_time(start) or not _is_time(end) or t.get('priority') not in (1, 2, 3)
-                or not isinstance(t.get('notes', ''), str)):
+                or not isinstance(t.get('notes', ''), str)
+                or not isinstance(assignees, list) or any(a not in pids for a in assignees)):
             raise ValueError('Nieprawidłowe dane zadania: ' + str(title)[:40])
         clean.append({'id': t['id'], 'title': title.strip()[:300], 'date': t['date'],
                       'start': start, 'end': end if start else '', 'priority': t['priority'],
-                      'done': bool(t.get('done')), 'notes': t.get('notes', '')[:5000]})
-    return clean
+                      'done': bool(t.get('done')), 'notes': t.get('notes', '')[:5000],
+                      'assignees': list(dict.fromkeys(assignees))})
+    return {'people': clean_people, 'tasks': clean}
 
 
 class Storage:
@@ -67,32 +86,32 @@ class Storage:
             if tmp and tmp.exists():
                 tmp.unlink()
 
-    def load_tasks(self):
-        """None when there is no file yet. A damaged file is set aside, never overwritten."""
+    def load_data(self):
+        """data is None when there is no file yet. A damaged file is set aside, never overwritten."""
         with self.lock:
             if not self.tasks_path.exists():
-                return {'tasks': None, 'warning': ''}
+                return {'data': None, 'warning': ''}
             try:
                 raw = self.tasks_path.read_bytes()
                 if len(raw) > MAX_BYTES:
                     raise ValueError('za duży plik')
-                return {'tasks': validate_tasks(json.loads(raw.decode('utf-8-sig'))), 'warning': ''}
+                return {'data': validate_data(json.loads(raw.decode('utf-8-sig'))), 'warning': ''}
             except (OSError, ValueError, UnicodeError):
                 backup = self.tasks_path.with_name('tasks.uszkodzony-%d.json' % int(time.time()))
                 try:
                     os.replace(self.tasks_path, backup)
-                    return {'tasks': None, 'warning': 'Plik z zadaniami był uszkodzony. Zachowano go jako ' + backup.name + '.'}
+                    return {'data': None, 'warning': 'Plik z zadaniami był uszkodzony. Zachowano go jako ' + backup.name + '.'}
                 except OSError:
-                    return {'tasks': None, 'warning': 'Nie można odczytać pliku z zadaniami.', 'readonly': True}
+                    return {'data': None, 'warning': 'Nie można odczytać pliku z zadaniami.', 'readonly': True}
 
-    def save_tasks(self, tasks):
-        clean = validate_tasks(tasks)
+    def save_data(self, data):
+        clean = validate_data(data)
         text = json.dumps(clean, ensure_ascii=False, indent=1)
         if len(text.encode('utf-8')) > MAX_BYTES:
             raise ValueError('Dane przekraczają 5 MB.')
         with self.lock:
             self._atomic_write(self.tasks_path, text)
-        return len(clean)
+        return len(clean['tasks'])
 
     def get_prefs(self):
         try:
