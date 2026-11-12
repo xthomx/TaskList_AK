@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaskList AK</title>
+<style>
+:root{
+  --bg:#f5f6fa; --panel:#fff; --line:#e2e5ee; --text:#1f2430; --muted:#6b7385;
+  --accent:#3b6cf6; --today:#e8efff; --weekend:#fafbfd;
+  --p1:#2e9e5b; --p2:#e0a100; --p3:#d9453d;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#14161c; --panel:#1d2029; --line:#2e3340; --text:#e8eaf0; --muted:#9097a8;
+         --accent:#6d93ff; --today:#222c4a; --weekend:#191c24; }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0 12px 0 0}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{background:var(--panel);border:1px solid var(--line);padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.danger{color:var(--p3)}
+.seg{display:flex}.seg .btn{border-radius:0;margin-left:-1px}.seg .btn:first-child{border-radius:6px 0 0 6px;margin:0}.seg .btn:last-child{border-radius:0 6px 6px 0}
+.seg .btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+#title{font-weight:600;font-size:16px;min-width:200px;text-transform:capitalize}
+.spacer{flex:1}
+main{flex:1;overflow:auto;padding:12px 16px}
+
+/* ---- month ---- */
+.month{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);background:var(--panel)}
+.dow{padding:6px;font-size:12px;color:var(--muted);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+.cell{min-height:110px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px;overflow:hidden}
+.cell.other{opacity:.5}.cell.weekend{background:var(--weekend)}.cell.today{background:var(--today)}
+.cell.over,.col.over,.allday.over{outline:2px dashed var(--accent);outline-offset:-2px}
+.daynum{font-size:12px;color:var(--muted);cursor:pointer;display:inline-block;padding:1px 5px;border-radius:10px}
+.cell.today .daynum{background:var(--accent);color:#fff}
+.daynum:hover{text-decoration:underline}
+
+.chip{display:block;font-size:12px;padding:2px 6px;margin:2px 0;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 16%,var(--panel));cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}
+.chip.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 18%,var(--panel))}
+.chip.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 16%,var(--panel))}
+.chip.done{opacity:.55;text-decoration:line-through}
+.chip.dragging{opacity:.3}
+
+/* ---- time grid (week/day) ---- */
+.tg{background:var(--panel);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;height:calc(100vh - 110px)}
+.tg-head{display:grid;border-bottom:1px solid var(--line)}
+.tg-head>div{padding:6px;text-align:center;font-size:13px;border-left:1px solid var(--line)}
+.tg-head>div:first-child{border-left:0}
+.tg-head .today{color:var(--accent);font-weight:700}
+.tg-head .dn{cursor:pointer}.tg-head .dn:hover{text-decoration:underline}
+.allday-row{display:grid;border-bottom:1px solid var(--line);min-height:30px}
+.allday-row>div{border-left:1px solid var(--line);padding:2px}
+.allday-row>div:first-child{border-left:0;font-size:11px;color:var(--muted);padding:6px 2px;text-align:center}
+.tg-body{flex:1;overflow-y:auto;position:relative}
+.tg-grid{display:grid;position:relative}
+.hours div{height:48px;font-size:11px;color:var(--muted);text-align:right;padding-right:6px;transform:translateY(-7px)}
+.col{position:relative;border-left:1px solid var(--line);height:1152px;background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 48px}
+.col.today{background-color:var(--today)}
+.ev{position:absolute;padding:2px 5px;font-size:12px;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 22%,var(--panel));overflow:hidden;cursor:grab;user-select:none;z-index:2}
+.ev.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 24%,var(--panel))}
+.ev.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 22%,var(--panel))}
+.ev.done{opacity:.55;text-decoration:line-through}
+.ev small{display:block;color:var(--muted)}
+.ev .rz{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
+.nowline{position:absolute;left:0;right:0;height:2px;background:var(--p3);z-index:3;pointer-events:none}
+
+/* ---- dialog ---- */
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);padding:18px;width:min(440px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog h2{margin:0 0 12px;font-size:17px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 2px}
+input[type=text],input[type=date],input[type=time],select,textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.row{display:flex;gap:8px}.row>div{flex:1}
+.actions{display:flex;gap:8px;margin-top:16px}
+.chk{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:14px;color:var(--text)}
+.chk input{width:auto}
+#side{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>📅 TaskList AK</h1>
+  <button class="btn" id="prev" title="Poprzedni">‹</button>
+  <button class="btn" id="today">Dziś</button>
+  <button class="btn" id="next" title="Następny">›</button>
+  <span id="title"></span>
+  <div class="spacer"></div>
+  <div class="seg" id="views">
+    <button class="btn" data-v="month">Miesiąc</button>
+    <button class="btn" data-v="week">Tydzień</button>
+    <button class="btn" data-v="day">Dzień</button>
+  </div>
+  <button class="btn primary" id="add">+ Zadanie</button>
+  <button class="btn" id="exp" title="Eksport do JSON">Eksport</button>
+  <button class="btn" id="imp" title="Import z JSON">Import</button>
+  <input type="file" id="file" accept=".json" hidden>
+</header>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2 id="dlgTitle">Zadanie</h2>
+    <label>Tytuł</label><input type="text" id="fTitle" required autocomplete="off">
+    <div class="row">
+      <div><label>Data</label><input type="date" id="fDate" required></div>
+      <div><label>Priorytet</label>
+        <select id="fPrio"><option value="1">Niski</option><option value="2">Średni</option><option value="3">Wysoki</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Od (puste = cały dzień)</label><input type="time" id="fStart"></div>
+      <div><label>Do</label><input type="time" id="fEnd"></div>
+    </div>
+    <label>Notatki</label><textarea id="fNotes" rows="3"></textarea>
+    <label class="chk"><input type="checkbox" id="fDone"> Wykonane</label>
+    <div class="actions">
+      <button class="btn primary" id="save" value="save">Zapisz</button>
+      <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+      <span class="spacer"></span>
+      <button class="btn danger" id="del" type="button">Usuń</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const KEY = "tasklist_ak_v1";
+const HOUR = 48;                 // px na godzinę
+const SNAP = 15;                 // minuty
+const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
+const DOW = ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
+
+let tasks = load();
+let view = pref("_view") || "month";
+let cur = new Date(); cur.setHours(0,0,0,0);
+let drag = null;                 // {id, offY}
+
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(tasks)); }catch(e){ /* brak dostępu do localStorage – dane tylko w pamięci */ } }
+function pref(k, v){ try{ if(v === undefined) return localStorage.getItem(KEY + k); localStorage.setItem(KEY + k, v); }catch(e){} }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const mondayOf = d => addDays(d, -((d.getDay()+6)%7));
+const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+const toHM = m => { m = Math.max(0, Math.min(1440, m)); return `${pad(Math.floor(m/60)%24)}:${pad(m%60)}`; };
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const byTime = (a,b) => (a.start||"").localeCompare(b.start||"") || a.title.localeCompare(b.title);
+const tasksOn = ds => tasks.filter(t => t.date === ds).sort(byTime);
+
+/* ================= render ================= */
+function render(){
+  document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
+  const main = document.getElementById("main");
+  if(view === "month") renderMonth(main); else renderTimeGrid(main, view === "week");
+  pref("_view", view);
+}
+
+function setTitle(s){ document.getElementById("title").textContent = s; }
+
+function chipHTML(t){
+  const time = t.start ? t.start + " " : "";
+  return `<span class="chip p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" title="${esc(t.title)}">${time}${esc(t.title)}</span>`;
+}
+
+function renderMonth(main){
+  setTitle(`${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+  const first = new Date(cur.getFullYear(), cur.getMonth(), 1);
+  const start = mondayOf(first);
+  const todayS = iso(new Date());
+  let h = `<div class="month">` + DOW.map(d => `<div class="dow">${d}</div>`).join("");
+  for(let i=0;i<42;i++){
+    const d = addDays(start,i), ds = iso(d);
+    const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
+    h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>${tasksOn(ds).map(chipHTML).join("")}</div>`;
+  }
+  main.innerHTML = h + "</div>";
+
+  main.querySelectorAll(".cell").forEach(c => {
+    c.addEventListener("dblclick", e => { if(!e.target.closest(".chip")) openDialog(null, c.dataset.date); });
+    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragleave", () => c.classList.remove("over"));
+    c.addEventListener("drop", e => {
+      e.preventDefault(); c.classList.remove("over");
+      if(drag){ const t = byId(drag.id); if(t){ t.date = c.dataset.date; save(); render(); } }
+    });
+  });
+  bindChips(main);
+  main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
+}
+
+function bindChips(root){
+  root.querySelectorAll("[data-id]").forEach(el => {
+    el.addEventListener("dragstart", e => {
+      const r = el.getBoundingClientRect();
+      drag = { id: el.dataset.id, offY: e.clientY - r.top };
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", el.dataset.id);
+      setTimeout(() => el.classList.add("dragging"), 0);
+    });
+    el.addEventListener("dragend", () => { drag = null; el.classList.remove("dragging"); });
+    el.addEventListener("click", e => { e.stopPropagation(); openDialog(el.dataset.id); });
+  });
+}
+
+/* ---- week / day ---- */
+function layoutDay(list){
+  // układ nakładających się zadań w kolumnach
+  const evs = list.map(t => ({t, s: toMin(t.start), e: Math.max(toMin(t.start)+30, t.end ? toMin(t.end) : toMin(t.start)+60)}))
+                  .sort((a,b) => a.s - b.s || a.e - b.e);
+  const groups = []; let g = null, gEnd = -1;
+  for(const ev of evs){
+    if(!g || ev.s >= gEnd){ g = []; groups.push(g); gEnd = ev.e; } else gEnd = Math.max(gEnd, ev.e);
+    g.push(ev);
+  }
+  for(const grp of groups){
+    const cols = [];
+    for(const ev of grp){
+      let c = cols.findIndex(end => end <= ev.s);
+      if(c < 0){ c = cols.length; cols.push(0); }
+      cols[c] = ev.e; ev.c = c;
+    }
+    grp.forEach(ev => ev.n = cols.length);
+  }
+  return evs;
+}
+
+function renderTimeGrid(main, isWeek){
+  const days = isWeek ? Array.from({length:7}, (_,i) => addDays(mondayOf(cur), i)) : [new Date(cur)];
+  if(isWeek){ const a = days[0], b = days[6];
+    setTitle(`${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
+  } else setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+
+  const n = days.length, todayS = iso(new Date());
+  const tpl = `56px repeat(${n}, 1fr)`;
+  let h = `<div class="tg"><div class="tg-head" style="grid-template-columns:${tpl}"><div></div>` +
+    days.map(d => `<div class="${iso(d)===todayS?"today":""}"><span class="dn" data-goto="${iso(d)}">${DOW[(d.getDay()+6)%7]} ${d.getDate()}</span></div>`).join("") + `</div>`;
+  h += `<div class="allday-row" style="grid-template-columns:${tpl}"><div>cały dzień</div>` +
+    days.map(d => `<div class="allday" data-date="${iso(d)}">${tasksOn(iso(d)).filter(t => !t.start).map(chipHTML).join("")}</div>`).join("") + `</div>`;
+  h += `<div class="tg-body" id="tgb"><div class="tg-grid" style="grid-template-columns:${tpl}"><div class="hours">` +
+    Array.from({length:24}, (_,i) => `<div>${i?pad(i)+":00":""}</div>`).join("") + `</div>`;
+  for(const d of days){
+    const ds = iso(d), timed = tasksOn(ds).filter(t => t.start);
+    h += `<div class="col${ds===todayS?" today":""}" data-date="${ds}">` + layoutDay(timed).map(ev => {
+      const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
+      const w = 100/ev.n;
+      return `<div class="ev p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" style="top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
+             `${esc(t.title)}<small>${t.start}–${toHM(ev.e)}</small><span class="rz" data-rz="${t.id}"></span></div>`;
+    }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
+  }
+  main.innerHTML = h + `</div></div></div>`;
+
+  const body = document.getElementById("tgb");
+  body.scrollTop = (window._tgScroll != null ? window._tgScroll : 7*HOUR);
+  body.addEventListener("scroll", () => window._tgScroll = body.scrollTop);
+
+  // upuszczanie na kolumnę godzinową
+  main.querySelectorAll(".col").forEach(c => {
+    c.addEventListener("dblclick", e => {
+      if(e.target.closest(".ev")) return;
+      const m = snap((e.clientY - c.getBoundingClientRect().top)/HOUR*60);
+      openDialog(null, c.dataset.date, toHM(m));
+    });
+    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragleave", () => c.classList.remove("over"));
+    c.addEventListener("drop", e => {
+      e.preventDefault(); c.classList.remove("over");
+      const t = drag && byId(drag.id); if(!t) return;
+      const top = e.clientY - c.getBoundingClientRect().top - drag.offY;
+      const dur = t.start && t.end ? toMin(t.end) - toMin(t.start) : 60;
+      const s = Math.max(0, Math.min(1440 - Math.max(dur,SNAP), snap(top/HOUR*60)));
+      t.date = c.dataset.date; t.start = toHM(s); t.end = toHM(s + dur);
+      save(); render();
+    });
+  });
+  // upuszczanie na pasek "cały dzień"
+  main.querySelectorAll(".allday").forEach(c => {
+    c.addEventListener("dblclick", e => { if(!e.target.closest(".chip")) openDialog(null, c.dataset.date); });
+    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragleave", () => c.classList.remove("over"));
+    c.addEventListener("drop", e => {
+      e.preventDefault(); c.classList.remove("over");
+      const t = drag && byId(drag.id); if(!t) return;
+      t.date = c.dataset.date; t.start = ""; t.end = ""; save(); render();
+    });
+  });
+  bindChips(main);
+  main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
+
+  // zmiana długości (uchwyt na dole kafelka)
+  main.querySelectorAll("[data-rz]").forEach(hd => {
+    hd.addEventListener("mousedown", e => {
+      e.preventDefault(); e.stopPropagation();
+      const ev = hd.parentElement; ev.draggable = false;
+      const t = byId(hd.dataset.rz), y0 = e.clientY, s = toMin(t.start);
+      const e0 = t.end ? toMin(t.end) : s + 60;
+      const move = m => {
+        const end = Math.max(s + SNAP, Math.min(1440, snap(e0 + (m.clientY - y0)/HOUR*60)));
+        ev.style.height = ((end - s)/60*HOUR - 1) + "px"; ev._end = end;
+      };
+      const up = () => {
+        document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+        if(ev._end){ t.end = toHM(ev._end); save(); } render();
+      };
+      document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    });
+    hd.addEventListener("click", e => e.stopPropagation());
+  });
+}
+const snap = m => Math.round(m/SNAP)*SNAP;
+const byId = id => tasks.find(t => t.id === id);
+
+/* ================= dialog ================= */
+const dlg = document.getElementById("dlg");
+let editing = null;
+function openDialog(id, date, start){
+  editing = id ? byId(id) : null;
+  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, done:false, notes:""};
+  document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
+  fTitle.value = t.title; fDate.value = t.date; fPrio.value = t.priority;
+  fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || ""; fDone.checked = !!t.done;
+  document.getElementById("del").style.visibility = editing ? "visible" : "hidden";
+  dlg.showModal(); fTitle.focus();
+}
+form.addEventListener("submit", e => {
+  if(e.submitter && e.submitter.value !== "save") return;
+  const t = editing || {id: uid()};
+  t.title = fTitle.value.trim(); t.date = fDate.value; t.priority = +fPrio.value;
+  t.start = fStart.value; t.end = fStart.value ? (fEnd.value || toHM(toMin(fStart.value)+60)) : "";
+  if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
+  t.notes = fNotes.value; t.done = fDone.checked;
+  if(!editing) tasks.push(t);
+  save(); render();
+});
+document.getElementById("del").onclick = () => {
+  if(editing && confirm("Usunąć to zadanie?")){ tasks = tasks.filter(t => t !== editing); save(); dlg.close(); render(); }
+};
+
+/* ================= nawigacja ================= */
+function shift(dir){
+  if(view === "month") cur = new Date(cur.getFullYear(), cur.getMonth() + dir, 1);
+  else cur = addDays(cur, dir * (view === "week" ? 7 : 1));
+  render();
+}
+prev.onclick = () => shift(-1); next.onclick = () => shift(1);
+today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
+add.onclick = () => openDialog(null, iso(cur));
+document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
+document.addEventListener("keydown", e => {
+  if(dlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
+  else if(e.key === "m") { view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
+});
+
+/* ================= eksport / import ================= */
+exp.onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], {type:"application/json"}));
+  a.download = `tasklist-${iso(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href);
+};
+imp.onclick = () => file.click();
+file.onchange = async () => {
+  try{
+    const data = JSON.parse(await file.files[0].text());
+    if(!Array.isArray(data)) throw 0;
+    if(confirm(`Zaimportować ${data.length} zadań? (OK = zastąp obecne, Anuluj = przerwij)`)){ tasks = data; save(); render(); }
+  }catch(e){ alert("Nieprawidłowy plik JSON."); }
+  file.value = "";
+};
+
+if(!tasks.length){ // przykładowe dane przy pierwszym uruchomieniu
+  const t = iso(new Date());
+  tasks = [
+    {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:""},
+    {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:""},
+    {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, done:false, notes:""}
+  ]; save();
+}
+render();
+setInterval(() => { if(view !== "month" && !dlg.open && !drag) render(); }, 5*60*1000);
+</script>
+</body>
+</html>
