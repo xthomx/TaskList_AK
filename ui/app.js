@@ -123,13 +123,13 @@ const tasksOn = ds => visibleTasks().filter(t => occursOn(t, ds)).sort(daySort);
 /* ================= render ================= */
 function renderCal(){
   const cal = document.getElementById("cal");
-  if(view === "month") renderMonth(cal);
+  if(view === "month" && layout !== "board") renderMonth(cal);
   else if(layout === "board") renderBoard(cal);
   else renderTimeGrid(cal, view === "week");
 }
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
-  layoutSeg.hidden = view === "month";
+  layoutSeg.hidden = false;
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
   renderCal();
@@ -285,27 +285,45 @@ function dayLabel(d, todayS){
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} · ${name}`;
 }
 
+let boardKey = "", boardScrollX = 0;      // zapamiętane przewinięcie poziome (miesiąc: 30 kolumn)
 function renderBoard(main){
-  const isWeek = view === "week";
-  const days = isWeek ? Array.from({length: 7}, (_, i) => addDays(mondayOf(cur), i)) : [new Date(cur)];
-  if(isWeek){ const a = days[0], b = days[6];
+  let days;
+  if(view === "month"){
+    const n = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+    days = Array.from({length: n}, (_, i) => new Date(cur.getFullYear(), cur.getMonth(), i + 1));
+    setTitle(`${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+  } else if(view === "week"){
+    days = Array.from({length: 7}, (_, i) => addDays(mondayOf(cur), i));
+    const a = days[0], b = days[6];
     setTitle(`${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
-  } else setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+  } else {
+    days = [new Date(cur)];
+    setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+  }
+  const key = view + iso(days[0]), oldBoard = main.querySelector(".board");
+  if(oldBoard && key === boardKey) boardScrollX = oldBoard.scrollLeft;
 
   const todayS = iso(new Date());
   const overdue = visibleTasks().filter(t => t.status !== "done" && endOf(t) < todayS).sort(byDue);
-  let h = `<div class="board">`;
+  let h = `<div class="board${view === "month" ? " bmonth" : ""}">`;
   h += `<section class="bcol bover"><header><b>Zaległe</b><span class="bcount">${overdue.length}</span>` +
        (overdue.length ? `<button class="blink" id="bResched" type="button">Zmień termin</button>` : "") + `</header>` +
        `<div class="bcards">${overdue.map(t => cardHTML(t, null, true)).join("") || `<div class="bempty">Brak zaległych zadań 🎉</div>`}</div></section>`;
   for(const d of days){
     const ds = iso(d);
     const list = tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done"));   // zrobione na dole
-    h += `<section class="bcol${ds === todayS ? " today" : ""}" data-date="${ds}"><header><b>${dayLabel(d, todayS)}</b><span class="bcount">${list.length}</span></header>` +
+    h += `<section class="bcol${ds === todayS ? " today" : ""}${d.getDay() % 6 === 0 ? " weekend" : ""}" data-date="${ds}"><header><b>${dayLabel(d, todayS)}</b><span class="bcount">${list.length}</span></header>` +
          `<div class="bcards">${list.map(t => cardHTML(t, ds, false)).join("")}</div>` +
          `<div class="badd" data-add="${ds}"><button class="bplus" type="button">＋ Dodaj zadanie</button></div></section>`;
   }
   main.innerHTML = h + `</div>`;
+  const board = main.querySelector(".board");
+  if(key === boardKey) board.scrollLeft = boardScrollX;                    // ta sama strona: zachowaj przewinięcie
+  else {                                                                   // nowy okres: w miesiącu przewiń do dzisiaj
+    boardKey = key; boardScrollX = 0;
+    const t = board.querySelector(".bcol.today");
+    if(t && view === "month") board.scrollLeft = Math.max(0, t.offsetLeft - board.querySelector(".bover").offsetWidth - 32);
+  }
 
   // przeciąganie kart między dniami
   main.querySelectorAll(".bcol[data-date]").forEach(c => {
