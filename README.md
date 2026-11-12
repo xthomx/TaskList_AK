@@ -10,7 +10,7 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - Zmiana długości zadania dolną krawędzią kafelka. Priorytety, status „wykonane”, notatki.
 - **Osoby** (zapis „Nazwisko Imię”): zadania można przypisać do jednej lub kilku osób, filtr osoby w nagłówku.
 - **Lista zadań** pod kalendarzem, posortowana w kolejności wykonania.
-- **Widok kafelkowy** miesiąca, tygodnia i dnia (kolumna „Zaległe”, karty, szybkie dodawanie, przeciąganie) oraz klasyczna siatka godzinowa — przełącznik w nagłówku.
+- **Widok kafelkowy** tygodnia i dnia (miesiąc to klasyczny kalendarz) (kolumna „Zaległe”, karty, szybkie dodawanie, przeciąganie) oraz klasyczna siatka godzinowa — przełącznik w nagłówku.
 - **Zadania wielodniowe** (rozciągane myszą lub polem „Do dnia”) i **cykliczne** (seria zadań).
 - **Status i postęp:** oczekujące / w trakcie / zrobione (prawy przycisk myszy, 3 ikony) oraz suwak postępu 0–100% co 25; „zrobione” = 100%.
 - **Przenoszenie:** zadanie na przyszły tydzień oraz masowo niezakończone na dziś lub na przyszły tydzień (menu „Przenieś”).

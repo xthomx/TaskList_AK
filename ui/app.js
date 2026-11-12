@@ -123,13 +123,13 @@ const tasksOn = ds => visibleTasks().filter(t => occursOn(t, ds)).sort(daySort);
 /* ================= render ================= */
 function renderCal(){
   const cal = document.getElementById("cal");
-  if(view === "month" && layout !== "board") renderMonth(cal);
+  if(view === "month") renderMonth(cal);                    // miesiąc: zawsze klasyczny kalendarz
   else if(layout === "board") renderBoard(cal);
   else renderTimeGrid(cal, view === "week");
 }
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
-  layoutSeg.hidden = false;
+  layoutSeg.hidden = view === "month";                       // przełącznik układu dotyczy tygodnia i dnia
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
   renderCal();
