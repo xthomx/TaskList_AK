@@ -90,3 +90,21 @@ class XlsxTests(unittest.TestCase):
         header = ('Tytuł', 'Data', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki')
         result = xlsx_format.loads(workbook(rows, header=header))
         self.assertEqual([t['progress'] for t in result['tasks']], [50, 50, 100, 0])
+
+    def test_multi_day_roundtrip_and_import(self):
+        source = validate_data({'people': [], 'tasks': [task(1, end_date='2026-11-15', assignees=[]), task(2, assignees=[])]})
+        result = xlsx_format.loads(xlsx_format.dumps(source))
+        by = {t['title']: t for t in result['tasks']}
+        self.assertEqual((by['Zadanie 1']['date'], by['Zadanie 1']['end_date']), ('2026-11-11', '2026-11-15'))
+        self.assertEqual(by['Zadanie 2']['end_date'], by['Zadanie 2']['date'])
+        header = ('Tytuł', 'Data', 'Data do')
+        ok = xlsx_format.loads(workbook([('Urlop', '2026-12-20', '23.12.2026')], header=header))
+        self.assertEqual(ok['tasks'][0]['end_date'], '2026-12-23')
+        with self.assertRaisesRegex(ValueError, 'Wiersz 2'):
+            xlsx_format.loads(workbook([('Urlop', '2026-12-20', '2026-12-10')], header=header))
+
+    def test_series_survives_roundtrip(self):
+        source = validate_data({'people': [], 'tasks': [task(1, series='abc123', assignees=[]), task(2, assignees=[])]})
+        by = {t['title']: t for t in xlsx_format.loads(xlsx_format.dumps(source))['tasks']}
+        self.assertEqual(by['Zadanie 1']['series'], 'abc123')
+        self.assertEqual(by['Zadanie 2']['series'], '')

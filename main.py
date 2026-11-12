@@ -80,6 +80,9 @@ class Api:
     def set_view(self, view):
         return self._storage.set_view(view)
 
+    def set_layout(self, layout):
+        return self._storage.set_layout(layout)
+
     def open_xlsx(self):
         """Wybierz i sprawdź plik; zapamiętanie nastąpi dopiero po accept_xlsx (po potwierdzeniu w UI)."""
         path = self._pick_open('Excel (*.xlsx)')

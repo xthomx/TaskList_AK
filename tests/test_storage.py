@@ -91,3 +91,24 @@ class StorageTests(unittest.TestCase):
         legacy = {k: v for k, v in task().items() if k not in ('status', 'progress')}
         self.assertEqual(validate_data([dict(legacy, done=True)])['tasks'][0]['progress'], 100)
         self.assertEqual(validate_data([legacy])['tasks'][0]['progress'], 0)
+
+    def test_multi_day_tasks(self):
+        one = validate_data(data(task()))['tasks'][0]
+        self.assertEqual(one['end_date'], one['date'])
+        self.assertEqual(one['start'], '10:00')
+        multi = validate_data(data(task(end_date='2026-11-14')))['tasks'][0]
+        self.assertEqual((multi['date'], multi['end_date']), ('2026-11-12', '2026-11-14'))
+        self.assertEqual((multi['start'], multi['end']), ('', ''))          # wielodniowe = całodniowe
+        for bad in ('2026-11-11', 'jutro', '2026-13-40'):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                validate_data(data(task(end_date=bad)))
+        from storage import fingerprint
+        self.assertNotEqual(fingerprint(data(task())), fingerprint(data(task(end_date='2026-11-14'))))
+
+    def test_layout_preference(self):
+        self.assertEqual(self.store.get_prefs()['layout'], 'board')
+        self.store.set_layout('grid')
+        self.assertEqual(self.store.get_prefs()['layout'], 'grid')
+        self.assertEqual(self.store.get_prefs()['view'], 'month')
+        with self.assertRaises(ValueError):
+            self.store.set_layout('lista')

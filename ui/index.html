@@ -19,6 +19,10 @@
     <button class="btn" data-v="week">Tydzień</button>
     <button class="btn" data-v="day">Dzień</button>
   </div>
+  <div class="seg" id="layoutSeg" hidden title="Układ tygodnia i dnia">
+    <button class="btn" data-l="board">▦ Kafelki</button>
+    <button class="btn" data-l="grid">☰ Siatka</button>
+  </div>
   <select id="fPerson" class="btn" title="Filtruj po osobie" aria-label="Filtr osoby"></select>
   <button class="btn" id="ppl" title="Zarządzaj osobami">👥 Osoby</button>
   <button class="btn primary" id="add">+ Zadanie</button>
@@ -53,23 +57,36 @@
     <label>Tytuł</label><input type="text" id="fTitle" required autocomplete="off">
     <div class="row">
       <div><label>Data</label><input type="date" id="fDate" required></div>
+      <div><label>Do dnia (zadanie wielodniowe)</label><input type="date" id="fDate2"></div>
       <div><label>Priorytet</label>
         <select id="fPrio"><option value="1">Niski</option><option value="2">Średni</option><option value="3">Wysoki</option></select></div>
     </div>
     <div class="row">
       <div><label>Od (puste = cały dzień)</label><input type="time" id="fStart"></div>
       <div><label>Do</label><input type="time" id="fEnd"></div>
+      <div class="hint" id="multiHint" hidden style="align-self:end">Zadanie wielodniowe jest całodniowe.</div>
     </div>
-    <label>Osoby</label>
-    <div id="fPeople" class="people-pick"></div>
-    <div class="row addp"><input type="text" id="fNewPerson" placeholder="Nowa osoba (Nazwisko Imię)…" autocomplete="off"><button class="btn" type="button" id="fAddPerson" style="flex:0 0 auto">Dodaj</button></div>
-    <label>Notatki</label><textarea id="fNotes" rows="3"></textarea>
     <div class="row">
       <div><label>Status</label>
-        <select id="fStatus"><option value="pending">⏳ Oczekujące</option><option value="progress">🔄 W trakcie</option><option value="done">✅ Zrobione</option></select></div>
+        <select id="fStatus"><option value="pending">⚪ Oczekujące</option><option value="progress">🔄 W trakcie</option><option value="done">✅ Zrobione</option></select></div>
       <div><label>Postęp: <b id="fProgVal">0%</b></label>
         <input type="range" id="fProg" min="0" max="100" step="25" list="progTicks">
         <datalist id="progTicks"><option value="0" label="0"></option><option value="25" label="25"></option><option value="50" label="50"></option><option value="75" label="75"></option><option value="100" label="100"></option></datalist></div>
+    </div>
+    <label>Notatki</label><textarea id="fNotes" rows="10"></textarea>
+    <label>Osoby</label>
+    <button class="btn peoplebtn" type="button" id="fPeopleBtn">👥 Wybierz osoby…</button>
+    <div id="recBlock">
+      <label>Powtarzanie</label>
+      <select id="fRec"><option value="none">Nie powtarzaj</option><option value="daily">Codziennie</option><option value="workdays">Dni robocze (Pn–Pt)</option><option value="weekly">Co tydzień</option><option value="biweekly">Co 2 tygodnie</option><option value="monthly">Co miesiąc</option><option value="yearly">Co rok</option></select>
+      <div class="row" id="recOpts" hidden>
+        <div><label>Liczba wystąpień (z pierwszym)</label><input type="number" id="fRecN" min="2" max="200" value="10"></div>
+        <div><label>Powtarzaj do dnia (opcjonalnie)</label><input type="date" id="fRecUntil"></div>
+      </div>
+    </div>
+    <div id="seriesInfo" hidden>
+      <div class="hint" id="seriesText"></div>
+      <label class="chk"><input type="checkbox" id="fApplyNext"> Zastosuj tytuł, godziny, osoby, priorytet i notatki do kolejnych zadań serii</label>
     </div>
     <div class="actions">
       <button class="btn primary" id="save" value="save">Zapisz</button>
@@ -79,6 +96,20 @@
       <button class="btn danger" id="del" type="button">Usuń</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="pickdlg">
+  <h2>Osoby w zadaniu</h2>
+  <input type="text" id="pkSearch" placeholder="Szukaj osoby…" autocomplete="off">
+  <div id="pkList" class="pk-list"></div>
+  <div class="row addp"><input type="text" id="pkNew" placeholder="Nowa osoba (Nazwisko Imię)…" autocomplete="off"><button class="btn" type="button" id="pkAdd" style="flex:0 0 auto">Dodaj</button></div>
+  <div class="actions"><button class="btn" type="button" id="pkClear">Wyczyść wybór</button><span class="spacer"></span><button class="btn primary" type="button" id="pkDone">Gotowe</button></div>
+</dialog>
+
+<dialog id="deldlg">
+  <h2>Usunąć zadanie cykliczne?</h2>
+  <p id="delText" class="hint"></p>
+  <div class="actions"><button class="btn" type="button" id="delOne">Tylko to zadanie</button><button class="btn danger" type="button" id="delFol">To i kolejne</button><span class="spacer"></span><button class="btn" type="button" id="delNo">Anuluj</button></div>
 </dialog>
 
 <dialog id="pdlg">

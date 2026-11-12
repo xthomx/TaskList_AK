@@ -10,7 +10,7 @@ const DOW = ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
 let tasks = [], people = [];
 let filterPerson = "";           // "" = wszyscy, "__none" = nieprzypisane, inaczej id osoby
 let listScope = "all", hideDone = false;
-let view = "month";
+let view = "month", layout = "board";      // layout: tydzień/dzień jako kafelki (board) albo siatka godzinowa (grid)
 let cur = new Date(); cur.setHours(0,0,0,0);
 let drag = null;                 // {id, offY}
 let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve();
@@ -30,7 +30,7 @@ function showFile(){
 const currentData = () => ({people, tasks});
 /* ---- status zadania: oczekujące (domyślny) / w trakcie / zrobione + postęp 0–100 co 25 ---- */
 const STATUS = {
-  pending:  {icon: "⏳", label: "Oczekujące"},
+  pending:  {icon: "⚪", label: "Oczekujące"},
   progress: {icon: "🔄", label: "W trakcie"},
   done:     {icon: "✅", label: "Zrobione"}
 };
@@ -52,6 +52,9 @@ function fixTask(t){               // wersje < 1.2 miały tylko pole done
   const o = Object.assign({assignees: []}, t);
   o.status = STATUS[o.status] ? o.status : (o.done ? "done" : "pending");
   delete o.done;
+  if(!o.end_date || o.end_date < o.date) o.end_date = o.date;       // zadanie wielodniowe: end_date > date
+  if(o.end_date > o.date){ o.start = ""; o.end = ""; }
+  o.series = typeof o.series === "string" ? o.series : "";
   if(o.status === "done") o.progress = 100; else if(!STEPS.includes(o.progress)) o.progress = 0;
   return o;
 }
@@ -82,6 +85,12 @@ function saveView(){
   if(DESKTOP){ if(api()) api().set_view(view).catch(() => {}); }
   else { try{ localStorage.setItem(KEY + "_view", view); }catch(e){} }
 }
+let savedLayout = null;
+function saveLayout(){
+  if(layout === savedLayout) return; savedLayout = layout;
+  if(DESKTOP){ if(api()) api().set_layout(layout).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_layout", layout); }catch(e){} }
+}
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 const pad = n => String(n).padStart(2,"0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -99,28 +108,50 @@ const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.nam
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
 const matchesFilter = t => !filterPerson || (filterPerson === "__none" ? !(t.assignees||[]).length : (t.assignees||[]).includes(filterPerson));
 const visibleTasks = () => tasks.filter(matchesFilter);
-const tasksOn = ds => visibleTasks().filter(t => t.date === ds).sort(byTime);
+/* ---- zadania wielodniowe i przesuwanie ---- */
+const endOf = t => t.end_date || t.date;
+const isMulti = t => endOf(t) > t.date;
+const occursOn = (t, ds) => t.date <= ds && ds <= endOf(t);
+const dayNum = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+const daysBetween = (a, b) => Math.round(dayNum(b) - dayNum(a));
+function shiftBy(t, n){ t.date = iso(addDays(parse(t.date), n)); t.end_date = iso(addDays(parse(endOf(t)), n)); }
+const moveToDate = (t, ds) => shiftBy(t, daysBetween(t.date, ds));
+// w komórce dnia: najpierw zadania wielodniowe (stała kolejność, by paski się wyrównywały), potem wg godziny
+const daySort = (a, b) => (isMulti(b) - isMulti(a)) || (isMulti(a) && (a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) || byTime(a, b);
+const tasksOn = ds => visibleTasks().filter(t => occursOn(t, ds)).sort(daySort);
 
 /* ================= render ================= */
 function renderCal(){
   const cal = document.getElementById("cal");
-  if(view === "month") renderMonth(cal); else renderTimeGrid(cal, view === "week");
+  if(view === "month") renderMonth(cal);
+  else if(layout === "board") renderBoard(cal);
+  else renderTimeGrid(cal, view === "week");
 }
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
+  layoutSeg.hidden = view === "month";
+  document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
   renderCal();
   renderList();
-  saveView();
+  saveView(); saveLayout();
 }
 
 function setTitle(s){ document.getElementById("title").textContent = s; }
 
-function chipHTML(t){
+// ds = dzień, w którego komórce rysujemy kafelek (zadania wielodniowe łączą się między dniami)
+function chipHTML(t, ds){
+  const multi = isMulti(t), end = endOf(t), dow = ds ? (parse(ds).getDay() + 6) % 7 : 0;
+  const lj = multi && ds && ds !== t.date && dow !== 0;          // połączony z poprzednim dniem
+  const rj = multi && ds && ds !== end && dow !== 6;             // połączony z następnym dniem
   const time = t.start ? t.start + " " : "";
   const names = namesOf(t), who = names.length ? ` <span class="who">· ${esc(names.map(shortName).join(", "))}</span>` : "";
-  const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "");
-  return `<span class="chip p${t.priority} st-${t.status}" style="--pg:${t.progress}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${stIcon(t)}${time}${esc(t.title)}${who}</span>`;
+  const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "") + (multi ? ` (${fmtShort(t)})` : "") + (t.series ? " 🔁" : "");
+  let pg = t.progress;                                            // postęp rozłożony na wszystkie dni zadania
+  if(multi && ds){ const n = daysBetween(t.date, end) + 1, i = daysBetween(t.date, ds); pg = Math.round(Math.min(1, Math.max(0, (t.progress / 100 - i / n) * n)) * 100); }
+  const label = lj ? "&nbsp;" : `${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
+  const handle = ds && ds === end ? `<span class="rzd" data-rzd="${t.id}" title="Przeciągnij, aby zmienić liczbę dni"></span>` : "";
+  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="--pg:${pg}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${label}${handle}</span>`;
 }
 const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
@@ -141,7 +172,7 @@ function renderMonth(main){
   for(let i=0;i<42;i++){
     const d = addDays(start,i), ds = iso(d);
     const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
-    h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>${tasksOn(ds).map(chipHTML).join("")}</div>`;
+    h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>${tasksOn(ds).map(t => chipHTML(t, ds)).join("")}</div>`;
   }
   main.innerHTML = h + "</div>";
 
@@ -151,11 +182,12 @@ function renderMonth(main){
     c.addEventListener("dragleave", () => c.classList.remove("over"));
     c.addEventListener("drop", e => {
       e.preventDefault(); c.classList.remove("over");
-      if(drag){ const t = byId(drag.id); if(t){ t.date = c.dataset.date; save(); render(); } }
+      if(drag){ const t = byId(drag.id); if(t){ shiftBy(t, daysBetween(drag.grab, c.dataset.date)); save(); render(); } }
       else if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date);
     });
   });
   bindChips(main);
+  bindSpanHandles(main);
   main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
 }
 
@@ -163,7 +195,8 @@ function bindChips(root){
   root.querySelectorAll("[data-id]").forEach(el => {
     el.addEventListener("dragstart", e => {
       const r = el.getBoundingClientRect();
-      drag = { id: el.dataset.id, offY: e.clientY - r.top };
+      const t = byId(el.dataset.id), holder = el.closest("[data-date]");      // dzień, w którym chwycono kafelek
+      drag = { id: el.dataset.id, offY: e.clientY - r.top, grab: (holder && holder.dataset.date) || (t && t.date) };
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", el.dataset.id);
       setTimeout(() => el.classList.add("dragging"), 0);
@@ -171,6 +204,35 @@ function bindChips(root){
     el.addEventListener("dragend", () => { drag = null; el.classList.remove("dragging"); });
     el.addEventListener("click", e => { e.stopPropagation(); openDialog(el.dataset.id); });
   });
+}
+
+// rozciąganie zadania na kolejne dni: przeciągnij prawą krawędź kafelka (miesiąc, pasek „cały dzień”)
+function bindSpanHandles(root){
+  root.querySelectorAll("[data-rzd]").forEach(h => { h.addEventListener("click", e => e.stopPropagation()); h.addEventListener("mousedown", e => {
+    e.preventDefault(); e.stopPropagation();
+    const t = byId(h.dataset.rzd); if(!t) return;
+    h.parentElement.draggable = false;
+    let target = endOf(t);
+    const cells = () => root.querySelectorAll(".cell[data-date], .allday[data-date]");
+    const move = m => {
+      const el = document.elementFromPoint(m.clientX, m.clientY), c = el && el.closest(".cell[data-date], .allday[data-date]");
+      if(!c) return;
+      target = c.dataset.date < t.date ? t.date : c.dataset.date;
+      cells().forEach(x => x.classList.toggle("resz", x.dataset.date >= t.date && x.dataset.date <= target));
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+      cells().forEach(x => x.classList.remove("resz"));
+      if(target !== endOf(t)){
+        if(target > t.date && t.start && !confirm("Zadanie wielodniowe jest całodniowe — godziny zostaną usunięte. Kontynuować?")){ render(); return; }
+        t.end_date = target;
+        if(target > t.date){ t.start = ""; t.end = ""; }
+        save(); note("");
+      }
+      render();
+    };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  }); });
 }
 
 /* ---- week / day ---- */
@@ -195,6 +257,113 @@ function layoutDay(list){
   return evs;
 }
 
+/* ================= widok kafelkowy (tydzień / dzień): kolumna „Zaległe” + kolumny dni z kartami ================= */
+const MONTHS_SHORT = ["sty","lut","mar","kwi","maj","cze","lip","sie","wrz","paź","lis","gru"];
+const WEEKDAYS = ["Niedziela","Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota"];
+let boardAdd = null;                    // dzień, w którym otwarty jest formularz szybkiego dodawania
+const shortDate = ds => { const d = parse(ds); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`; };
+
+function cardHTML(t, ds, overdue){
+  const names = namesOf(t), multi = isMulti(t);
+  const note = (t.notes || "").split(/\r?\n/).find(l => l.trim()) || "";
+  const meta = [];
+  if(overdue) meta.push(`<span class="late">📅 ${shortDate(t.date)}</span>`);
+  if(t.start) meta.push(`<span>🕒 ${t.start}${t.end ? "–" + t.end : ""}</span>`);
+  if(multi && ds) meta.push(`<span>📅 dzień ${daysBetween(t.date, ds) + 1}/${daysBetween(t.date, endOf(t)) + 1}</span>`);
+  if(names.length) meta.push(`<span title="${esc(names.join(", "))}">👥 ${esc(names.map(shortName).join(", "))}</span>`);
+  if(t.series) meta.push(`<span title="Zadanie cykliczne">🔁</span>`);
+  if(t.status === "progress") meta.push(`<span>🔄 ${t.progress}%</span>`);
+  return `<article class="card p${t.priority} st-${t.status}" style="--pg:${t.progress}%" draggable="true" data-id="${esc(t.id)}">` +
+    `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
+    `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
+    (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div></article>`;
+}
+
+function dayLabel(d, todayS){
+  const ds = iso(d), tomorrow = iso(addDays(new Date(), 1));
+  const name = ds === todayS ? "Dziś" : ds === tomorrow ? "Jutro" : WEEKDAYS[d.getDay()];
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} · ${name}`;
+}
+
+function renderBoard(main){
+  const isWeek = view === "week";
+  const days = isWeek ? Array.from({length: 7}, (_, i) => addDays(mondayOf(cur), i)) : [new Date(cur)];
+  if(isWeek){ const a = days[0], b = days[6];
+    setTitle(`${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
+  } else setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
+
+  const todayS = iso(new Date());
+  const overdue = visibleTasks().filter(t => t.status !== "done" && endOf(t) < todayS).sort(byDue);
+  let h = `<div class="board">`;
+  h += `<section class="bcol bover"><header><b>Zaległe</b><span class="bcount">${overdue.length}</span>` +
+       (overdue.length ? `<button class="blink" id="bResched" type="button">Zmień termin</button>` : "") + `</header>` +
+       `<div class="bcards">${overdue.map(t => cardHTML(t, null, true)).join("") || `<div class="bempty">Brak zaległych zadań 🎉</div>`}</div></section>`;
+  for(const d of days){
+    const ds = iso(d);
+    const list = tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done"));   // zrobione na dole
+    h += `<section class="bcol${ds === todayS ? " today" : ""}" data-date="${ds}"><header><b>${dayLabel(d, todayS)}</b><span class="bcount">${list.length}</span></header>` +
+         `<div class="bcards">${list.map(t => cardHTML(t, ds, false)).join("")}</div>` +
+         `<div class="badd" data-add="${ds}"><button class="bplus" type="button">＋ Dodaj zadanie</button></div></section>`;
+  }
+  main.innerHTML = h + `</div>`;
+
+  // przeciąganie kart między dniami
+  main.querySelectorAll(".bcol[data-date]").forEach(c => {
+    c.addEventListener("dragover", e => { if(drag || ext(e)){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragleave", e => { if(!c.contains(e.relatedTarget)) c.classList.remove("over"); });
+    c.addEventListener("drop", e => {
+      e.preventDefault(); c.classList.remove("over");
+      if(drag){ const t = byId(drag.id); if(t){ shiftBy(t, daysBetween(drag.grab, c.dataset.date)); save(); render(); } }
+      else if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date);
+    });
+  });
+  bindChips(main);
+  // kółko: zrobione ↔ oczekujące
+  main.querySelectorAll("[data-check]").forEach(b => {
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      const t = byId(b.dataset.check); if(!t) return;
+      applyStatus(t, t.status === "done" ? "pending" : "done"); save(); render();
+    });
+    b.addEventListener("mousedown", e => e.stopPropagation());
+  });
+  // „Zmień termin” dla zaległych
+  const rs = main.querySelector("#bResched");
+  if(rs) rs.onclick = e => {
+    e.stopPropagation();
+    const r = rs.getBoundingClientRect();
+    ctx.innerHTML = `<button type="button" class="ctx-item" data-od="today">📅 Przenieś zaległe na dziś</button>` +
+                    `<button type="button" class="ctx-item" data-od="overdueNext">➡ Przenieś zaległe na przyszły tydzień</button>`;
+    ctx.hidden = false;
+    ctx.style.left = Math.max(4, Math.min(r.left, innerWidth - 270)) + "px"; ctx.style.top = (r.bottom + 4) + "px";
+    ctx.querySelectorAll("[data-od]").forEach(x => x.onclick = () => { hideCtx(); bulkMove(x.dataset.od); });
+  };
+  // szybkie dodawanie zadania w kolumnie dnia
+  main.querySelectorAll(".badd").forEach(box => {
+    const ds = box.dataset.add;
+    const closeForm = () => { boardAdd = null; box.innerHTML = `<button class="bplus" type="button">＋ Dodaj zadanie</button>`; box.querySelector(".bplus").onclick = openForm; };
+    function openForm(){
+      boardAdd = ds;
+      box.innerHTML = `<div class="bform"><input type="text" class="binp" placeholder="Nazwa zadania" maxlength="300" autocomplete="off">` +
+        `<div class="brow"><button type="button" class="btn primary bok">Dodaj</button><button type="button" class="btn bmore">Szczegóły…</button><button type="button" class="btn bno">Anuluj</button></div></div>`;
+      const inp = box.querySelector(".binp");
+      const add = () => {
+        const title = inp.value.trim(); if(!title){ inp.focus(); return; }
+        const preset = (filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
+        tasks.push({id: uid(), title, date: ds, end_date: ds, start: "", end: "", priority: 1, status: "pending", progress: 0, notes: "", assignees: preset, series: ""});
+        save(); render();                                    // formularz otworzy się ponownie (boardAdd) — kolejne zadanie
+      };
+      box.querySelector(".bok").onclick = add;
+      box.querySelector(".bmore").onclick = () => { const title = inp.value.trim(); closeForm(); openDialog(null, ds, "", {title}); };
+      box.querySelector(".bno").onclick = closeForm;
+      inp.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); add(); } else if(e.key === "Escape"){ e.preventDefault(); closeForm(); } e.stopPropagation(); });
+      inp.focus();
+    }
+    box.querySelector(".bplus").onclick = openForm;
+    if(boardAdd === ds) openForm();
+  });
+}
+
 function renderTimeGrid(main, isWeek){
   const days = isWeek ? Array.from({length:7}, (_,i) => addDays(mondayOf(cur), i)) : [new Date(cur)];
   if(isWeek){ const a = days[0], b = days[6];
@@ -206,7 +375,7 @@ function renderTimeGrid(main, isWeek){
   let h = `<div class="tg"><div class="tg-head" style="grid-template-columns:${tpl}"><div></div>` +
     days.map(d => `<div class="${iso(d)===todayS?"today":""}"><span class="dn" data-goto="${iso(d)}">${DOW[(d.getDay()+6)%7]} ${d.getDate()}</span></div>`).join("") + `</div>`;
   h += `<div class="allday-row" style="grid-template-columns:${tpl}"><div>cały dzień</div>` +
-    days.map(d => `<div class="allday" data-date="${iso(d)}">${tasksOn(iso(d)).filter(t => !t.start).map(chipHTML).join("")}</div>`).join("") + `</div>`;
+    days.map(d => `<div class="allday" data-date="${iso(d)}">${tasksOn(iso(d)).filter(t => !t.start).map(t => chipHTML(t, iso(d))).join("")}</div>`).join("") + `</div>`;
   h += `<div class="tg-body" id="tgb"><div class="tg-grid" style="grid-template-columns:${tpl}"><div class="hours">` +
     Array.from({length:24}, (_,i) => `<div>${i?pad(i)+":00":""}</div>`).join("") + `</div>`;
   for(const d of days){
@@ -240,10 +409,11 @@ function renderTimeGrid(main, isWeek){
         return;
       }
       const t = byId(drag.id); if(!t) return;
+      if(isMulti(t)){ shiftBy(t, daysBetween(drag.grab, c.dataset.date)); save(); render(); return; }   // wielodniowe zostaje całodniowe
       const top = e.clientY - c.getBoundingClientRect().top - drag.offY;
       const dur = t.start && t.end ? toMin(t.end) - toMin(t.start) : 60;
       const s = Math.max(0, Math.min(1440 - Math.max(dur,SNAP), snap(top/HOUR*60)));
-      t.date = c.dataset.date; t.start = toHM(s); t.end = toHM(s + dur);
+      t.date = t.end_date = c.dataset.date; t.start = toHM(s); t.end = toHM(s + dur);
       save(); render();
     });
   });
@@ -256,10 +426,12 @@ function renderTimeGrid(main, isWeek){
       e.preventDefault(); c.classList.remove("over");
       if(!drag){ if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date); return; }
       const t = byId(drag.id); if(!t) return;
-      t.date = c.dataset.date; t.start = ""; t.end = ""; save(); render();
+      if(!isMulti(t)){ t.start = ""; t.end = ""; }
+      shiftBy(t, daysBetween(drag.grab, c.dataset.date)); save(); render();
     });
   });
   bindChips(main);
+  bindSpanHandles(main);
   main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
 
   // zmiana długości (uchwyt na dole kafelka)
@@ -291,53 +463,150 @@ let editing = null;
 function openDialog(id, date, start, pre){          // pre = {title, notes} — wstępnie wypełnione np. z maila
   editing = id ? byId(id) : null;
   const preset = (!editing && filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
-  const t = editing || {title: (pre && pre.title) || "", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset};
+  const d0 = date || iso(cur);
+  const t = editing || {title: (pre && pre.title) || "", date: d0, end_date: d0, start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: ""};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
-  fTitle.value = t.title; fDate.value = t.date; fPrio.value = t.priority;
+  fTitle.value = t.title; fDate.value = t.date; fDate2.value = isMulti(t) ? endOf(t) : ""; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
   draft = {status: t.status, progress: t.progress}; syncDraft();
-  fNext.hidden = false;
-  fNewPerson.value = ""; drawPicker(t.assignees || []);
+  pickSel = new Set(t.assignees || []); updatePeopleBtn();
+  syncMulti();
+  // powtarzanie: dla nowego (lub jeszcze niecyklicznego) zadania wybór reguły, dla wystąpienia serii informacja
+  const inSeries = !!(editing && t.series);
+  recBlock.hidden = inSeries; seriesInfo.hidden = !inSeries;
+  fRec.value = "none"; fRecN.value = 10; fRecUntil.value = ""; recOpts.hidden = true; fApplyNext.checked = false;
+  if(inSeries){
+    const all = tasks.filter(x => x.series === t.series).sort((a, b) => a.date.localeCompare(b.date));
+    seriesText.textContent = `🔁 Zadanie cykliczne — to ${all.indexOf(t) + 1}. z ${all.length}.`;
+  }
   document.getElementById("del").style.visibility = editing ? "visible" : "hidden";
+  fNext.style.visibility = "visible";
   dlg.showModal(); fTitle.focus();
 }
 let draft = {status: "pending", progress: 0};
 function syncDraft(){ fStatus.value = draft.status; fProg.value = draft.progress; fProgVal.textContent = draft.progress + "%"; }
 fStatus.onchange = () => { applyStatus(draft, fStatus.value); syncDraft(); };
 fProg.oninput = () => { applyProgress(draft, +fProg.value); syncDraft(); };
-fNext.onclick = () => {      // przenieś na przyszły tydzień
-  const ds = nextWeekDate(fDate.value || iso(cur));
-  if(editing){ editing.date = ds; save(); dlg.close(); render(); note(""); }
-  else fDate.value = ds;
-};
-function drawPicker(selected){
-  fPeople.innerHTML = people.length ? sortedPeople().map(p =>
-    `<label><input type="checkbox" value="${esc(p.id)}"${selected.includes(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")
-    : `<span class="hint">Brak osób — dodaj poniżej lub w oknie „Osoby”.</span>`;
+
+// zadanie wielodniowe jest całodniowe: godziny są wtedy nieaktywne
+function syncMulti(){
+  fDate2.min = fDate.value || "";
+  const multi = !!(fDate2.value && fDate.value && fDate2.value > fDate.value);
+  if(multi){ fStart.value = ""; fEnd.value = ""; }
+  fStart.disabled = fEnd.disabled = multi;
+  multiHint.hidden = !multi;
 }
-const pickedIds = () => [...fPeople.querySelectorAll("input:checked")].map(i => i.value);
+fDate.onchange = () => { if(fDate2.value && fDate2.value < fDate.value) fDate2.value = ""; syncMulti(); };
+fDate2.onchange = syncMulti;
+fRec.onchange = () => { recOpts.hidden = fRec.value === "none"; };
+
+fNext.onclick = () => {      // przenieś na przyszły tydzień (zachowuje liczbę dni zadania)
+  const ds = nextWeekDate(fDate.value || iso(cur));
+  if(editing){ moveToDate(editing, ds); save(); dlg.close(); render(); note(""); return; }
+  const delta = daysBetween(fDate.value || iso(cur), ds);
+  fDate.value = ds;
+  if(fDate2.value) fDate2.value = iso(addDays(parse(fDate2.value), delta));
+  syncMulti();
+};
+
+/* ---- wybór osób: osobne, duże okno ---- */
+let pickSel = new Set();
+const pickdlg = document.getElementById("pickdlg");
+function updatePeopleBtn(){
+  const names = sortedPeople().filter(p => pickSel.has(p.id)).map(p => p.name);
+  fPeopleBtn.textContent = names.length
+    ? "👥 " + (names.length > 3 ? names.slice(0, 3).join(", ") + ` +${names.length - 3}` : names.join(", "))
+    : "👥 Wybierz osoby…";
+  fPeopleBtn.title = names.join("\n");
+}
+function drawPick(){
+  const q = pkSearch.value.trim().toLowerCase();
+  const list = sortedPeople().filter(p => !q || p.name.toLowerCase().includes(q));
+  pkList.innerHTML = list.length ? list.map(p =>
+    `<label><input type="checkbox" value="${esc(p.id)}"${pickSel.has(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")
+    : `<div class="empty">${people.length ? "Brak pasujących osób." : "Brak osób — dodaj poniżej."}</div>`;
+  pkList.querySelectorAll("input").forEach(i => i.onchange = () => { i.checked ? pickSel.add(i.value) : pickSel.delete(i.value); updatePeopleBtn(); });
+}
+fPeopleBtn.onclick = () => { pkSearch.value = ""; pkNew.value = ""; drawPick(); pickdlg.showModal(); pkSearch.focus(); };
+pkSearch.oninput = drawPick;
+pkClear.onclick = () => { pickSel.clear(); drawPick(); updatePeopleBtn(); };
+pkDone.onclick = () => pickdlg.close();
 function addPerson(name){
   name = name.trim().slice(0, 100); if(!name) return null;
   const known = people.find(p => p.name.toLowerCase() === name.toLowerCase());
   if(known) return known;
   const p = {id: uid(), name}; people.push(p); return p;
 }
-fAddPerson.onclick = () => {
-  const keep = pickedIds(), p = addPerson(fNewPerson.value); if(!p) return;
-  if(!keep.includes(p.id)) keep.push(p.id);
-  fNewPerson.value = ""; drawPicker(keep); save(); fillPersonFilter();
+pkAdd.onclick = () => {
+  const p = addPerson(pkNew.value); if(!p) return;
+  pickSel.add(p.id); pkNew.value = ""; pkSearch.value = ""; drawPick(); updatePeopleBtn(); save(); fillPersonFilter();
 };
-fNewPerson.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); fAddPerson.click(); } });
+pkNew.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); pkAdd.click(); } });
+
+/* ---- powtarzanie: tworzymy kolejne zadania serii (każde można edytować osobno) ---- */
+const addMonths = (s, n) => { const m = s.getMonth() + n, last = new Date(s.getFullYear(), m + 1, 0).getDate(); return new Date(s.getFullYear(), m, Math.min(s.getDate(), last)); };
+function recurDates(start, kind, count, until){
+  const s = parse(start), out = [start], max = Math.max(2, Math.min(+count || 10, 200));
+  let d = new Date(s), i = 0;
+  while(out.length < max && i < 4000){
+    i++;
+    if(kind === "daily") d = addDays(s, i);
+    else if(kind === "workdays"){ do{ d = addDays(d, 1); }while(d.getDay() === 0 || d.getDay() === 6); }
+    else if(kind === "weekly") d = addDays(s, 7 * i);
+    else if(kind === "biweekly") d = addDays(s, 14 * i);
+    else if(kind === "monthly") d = addMonths(s, i);
+    else if(kind === "yearly") d = addMonths(s, 12 * i);
+    else break;
+    const ds = iso(d);
+    if(until && ds > until) break;
+    out.push(ds);
+  }
+  return out;
+}
+function makeSeries(first, kind, count, until){
+  const sid = uid(); first.series = sid;
+  const len = daysBetween(first.date, endOf(first)), copies = [];
+  for(const ds of recurDates(first.date, kind, count, until).slice(1)){
+    const c = Object.assign({}, first, {id: uid(), date: ds, end_date: iso(addDays(parse(ds), len)),
+                                        status: "pending", progress: 0, assignees: [...first.assignees]});
+    copies.push(c);
+  }
+  return copies;
+}
+
 form.addEventListener("submit", e => {
   if(e.submitter && e.submitter.value !== "save") return;
-  const t = editing || {id: uid()};
-  t.title = fTitle.value.trim(); t.date = fDate.value; t.priority = +fPrio.value;
-  t.start = fStart.value; t.end = fStart.value ? (fEnd.value || toHM(toMin(fStart.value)+60)) : "";
+  const t = editing || {id: uid(), series: ""};
+  const d1 = fDate.value, d2 = fDate2.value && fDate2.value > d1 ? fDate2.value : d1, multi = d2 > d1;
+  t.title = fTitle.value.trim(); t.date = d1; t.end_date = d2; t.priority = +fPrio.value;
+  t.start = multi ? "" : fStart.value; t.end = (multi || !fStart.value) ? "" : (fEnd.value || toHM(toMin(fStart.value)+60));
   if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
-  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = pickedIds();
+  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = [...pickSel];
+  let extra = [];
+  if(!t.series && fRec.value !== "none") extra = makeSeries(t, fRec.value, fRecN.value, fRecUntil.value);
+  else if(editing && t.series && fApplyNext.checked){        // zmiany do kolejnych zadań serii (bez dat i statusu)
+    tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).forEach(x => {
+      x.title = t.title; x.priority = t.priority; x.notes = t.notes; x.assignees = [...t.assignees];
+      if(!isMulti(x)){ x.start = t.start; x.end = t.end; }
+    });
+  }
   if(!editing) tasks.push(t);
+  tasks.push(...extra);
   save(); render();
+  if(extra.length) note(`Utworzono serię: ${extra.length + 1} zadań.`, true);
 });
+
+/* ---- usuwanie: dla serii pytamy, czy usunąć tylko to zadanie, czy także kolejne ---- */
+function askDeleteSeries(later){
+  delText.textContent = `To zadanie należy do serii cyklicznej. Kolejnych zadań w serii: ${later}.`;
+  return new Promise(res => {
+    let choice = null;
+    const done = c => { choice = c; deldlg.close(); };
+    delOne.onclick = () => done("one"); delFol.onclick = () => done("following"); delNo.onclick = () => done(null);
+    deldlg.addEventListener("close", () => res(choice), {once: true});
+    deldlg.showModal();
+  });
+}
 
 /* ================= osoby ================= */
 const pdlg = document.getElementById("pdlg");
@@ -372,14 +641,20 @@ function periodRange(){
 }
 const WD = ["nd","pon","wt","śr","czw","pt","sob"];
 const fmtDate = ds => { const d = parse(ds); return `${WD[d.getDay()]}, ${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`; };
+// krótki termin na liście: tylko dzień i data (bez godziny i dopisku „cały dzień”); dla zadań wielodniowych zakres
+const fmtShort = t => {
+  if(!isMulti(t)) return fmtDate(t.date);
+  const a = parse(t.date), b = parse(endOf(t)), s = d => `${WD[d.getDay()]} ${pad(d.getDate())}.${pad(d.getMonth()+1)}`;
+  return a.getFullYear() === b.getFullYear() ? `${s(a)} – ${s(b)}.${b.getFullYear()}` : `${fmtDate(t.date)} – ${fmtDate(endOf(t))}`;
+};
 // kolejność wykonania: data, potem godzina (zadania całodniowe najpierw), potem priorytet, potem tytuł
 const byDue = (a,b) => a.date.localeCompare(b.date) || (a.start||"").localeCompare(b.start||"") || b.priority - a.priority || a.title.localeCompare(b.title);
 function renderList(){
   const todayS = iso(new Date()), [from, to] = periodRange();
   let rows = visibleTasks();
   if(hideDone) rows = rows.filter(t => t.status !== "done");
-  if(listScope === "today") rows = rows.filter(t => t.date >= todayS);
-  else if(listScope === "period") rows = rows.filter(t => t.date >= from && t.date <= to);
+  if(listScope === "today") rows = rows.filter(t => endOf(t) >= todayS);
+  else if(listScope === "period") rows = rows.filter(t => t.date <= to && endOf(t) >= from);
   rows.sort(byDue);
   const el = document.getElementById("list");
   let h = `<div class="list-head"><h2>Lista zadań (${rows.length})</h2>
@@ -391,9 +666,9 @@ function renderList(){
     let prev = "";
     for(const t of rows){
       const done = t.status === "done";
-      const cls = ["trow", t.date !== prev && prev ? "newday" : "", t.date === todayS ? "istoday" : "", t.date < todayS && !done ? "late" : "", "st-" + t.status].join(" ");
+      const cls = ["trow", t.date !== prev && prev ? "newday" : "", occursOn(t, todayS) ? "istoday" : "", endOf(t) < todayS && !done ? "late" : "", "st-" + t.status].join(" ");
       prev = t.date;
-      const when = fmtDate(t.date) + (t.start ? ` ${t.start}${t.end ? "–" + t.end : ""}` : " · cały dzień");
+      const when = fmtDate(t.date) + (t.series ? " 🔁" : "");      // lista: tylko początek (zakres wielodniowy widać w kalendarzu)
       h += `<tr class="${cls}" data-id="${esc(t.id)}"><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
            `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
@@ -431,14 +706,16 @@ const unfinished = () => visibleTasks().filter(t => t.status !== "done");
 function bulkMove(kind){
   closeMenu2();
   const todayS = iso(new Date()), weekEnd = iso(addDays(mondayOf(startOfToday()), 6));
-  const rows = kind === "today" ? unfinished().filter(t => t.date < todayS) : unfinished().filter(t => t.date <= weekEnd);
+  const overdue = unfinished().filter(t => endOf(t) < todayS);
+  const rows = kind === "next" ? unfinished().filter(t => endOf(t) <= weekEnd) : overdue;
   const scope = filterPerson ? " (zgodnie z wybranym filtrem osoby)" : "";
-  if(!rows.length){ alert(kind === "today" ? "Brak zaległych niezakończonych zadań do przeniesienia na dziś." : "Brak niezakończonych zadań z tego tygodnia lub zaległych do przeniesienia."); return; }
+  if(!rows.length){ alert(kind === "next" ? "Brak niezakończonych zadań z tego tygodnia lub zaległych do przeniesienia." : "Brak zaległych niezakończonych zadań do przeniesienia."); return; }
   const msg = kind === "today"
     ? `Przenieść ${rows.length} zaległych niezakończonych zadań na dziś${scope}?`
+    : kind === "overdueNext" ? `Przenieść ${rows.length} zaległych niezakończonych zadań na przyszły tydzień${scope}?`
     : `Przenieść ${rows.length} niezakończonych zadań (zaległych i z tego tygodnia) na przyszły tydzień${scope}?`;
   if(!confirm(msg)) return;
-  rows.forEach(t => { t.date = kind === "today" ? todayS : nextWeekDate(t.date); });
+  rows.forEach(t => moveToDate(t, kind === "today" ? todayS : nextWeekDate(t.date)));
   save(); render();
 }
 function closeMenu2(){ moveMenu.open = false; }
@@ -467,7 +744,7 @@ function showCtx(id, x, y){
   const p = ctx.querySelector("#ctxP");
   p.oninput = () => { ctx.querySelector("#ctxPv").textContent = p.value + "%"; };
   p.onchange = () => { applyProgress(t, +p.value); save(); hideCtx(); render(); };
-  ctx.querySelector('[data-act="next"]').onclick = () => { t.date = nextWeekDate(t.date); save(); hideCtx(); render(); };
+  ctx.querySelector('[data-act="next"]').onclick = () => { moveToDate(t, nextWeekDate(t.date)); save(); hideCtx(); render(); };
   ctx.querySelector('[data-act="edit"]').onclick = () => { hideCtx(); openDialog(t.id); };
 }
 document.addEventListener("contextmenu", e => {
@@ -479,8 +756,19 @@ document.addEventListener("mousedown", e => { if(!ctx.hidden && !e.target.closes
 document.addEventListener("keydown", e => { if(e.key === "Escape") hideCtx(); });
 window.addEventListener("blur", hideCtx);
 document.addEventListener("scroll", hideCtx, true);
-document.getElementById("del").onclick = () => {
-  if(editing && confirm("Usunąć to zadanie?")){ tasks = tasks.filter(t => t !== editing); save(); dlg.close(); render(); }
+document.getElementById("del").onclick = async () => {
+  if(!editing) return;
+  const t = editing;
+  const later = t.series ? tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).length : 0;
+  if(later){
+    const choice = await askDeleteSeries(later);
+    if(!choice) return;
+    tasks = tasks.filter(x => x !== t && !(choice === "following" && x.series === t.series && x.date > t.date));
+  } else {
+    if(!confirm("Usunąć to zadanie?")) return;
+    tasks = tasks.filter(x => x !== t);
+  }
+  save(); dlg.close(); render();
 };
 
 /* ================= nawigacja ================= */
@@ -493,6 +781,7 @@ prev.onclick = () => shift(-1); next.onclick = () => shift(1);
 today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
 add.onclick = () => openDialog(null, iso(cur));
 document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
+document.querySelectorAll("#layoutSeg .btn").forEach(b => b.onclick = () => { layout = b.dataset.l; render(); });
 document.addEventListener("keydown", e => {
   if(dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
@@ -661,6 +950,7 @@ async function boot(){
     if(DESKTOP){
       const r = await api().load_state();
       view = (r.prefs && r.prefs.view) || "month";
+      layout = (r.prefs && r.prefs.layout) === "grid" ? "grid" : "board"; savedLayout = layout;
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
       tasks = d.tasks; people = d.people;
@@ -671,6 +961,7 @@ async function boot(){
       let d = null;
       try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}
       try{ view = localStorage.getItem(KEY + "_view") || "month"; }catch(e){}
+      try{ layout = localStorage.getItem(KEY + "_layout") === "grid" ? "grid" : "board"; savedLayout = layout; }catch(e){}
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }

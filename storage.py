@@ -1,4 +1,5 @@
 """Local storage of tasks, people and preferences. Data lives outside the program folder."""
+import datetime
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ MAX_BYTES = 5_000_000
 MAX_TASKS = 20000
 MAX_PEOPLE = 1000
 VIEWS = ('month', 'week', 'day')
+LAYOUTS = ('board', 'grid')                  # tydzień/dzień: kafelki (domyślnie) lub siatka godzinowa
 STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakcie, zrobione
 PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
@@ -20,7 +22,14 @@ def data_dir():
 
 
 def _is_date(s):
-    return isinstance(s, str) and len(s) == 10 and s[4] == '-' and s[7] == '-' and (s[:4] + s[5:7] + s[8:]).isdigit()
+    """Prawdziwa data kalendarzowa w formacie RRRR-MM-DD."""
+    if not (isinstance(s, str) and len(s) == 10 and s[4] == '-' and s[7] == '-' and (s[:4] + s[5:7] + s[8:]).isdigit()):
+        return False
+    try:
+        datetime.date(int(s[:4]), int(s[5:7]), int(s[8:]))
+    except ValueError:
+        return False
+    return True
 
 
 def _is_time(s):
@@ -55,6 +64,8 @@ def validate_data(data):
         title = t.get('title')
         start, end = t.get('start', ''), t.get('end', '')
         assignees = t.get('assignees', [])
+        end_date = t.get('end_date') or t.get('date')            # zadanie wielodniowe: end_date > date
+        series = t.get('series', '')                              # zadania cykliczne: wspólny identyfikator serii
         status = t.get('status') or ('done' if t.get('done') else 'pending')   # 'done' pochodzi z wersji < 1.2
         progress = t.get('progress', 100 if status == 'done' else 0)
         if status == 'done':
@@ -62,10 +73,14 @@ def validate_data(data):
         if (not isinstance(title, str) or not title.strip() or not _is_date(t.get('date'))
                 or not _is_time(start) or not _is_time(end) or t.get('priority') not in (1, 2, 3) or status not in STATUSES or progress not in PROGRESS_STEPS
                 or not isinstance(t.get('notes', ''), str)
-                or not isinstance(assignees, list) or any(a not in pids for a in assignees)):
+                or not isinstance(assignees, list) or any(a not in pids for a in assignees)
+                or not _is_date(end_date) or end_date < t['date']
+                or not isinstance(series, str) or len(series) > 64):
             raise ValueError('Nieprawidłowe dane zadania: ' + str(title)[:40])
         clean.append({'id': t['id'], 'title': title.strip()[:300], 'date': t['date'],
-                      'start': start, 'end': end if start else '', 'priority': t['priority'],
+                      'end_date': end_date, 'series': series,
+                      'start': start if end_date == t['date'] else '', 'end': end if (start and end_date == t['date']) else '',
+                      'priority': t['priority'],
                       'status': status, 'progress': progress, 'notes': t.get('notes', '')[:5000],
                       'assignees': list(dict.fromkeys(assignees))})
     return {'people': clean_people, 'tasks': clean}
@@ -125,15 +140,18 @@ class Storage:
             data = json.loads(self.prefs_path.read_text(encoding='utf-8'))
             view = data.get('view')
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
-            return {'view': view if view in VIEWS else 'month',
+            layout = data.get('layout')
+            return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board',
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'last_xlsx': '', 'xlsx_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'last_xlsx', 'xlsx_fp'}:
             raise ValueError('Nieznane ustawienie.')
+        if 'layout' in changes and changes['layout'] not in LAYOUTS:
+            raise ValueError('Nieprawidłowy układ.')
         if 'view' in changes and changes['view'] not in VIEWS:
             raise ValueError('Nieprawidłowy widok.')
         with self.lock:
@@ -141,6 +159,10 @@ class Storage:
             values.update(changes)
             self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
         return values
+
+    def set_layout(self, layout):
+        self.set_prefs(layout=layout)
+        return True
 
     def set_view(self, view):
         self.set_prefs(view=view)
@@ -151,7 +173,7 @@ def fingerprint(data):
     """Odcisk zawartości niezależny od identyfikatorów — do wykrywania zmian względem pliku Excela."""
     clean = validate_data(data)
     names = {p['id']: p['name'] for p in clean['people']}
-    tasks = sorted(json.dumps([t['title'], t['date'], t['start'], t['end'], t['priority'], t['status'],
+    tasks = sorted(json.dumps([t['title'], t['date'], t['end_date'], t['start'], t['end'], t['priority'], t['status'],
                                t['progress'], t['notes'], sorted(names[a] for a in t['assignees'])],
                               ensure_ascii=False) for t in clean['tasks'])
     people = sorted(p['name'] for p in clean['people'])
