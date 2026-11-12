@@ -687,7 +687,7 @@ function renderList(){
     <label><input type="checkbox" id="lHide"> Ukryj zrobione</label></div>`;
   if(!rows.length) h += `<div class="empty">Brak zadań do wyświetlenia.</div>`;
   else {
-    h += `<table class="tasks"><colgroup><col class="c-st"><col class="c-when"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
+    h += `<div class="list-scroll"><table class="tasks"><colgroup><col class="c-st"><col class="c-when"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
     let prev = "";
     for(const t of rows){
       const done = t.status === "done";
@@ -698,7 +698,7 @@ function renderList(){
            `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
-    h += `</tbody></table>`;
+    h += `</tbody></table></div>`;
   }
   el.innerHTML = h;
   lScope.value = listScope; lHide.checked = hideDone;

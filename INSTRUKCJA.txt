@@ -19,6 +19,7 @@ OBSŁUGA
 - Okno zadania: notatki są duże i leżą nad polem „Osoby”; osoby wybierasz w osobnym, większym oknie (wyszukiwanie, dodawanie nowych).
 - Menu prawego przycisku zawiera też „🗑 Usuń zadanie” (dla zadań cyklicznych pyta, czy usunąć tylko to, czy także kolejne).
 - Zadania o wysokim priorytecie pulsują na czerwono (kafelki, karty i priorytet na liście); zrobione nie pulsują, a przy włączonym w Windows ograniczeniu animacji pulsowanie jest wyłączone.
+- Układ ekranu jest stały: nagłówek i kalendarz zawsze widać, a gdy zadań jest dużo, przewija się tylko lista zadań pod kalendarzem (jej nagłówek tabeli jest przypięty).
 - Status zadania: oczekujące (domyślny), w trakcie, zrobione. Kliknij zadanie PRAWYM przyciskiem myszy (w kalendarzu lub na liście) i wybierz jedną z trzech ikon: ⚪ oczekujące, 🔄 w trakcie, ✅ zrobione. W tym samym menu jest suwak postępu (0, 25, 50, 75, 100%). „Zrobione” ustawia postęp na 100%, a 100% ustawia status „zrobione”.
 - Przenoszenie: prawy przycisk → „Przenieś na przyszły tydzień” (ten sam dzień tygodnia; zaległe trafiają do przyszłego tygodnia), przycisk „➡ Na przyszły tydzień” w oknie zadania oraz menu „Przenieś ▾” w nagłówku: „Zaległe niezakończone → na dziś” i „Niezakończone → na przyszły tydzień” (zaległe i z bieżącego tygodnia; respektuje filtr osoby).
 - Lista zadań pod kalendarzem: wszystkie zadania w kolejności wykonania (data, godzina, priorytet); zakres „Od dziś” / „Widoczny okres”, ukrywanie wykonanych, pole wyboru „wykonane” w wierszu.

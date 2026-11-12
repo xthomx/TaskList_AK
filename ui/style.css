@@ -212,3 +212,12 @@ table.tasks td.tcell{padding:2px 6px}
 @media (prefers-reduced-motion:reduce){
   .chip.p3,.ev.p3,.card.p3,.badge.p3{animation:none !important}
 }
+/* układ stały: nagłówek i kalendarz zawsze widoczne, przewija się tylko lista zadań */
+main{display:flex;flex-direction:column;gap:12px;overflow:hidden;min-height:0}
+#cal{flex:0 1 auto;min-height:0;overflow:auto}
+#list{flex:1 1 0;min-height:170px;margin-top:0;display:flex;flex-direction:column;overflow:hidden}
+.list-scroll{flex:1 1 auto;min-height:0;overflow:auto}
+table.tasks thead th{position:sticky;top:0;background:var(--panel);z-index:1}
+.tg{height:clamp(360px,50vh,620px)}
+.cell{min-height:clamp(70px,11vh,120px)}
+.month.tiles .cell{min-height:clamp(84px,13vh,140px)}
