@@ -12,6 +12,7 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - **Lista zadań** pod kalendarzem, posortowana w kolejności wykonania.
 - **Status i postęp:** oczekujące / w trakcie / zrobione (prawy przycisk myszy, 3 ikony) oraz suwak postępu 0–100% co 25; „zrobione” = 100%.
 - **Przenoszenie:** zadanie na przyszły tydzień oraz masowo niezakończone na dziś lub na przyszły tydzień (menu „Przenieś”).
+- **Zadanie z maila:** przeciągnij wiadomość z Outlooka (albo plik `.msg` / `.eml`) na kalendarz — powstaje zadanie z tematem, nadawcą i treścią w notatkach.
 - **Excel z pamięcią pliku:** „Otwórz plik Excela” zapamiętuje plik i wczytuje go automatycznie przy starcie; Ctrl+S zapisuje do niego zmiany (wskaźnik „niezapisane zmiany”). Niezapisanych zmian program nie nadpisuje plikiem. Arkusze „Zadania” i „Osoby”.
 - Kopia robocza zapisuje się automatycznie w `%LOCALAPPDATA%TaskListAK	asks.json` (poza folderem programu); eksport/import JSON.
 - **Aktualizacje:** sprawdzanie przy starcie i przyciskiem „Sprawdź aktualizacje”; instalacja jednym kliknięciem

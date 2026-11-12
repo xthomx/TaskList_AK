@@ -147,11 +147,12 @@ function renderMonth(main){
 
   main.querySelectorAll(".cell").forEach(c => {
     c.addEventListener("dblclick", e => { if(!e.target.closest(".chip")) openDialog(null, c.dataset.date); });
-    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragover", e => { if(drag || ext(e)){ e.preventDefault(); c.classList.add("over"); } });
     c.addEventListener("dragleave", () => c.classList.remove("over"));
     c.addEventListener("drop", e => {
       e.preventDefault(); c.classList.remove("over");
       if(drag){ const t = byId(drag.id); if(t){ t.date = c.dataset.date; save(); render(); } }
+      else if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date);
     });
   });
   bindChips(main);
@@ -230,11 +231,15 @@ function renderTimeGrid(main, isWeek){
       const m = snap((e.clientY - c.getBoundingClientRect().top)/HOUR*60);
       openDialog(null, c.dataset.date, toHM(m));
     });
-    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragover", e => { if(drag || ext(e)){ e.preventDefault(); c.classList.add("over"); } });
     c.addEventListener("dragleave", () => c.classList.remove("over"));
     c.addEventListener("drop", e => {
       e.preventDefault(); c.classList.remove("over");
-      const t = drag && byId(drag.id); if(!t) return;
+      if(!drag){
+        if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date, toHM(snap((e.clientY - c.getBoundingClientRect().top)/HOUR*60)));
+        return;
+      }
+      const t = byId(drag.id); if(!t) return;
       const top = e.clientY - c.getBoundingClientRect().top - drag.offY;
       const dur = t.start && t.end ? toMin(t.end) - toMin(t.start) : 60;
       const s = Math.max(0, Math.min(1440 - Math.max(dur,SNAP), snap(top/HOUR*60)));
@@ -245,11 +250,12 @@ function renderTimeGrid(main, isWeek){
   // upuszczanie na pasek "cały dzień"
   main.querySelectorAll(".allday").forEach(c => {
     c.addEventListener("dblclick", e => { if(!e.target.closest(".chip")) openDialog(null, c.dataset.date); });
-    c.addEventListener("dragover", e => { if(drag){ e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragover", e => { if(drag || ext(e)){ e.preventDefault(); c.classList.add("over"); } });
     c.addEventListener("dragleave", () => c.classList.remove("over"));
     c.addEventListener("drop", e => {
       e.preventDefault(); c.classList.remove("over");
-      const t = drag && byId(drag.id); if(!t) return;
+      if(!drag){ if(ext(e)) handleMailDrop(e.dataTransfer, c.dataset.date); return; }
+      const t = byId(drag.id); if(!t) return;
       t.date = c.dataset.date; t.start = ""; t.end = ""; save(); render();
     });
   });
@@ -282,10 +288,10 @@ const byId = id => tasks.find(t => t.id === id);
 /* ================= dialog ================= */
 const dlg = document.getElementById("dlg");
 let editing = null;
-function openDialog(id, date, start){
+function openDialog(id, date, start, pre){          // pre = {title, notes} — wstępnie wypełnione np. z maila
   editing = id ? byId(id) : null;
   const preset = (!editing && filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
-  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes:"", assignees: preset};
+  const t = editing || {title: (pre && pre.title) || "", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
   fTitle.value = t.title; fDate.value = t.date; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
@@ -524,6 +530,54 @@ async function doImport(){
 }
 exp.onclick = doExport; imp.onclick = doImport;
 
+/* ================= zadanie z maila: przeciągnij wiadomość z Outlooka (lub .msg/.eml) na kalendarz ================= */
+function ext(e){                    // czy przeciągany jest obiekt z zewnątrz (plik / tekst), a nie zadanie z kalendarza
+  if(drag || !e.dataTransfer) return false;
+  const t = [...(e.dataTransfer.types || [])];
+  return t.includes("Files") || t.includes("text/plain") || t.includes("text/uri-list") || t.includes("text/html");
+}
+const toB64 = f => new Promise((ok, fail) => {
+  const fr = new FileReader();
+  fr.onload = () => ok(String(fr.result).split(",")[1] || "");
+  fr.onerror = () => fail(new Error("Nie udało się odczytać przeciągniętego pliku."));
+  fr.readAsDataURL(f);
+});
+function mailToDialog(mail, date, start){
+  openDialog(null, date || iso(new Date()), start, {title: mail.subject, notes: mail.notes});
+  note("Zadanie z wiadomości — ustaw termin, osoby i zapisz.", true);
+}
+async function handleMailDrop(dt, date, start){
+  if(dlg.open || pdlg.open) return;
+  try{
+    const f = [...(dt.files || [])].find(x => /\.(msg|eml)$/i.test(x.name));
+    if(f){
+      if(!DESKTOP) throw new Error("Wczytywanie plików .msg i .eml działa w aplikacji okienkowej (TaskListAK.exe).");
+      if(f.size > 25 * 1024 * 1024) throw new Error("Wiadomość jest zbyt duża (limit 25 MB).");
+      note("Wczytywanie wiadomości…", true);
+      mailToDialog(await api().parse_mail(f.name, await toB64(f)), date, start);
+      return;
+    }
+    if(dt.files && dt.files.length) throw new Error("Przeciągnij wiadomość z Outlooka lub plik .msg / .eml.");
+    // brak pliku (np. Outlook w przeglądarce): użyj przeciągniętego tekstu — pierwsza linia jako tytuł
+    const text = (dt.getData("text/plain") || dt.getData("Text") || dt.getData("text/uri-list") || "").trim();
+    if(!text) throw new Error("Z przeciągniętego elementu nie udało się odczytać wiadomości. Zapisz mail jako .msg lub .eml i przeciągnij plik albo użyj Dane → Utwórz zadanie z maila.");
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    mailToDialog({subject: lines[0].slice(0, 300), notes: lines.length > 1 ? text.slice(0, 4000) : (/^https?:/i.test(text) ? "Link: " + text : "")}, date, start);
+  }catch(e){ note("Nie utworzono zadania z maila: " + errText(e)); }
+}
+async function openMailFile(){
+  closeMenu();
+  try{ const mail = await api().open_mail(); if(mail) mailToDialog(mail); }
+  catch(e){ note("Nie utworzono zadania z maila: " + errText(e)); }
+}
+mailOpen.onclick = openMailFile;
+// upuszczenie poza dniem kalendarza: zadanie na dziś; blokada otwierania upuszczonego pliku przez okno
+document.addEventListener("dragover", e => { if(ext(e)){ e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+document.addEventListener("drop", e => {
+  if(e.defaultPrevented || !ext(e)) return;
+  e.preventDefault(); handleMailDrop(e.dataTransfer, iso(new Date()));
+});
+
 /* ---- plik Excela: otwarcie (zapamiętywane i wczytywane przy starcie), zapis, zapis jako ---- */
 async function openXlsx(){
   closeMenu();
@@ -587,7 +641,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["xlsExp", "xlsImp", "xlsSave"]) document.getElementById(id).hidden = false;
+  for(const id of ["xlsExp", "xlsImp", "xlsSave", "mailOpen"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }

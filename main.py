@@ -136,15 +136,33 @@ class Api:
         path = Path(paths[0] if isinstance(paths, (list, tuple)) else paths)
         return path if path.suffix.lower() == ext else path.with_suffix(ext)
 
-    def _pick_open(self, label):
+    def _pick_open(self, label, limit=MAX_BYTES):
         import webview
         paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False, file_types=(label,))
         if not paths:
             return None
         path = Path(paths[0] if isinstance(paths, (list, tuple)) else paths)
-        if path.stat().st_size > MAX_BYTES:
-            raise ValueError('Plik przekracza 5 MB.')
+        if path.stat().st_size > limit:
+            raise ValueError('Plik przekracza %d MB.' % (limit // (1024 * 1024)))
         return path
+
+    # ---- zadanie z wiadomości e-mail (przeciągnięcie z Outlooka lub wybór pliku .msg/.eml) ----
+    def parse_mail(self, name, content_b64):
+        import base64
+        import binascii
+        import mail_import
+        if not isinstance(content_b64, str) or len(content_b64) > mail_import.MAX_MAIL_BYTES * 4 // 3 + 16:
+            raise ValueError('Wiadomość jest zbyt duża (limit 25 MB).')
+        try:
+            raw = base64.b64decode(content_b64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError('Nie udało się odczytać przeciągniętego pliku.') from exc
+        return mail_import.parse_mail(str(name), raw)
+
+    def open_mail(self):
+        import mail_import
+        path = self._pick_open('Wiadomości (*.msg;*.eml)', limit=mail_import.MAX_MAIL_BYTES)
+        return mail_import.parse_mail(path.name, path.read_bytes()) if path else None
 
     def export_json(self, data):
         clean = validate_data(data)
