@@ -753,7 +753,8 @@ function showCtx(id, x, y){
       `<button type="button" data-s="${s}" class="${t.status === s ? "on" : ""}" title="${STATUS[s].label}"><span>${STATUS[s].icon}</span><small>${STATUS[s].label}</small></button>`).join("") + `</div>` +
     `<div class="ctx-prog"><label>Postęp: <b id="ctxPv">${t.progress}%</b></label><input type="range" id="ctxP" min="0" max="100" step="25" value="${t.progress}" list="progTicks"></div>` +
     `<hr><button type="button" class="ctx-item" data-act="next">➡ Przenieś na przyszły tydzień</button>` +
-    `<button type="button" class="ctx-item" data-act="edit">✏ Edytuj…</button>`;
+    `<button type="button" class="ctx-item" data-act="edit">✏ Edytuj…</button>` +
+    `<button type="button" class="ctx-item ctx-del" data-act="del">🗑 Usuń zadanie</button>`;
   ctx.hidden = false;
   const r = ctx.getBoundingClientRect();
   ctx.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 6)) + "px";
@@ -764,6 +765,7 @@ function showCtx(id, x, y){
   p.onchange = () => { applyProgress(t, +p.value); save(); hideCtx(); render(); };
   ctx.querySelector('[data-act="next"]').onclick = () => { moveToDate(t, nextWeekDate(t.date)); save(); hideCtx(); render(); };
   ctx.querySelector('[data-act="edit"]').onclick = () => { hideCtx(); openDialog(t.id); };
+  ctx.querySelector('[data-act="del"]').onclick = async () => { hideCtx(); await deleteTask(t); render(); };
 }
 document.addEventListener("contextmenu", e => {
   const el = e.target.closest("[data-id]");
@@ -774,19 +776,22 @@ document.addEventListener("mousedown", e => { if(!ctx.hidden && !e.target.closes
 document.addEventListener("keydown", e => { if(e.key === "Escape") hideCtx(); });
 window.addEventListener("blur", hideCtx);
 document.addEventListener("scroll", hideCtx, true);
-document.getElementById("del").onclick = async () => {
-  if(!editing) return;
-  const t = editing;
+// usuwanie zadania (dla serii pyta, czy usunąć tylko to, czy także kolejne); zwraca true, gdy usunięto
+async function deleteTask(t){
   const later = t.series ? tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).length : 0;
   if(later){
     const choice = await askDeleteSeries(later);
-    if(!choice) return;
+    if(!choice) return false;
     tasks = tasks.filter(x => x !== t && !(choice === "following" && x.series === t.series && x.date > t.date));
   } else {
-    if(!confirm("Usunąć to zadanie?")) return;
+    if(!confirm(`Usunąć zadanie „${t.title}”?`)) return false;
     tasks = tasks.filter(x => x !== t);
   }
-  save(); dlg.close(); render();
+  save();
+  return true;
+}
+document.getElementById("del").onclick = async () => {
+  if(editing && await deleteTask(editing)){ dlg.close(); render(); }
 };
 
 /* ================= nawigacja ================= */
