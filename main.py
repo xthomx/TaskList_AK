@@ -4,10 +4,12 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import threading
+import uuid
 
 from app_version import APP_VERSION
-from storage import Storage, validate_data, MAX_BYTES
+from storage import Storage, validate_data, fingerprint, MAX_BYTES
 from updates import check_updates, RELEASES_URL
 import auto_update
 
@@ -18,21 +20,113 @@ class Api:
         self._update = None
         self._lock = threading.Lock()
         self._storage = storage or Storage()
+        self._pending = None
 
-    # ---- dane ----
+    # ---- dane i zapamiętany plik Excela ----
+    def _file_info(self, data=None, path=None):
+        prefs = self._storage.get_prefs()
+        path = path or prefs['last_xlsx']
+        if not path:
+            return None
+        dirty = False
+        if data is not None:
+            try:
+                dirty = fingerprint(data) != prefs['xlsx_fp']
+            except ValueError:
+                dirty = True
+        return {'name': Path(path).name, 'path': str(path), 'dirty': dirty}
+
+    @staticmethod
+    def _read_xlsx(path):
+        import xlsx_format
+        path = Path(path)
+        if path.stat().st_size > MAX_BYTES:
+            raise ValueError('Plik przekracza 5 MB.')
+        return xlsx_format.loads(path.read_bytes())
+
     def load_state(self):
+        """Przy starcie: wczytaj ostatni plik Excela, chyba że kopia robocza ma niezapisane zmiany."""
         result = self._storage.load_data()
         data = result.pop('data')
+        prefs = self._storage.get_prefs()
+        path = prefs['last_xlsx']
+        if path:
+            name = Path(path).name
+            if data is None or fingerprint(data) == prefs['xlsx_fp']:
+                try:
+                    data = self._read_xlsx(path)
+                    self._storage.save_data(data)
+                    self._storage.set_prefs(xlsx_fp=fingerprint(data))
+                    result['warning'] = result.get('warning', '')
+                except (OSError, ValueError) as exc:
+                    result['warning'] = ('Nie można otworzyć ostatniego pliku Excela (' + name + '): ' + str(exc)
+                                         + (' Wczytano ostatnią kopię roboczą.' if data else ''))
+                    if data is None:
+                        data = {'people': [], 'tasks': []}     # nie zasiewaj przykładów — plik jest skonfigurowany
+            else:
+                result['warning'] = ('Plik ' + name + ' ma niezapisane zmiany — wczytano kopię roboczą. '
+                                     'Zapisz do Excela (Ctrl+S), aby je zachować w pliku.')
         result['people'] = data['people'] if data else None
         result['tasks'] = data['tasks'] if data else None
         result['prefs'] = self._storage.get_prefs()
+        result['file'] = self._file_info(data) if data else self._file_info()
         return result
 
     def save_data(self, data):
-        return self._storage.save_data(data)
+        count = self._storage.save_data(data)
+        info = self._file_info(data)
+        return {'count': count, 'dirty': bool(info and info['dirty'])}
 
     def set_view(self, view):
         return self._storage.set_view(view)
+
+    def open_xlsx(self):
+        """Wybierz i sprawdź plik; zapamiętanie nastąpi dopiero po accept_xlsx (po potwierdzeniu w UI)."""
+        path = self._pick_open('Excel (*.xlsx)')
+        if not path:
+            return None
+        data = self._read_xlsx(path)
+        token = uuid.uuid4().hex
+        self._pending = (token, path.resolve(), data)
+        return {'token': token, 'name': path.name, 'data': data}
+
+    def accept_xlsx(self, token):
+        if not self._pending or self._pending[0] != token:
+            raise ValueError('Nieaktualna operacja otwierania.')
+        _, path, data = self._pending
+        self._pending = None
+        self._storage.save_data(data)
+        self._storage.set_prefs(last_xlsx=str(path), xlsx_fp=fingerprint(data))
+        return self._file_info(data)
+
+    def save_xlsx(self, data, as_new=False):
+        """Zapisz do zapamiętanego pliku (lub zapytaj o nazwę) i zapamiętaj go."""
+        import xlsx_format
+        clean = validate_data(data)
+        payload = xlsx_format.dumps(clean)
+        current = self._storage.get_prefs()['last_xlsx']
+        if current and not as_new:
+            path = Path(current)
+        else:
+            path = self._pick_save(Path(current).name if current else 'zadania.xlsx', 'Excel (*.xlsx)', '.xlsx')
+            if not path:
+                return None
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='wb', dir=path.parent, prefix='.zadania-', suffix='.tmp', delete=False) as f:
+                tmp = Path(f.name)
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+        except PermissionError as exc:
+            raise PermissionError('Nie można zapisać pliku. Zamknij go w Excelu i sprawdź uprawnienia do folderu.') from exc
+        finally:
+            if tmp and tmp.exists():
+                tmp.unlink()
+        self._storage.save_data(clean)
+        self._storage.set_prefs(last_xlsx=str(path.resolve()), xlsx_fp=fingerprint(clean))
+        return self._file_info(clean)
 
     def _pick_save(self, name, label, ext):
         import webview
@@ -63,23 +157,6 @@ class Api:
     def import_json(self):
         path = self._pick_open('Zadania (*.json)')
         return validate_data(json.loads(path.read_bytes().decode('utf-8-sig'))) if path else None
-
-    def export_xlsx(self, data):
-        import xlsx_format
-        payload = xlsx_format.dumps(data)
-        path = self._pick_save('zadania.xlsx', 'Excel (*.xlsx)', '.xlsx')
-        if not path:
-            return None
-        try:
-            path.write_bytes(payload)
-        except PermissionError as exc:
-            raise PermissionError('Nie można zapisać pliku. Zamknij go w Excelu i sprawdź uprawnienia do folderu.') from exc
-        return path.name
-
-    def import_xlsx(self):
-        import xlsx_format
-        path = self._pick_open('Excel (*.xlsx)')
-        return xlsx_format.loads(path.read_bytes()) if path else None
 
     # ---- aktualizacje ----
     def get_version(self):

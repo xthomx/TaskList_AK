@@ -1,4 +1,5 @@
 """Local storage of tasks, people and preferences. Data lives outside the program folder."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -123,13 +124,35 @@ class Storage:
         try:
             data = json.loads(self.prefs_path.read_text(encoding='utf-8'))
             view = data.get('view')
-            return {'view': view if view in VIEWS else 'month'}
+            path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
+            return {'view': view if view in VIEWS else 'month',
+                    'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
+                    'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month'}
+            return {'view': 'month', 'last_xlsx': '', 'xlsx_fp': ''}
 
-    def set_view(self, view):
-        if view not in VIEWS:
+    def set_prefs(self, **changes):
+        if set(changes) - {'view', 'last_xlsx', 'xlsx_fp'}:
+            raise ValueError('Nieznane ustawienie.')
+        if 'view' in changes and changes['view'] not in VIEWS:
             raise ValueError('Nieprawidłowy widok.')
         with self.lock:
-            self._atomic_write(self.prefs_path, json.dumps({'view': view}))
+            values = self.get_prefs()
+            values.update(changes)
+            self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
+        return values
+
+    def set_view(self, view):
+        self.set_prefs(view=view)
         return True
+
+
+def fingerprint(data):
+    """Odcisk zawartości niezależny od identyfikatorów — do wykrywania zmian względem pliku Excela."""
+    clean = validate_data(data)
+    names = {p['id']: p['name'] for p in clean['people']}
+    tasks = sorted(json.dumps([t['title'], t['date'], t['start'], t['end'], t['priority'], t['status'],
+                               t['progress'], t['notes'], sorted(names[a] for a in t['assignees'])],
+                              ensure_ascii=False) for t in clean['tasks'])
+    people = sorted(p['name'] for p in clean['people'])
+    return hashlib.sha256(json.dumps([people, tasks], ensure_ascii=False).encode('utf-8')).hexdigest()

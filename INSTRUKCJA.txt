@@ -16,7 +16,8 @@ OBSŁUGA
 - Status zadania: oczekujące (domyślny), w trakcie, zrobione. Kliknij zadanie PRAWYM przyciskiem myszy (w kalendarzu lub na liście) i wybierz jedną z trzech ikon: ⏳ oczekujące, 🔄 w trakcie, ✅ zrobione. W tym samym menu jest suwak postępu (0, 25, 50, 75, 100%). „Zrobione” ustawia postęp na 100%, a 100% ustawia status „zrobione”.
 - Przenoszenie: prawy przycisk → „Przenieś na przyszły tydzień” (ten sam dzień tygodnia; zaległe trafiają do przyszłego tygodnia), przycisk „➡ Na przyszły tydzień” w oknie zadania oraz menu „Przenieś ▾” w nagłówku: „Zaległe niezakończone → na dziś” i „Niezakończone → na przyszły tydzień” (zaległe i z bieżącego tygodnia; respektuje filtr osoby).
 - Lista zadań pod kalendarzem: wszystkie zadania w kolejności wykonania (data, godzina, priorytet); zakres „Od dziś” / „Widoczny okres”, ukrywanie wykonanych, pole wyboru „wykonane” w wierszu.
-- Dane ▾ → Eksport / Import Excela (.xlsx: arkusze „Zadania” i „Osoby”; można też przygotować plik ręcznie — kolumny Tytuł, Data, Od, Do, Priorytet, Status, Osoby, Notatki) oraz JSON.
+- Plik Excela (menu Dane ▾): „Otwórz plik Excela…” zapamiętuje plik i wczytuje go automatycznie przy każdym uruchomieniu. „Zapisz do Excela” (Ctrl+S) zapisuje zmiany do tego pliku, „Zapisz Excel jako…” wskazuje nowy plik. Obok menu widać nazwę pliku i ✓ (zapisane) lub „● niezapisane zmiany”. Arkusze: „Zadania” (Tytuł, Data, Od, Do, Priorytet, Status, Postęp (%), Osoby, Notatki) i „Osoby”. Kopia zapasowa: Eksport / Import JSON.
+- Ochrona zmian: jeśli przy starcie masz niezapisane zmiany względem pliku, program wczytuje kopię roboczą (nie nadpisuje ich plikiem) i pokazuje ostrzeżenie. Jeśli plik został zmieniony poza programem, a Ty niczego nie zmieniałeś, wczytuje się jego aktualna wersja. Gdy pliku nie da się otworzyć (przeniesiony, usunięty), użyta zostaje ostatnia kopia robocza.
 
 DANE
 Zadania zapisują się automatycznie w: %LOCALAPPDATA%\TaskListAK\tasks.json

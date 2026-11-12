@@ -16,7 +16,15 @@ let drag = null;                 // {id, offY}
 let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve();
 const api = () => window.pywebview && window.pywebview.api;
 const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
-function note(msg){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; }
+function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
+let fileInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
+function showFile(){
+  const el = document.getElementById("fileTag");
+  if(!DESKTOP || !fileInfo){ el.hidden = true; return; }
+  el.hidden = false; el.title = fileInfo.path;
+  el.textContent = "📄 " + fileInfo.name + (fileInfo.dirty ? " ● niezapisane zmiany" : " ✓");
+  el.classList.toggle("dirty", !!fileInfo.dirty);
+}
 
 /* ---- zapis: w aplikacji do pliku w %LOCALAPPDATA%\TaskListAK, w przeglądarce do localStorage ---- */
 const currentData = () => ({people, tasks});
@@ -62,7 +70,10 @@ function flush(){
   clearTimeout(saveTimer);
   if(!DESKTOP || readOnly) return chain;
   const snap = JSON.parse(JSON.stringify(currentData()));
-  chain = chain.then(() => api().save_data(snap)).then(() => note("")).catch(e => note("Zapis nie powiódł się: " + errText(e)));
+  chain = chain.then(() => api().save_data(snap)).then(res => {
+    if(fileInfo && res && typeof res === "object"){ fileInfo.dirty = !!res.dirty; showFile(); }
+    if(saveErr){ saveErr = false; note(""); }
+  }).catch(e => { saveErr = true; note("Zapis nie powiódł się: " + errText(e)); });
   return chain;
 }
 let savedView = null;
@@ -486,12 +497,12 @@ document.addEventListener("keydown", e => {
 /* ================= eksport / import ================= */
 const closeMenu = () => { dataMenu.open = false; };
 document.addEventListener("click", e => { if(!e.target.closest("#dataMenu")) closeMenu(); });
-async function doExport(kind){
+async function doExport(){            // kopia zapasowa JSON
   closeMenu();
   try{
     if(DESKTOP){
-      const name = await (kind === "xlsx" ? api().export_xlsx(currentData()) : api().export_json(currentData()));
-      if(name) note("Wyeksportowano: " + name);
+      const name = await api().export_json(currentData());
+      if(name) note("Wyeksportowano: " + name, true);
       return;
     }
     const a = document.createElement("a");
@@ -505,14 +516,40 @@ function applyImport(raw){
     tasks = d.tasks; people = d.people; filterPerson = ""; save(); render(); note("");
   }
 }
-async function doImport(kind){
+async function doImport(){
   closeMenu();
   if(!DESKTOP){ file.click(); return; }
-  try{ const data = await (kind === "xlsx" ? api().import_xlsx() : api().import_json()); if(data) applyImport(data); }
+  try{ const data = await api().import_json(); if(data) applyImport(data); }
   catch(e){ note("Import nie powiódł się: " + errText(e)); }
 }
-xlsExp.onclick = () => doExport("xlsx"); exp.onclick = () => doExport("json");
-xlsImp.onclick = () => doImport("xlsx"); imp.onclick = () => doImport("json");
+exp.onclick = doExport; imp.onclick = doImport;
+
+/* ---- plik Excela: otwarcie (zapamiętywane i wczytywane przy starcie), zapis, zapis jako ---- */
+async function openXlsx(){
+  closeMenu();
+  try{
+    const r = await api().open_xlsx(); if(!r) return;
+    const d = normalize(r.data);
+    const warn = fileInfo && fileInfo.dirty ? `\n\nUwaga: plik ${fileInfo.name} ma niezapisane zmiany, które zostaną utracone.` : "";
+    if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne dane zostaną zastąpione. Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
+    await flush();                                  // nie pozwól, by starszy zapis nadpisał nowy plik
+    fileInfo = await api().accept_xlsx(r.token);
+    tasks = d.tasks; people = d.people; filterPerson = "";
+    render(); showFile(); note("Otwarto: " + r.name, true);
+  }catch(e){ note("Nie otwarto pliku: " + errText(e)); }
+}
+async function saveXlsx(asNew){
+  closeMenu();
+  try{
+    await flush();
+    const f = await api().save_xlsx(currentData(), !!asNew);
+    if(f){ fileInfo = f; showFile(); note("Zapisano w pliku: " + f.name, true); }
+  }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
+}
+xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
+document.addEventListener("keydown", e => {
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveXlsx(false); }
+});
 file.onchange = async () => {
   try{ applyImport(JSON.parse(await file.files[0].text())); }
   catch(e){ alert("Nieprawidłowy plik JSON."); }
@@ -550,7 +587,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  document.getElementById("xlsExp").hidden = false; document.getElementById("xlsImp").hidden = false;
+  for(const id of ["xlsExp", "xlsImp", "xlsSave"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
@@ -575,6 +612,7 @@ async function boot(){
       tasks = d.tasks; people = d.people;
       if(r.tasks === null && !readOnly) save();
       note(r.warning || "");
+      fileInfo = r.file || null; showFile();
     } else {
       let d = null;
       try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}

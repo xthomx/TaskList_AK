@@ -32,12 +32,14 @@
   <details class="menu" id="dataMenu">
     <summary class="btn">Dane ▾</summary>
     <div class="menu-items">
-      <button type="button" id="xlsExp" hidden>Eksport do Excela (.xlsx)</button>
-      <button type="button" id="xlsImp" hidden>Import z Excela (.xlsx)</button>
+      <button type="button" id="xlsImp" hidden>Otwórz plik Excela… (zapamiętywany)</button>
+      <button type="button" id="xlsSave" hidden>Zapisz do Excela (Ctrl+S)</button>
+      <button type="button" id="xlsExp" hidden>Zapisz Excel jako…</button>
       <button type="button" id="exp">Eksport JSON</button>
       <button type="button" id="imp">Import JSON</button>
     </div>
   </details>
+  <span id="fileTag" hidden></span>
   <input type="file" id="file" accept=".json" hidden>
   <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
   <div id="note" role="status" hidden></div>

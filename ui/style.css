@@ -134,3 +134,6 @@ table.tasks td.tcell{padding:2px 6px}
 .tinp{width:100%;font:inherit;color:inherit;text-decoration:inherit;background:transparent;border:1px solid transparent;border-radius:4px;padding:4px 6px;text-overflow:ellipsis}
 .tinp:hover{border-color:var(--line)}
 .tinp:focus{outline:none;border-color:var(--accent);background:var(--bg);text-decoration:none}
+#note.ok{color:var(--p1)}
+#fileTag{font-size:12px;color:var(--muted);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fileTag.dirty{color:var(--p2);font-weight:600}
