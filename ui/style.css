@@ -261,3 +261,8 @@ input[type=color]{width:32px;height:26px;padding:0;border:1px solid var(--line);
 .tip-meta{color:var(--muted);font-size:12px;line-height:1.55}
 .tip-notes{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:hidden}
 .tip-none{margin-top:6px;color:var(--muted);font-style:italic;font-size:12px}
+/* ikona Zapisz: wyróżniona, gdy są niezapisane zmiany względem pliku Excela */
+#saveBtn{position:relative;padding:6px 10px}
+#saveBtn.dirty{background:var(--accent);color:#fff;border-color:var(--accent)}
+#saveBtn.dirty::after{content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--p3);border:2px solid var(--panel)}
+#saveBtn:disabled{opacity:.6;cursor:progress}

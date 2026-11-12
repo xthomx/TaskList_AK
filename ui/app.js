@@ -19,7 +19,11 @@ const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
 let fileInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
 function showFile(){
-  const el = document.getElementById("fileTag");
+  const el = document.getElementById("fileTag"), sb = document.getElementById("saveBtn");
+  if(sb){                                           // ikona „Zapisz”: do zapamiętanego pliku Excela (bez pliku: pyta o nazwę)
+    sb.classList.toggle("dirty", !!(fileInfo && fileInfo.dirty));
+    sb.title = fileInfo ? `Zapisz do pliku Excela: ${fileInfo.name} (Ctrl+S)${fileInfo.dirty ? " — są niezapisane zmiany" : ""}` : "Zapisz do pliku Excela… (wybierz plik, Ctrl+S)";
+  }
   if(!DESKTOP || !fileInfo){ el.hidden = true; return; }
   el.hidden = false; el.title = fileInfo.path;
   el.textContent = "📄 " + fileInfo.name + (fileInfo.dirty ? " ● niezapisane zmiany" : " ✓");
@@ -990,6 +994,7 @@ async function saveXlsx(asNew){
   }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
 }
 xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
+saveBtn.onclick = async () => { saveBtn.disabled = true; try{ await saveXlsx(false); } finally{ saveBtn.disabled = false; } };
 document.addEventListener("keydown", e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveXlsx(false); }
 });
@@ -1030,7 +1035,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["xlsExp", "xlsImp", "xlsSave", "mailOpen"]) document.getElementById(id).hidden = false;
+  for(const id of ["xlsExp", "xlsImp", "xlsSave", "mailOpen", "saveBtn"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
