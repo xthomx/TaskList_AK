@@ -1,15 +1,23 @@
 # TaskList AK
 
-Menedżer zadań z kalendarzem — jeden plik HTML, bez instalacji i bez zależności.
-Wystarczy otworzyć `index.html` w przeglądarce.
+Menedżer zadań dla Windows z kalendarzem (widoki **miesiąc / tydzień / dzień**) i przeciąganiem zadań.
+Zbudowany tak jak [HarmonogramAK](https://github.com/xthomx/HarmonogramAK): aplikacja okienkowa (Python + pywebview),
+lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualizacje z GitHub Releases**.
 
 ## Funkcje
-- Widoki **Miesiąc / Tydzień / Dzień** (przyciski lub klawisze `m`, `w`, `d`; strzałki ←/→ zmieniają okres).
-- **Przeciąganie zadań** myszą:
-  - w widoku miesiąca – na inny dzień,
-  - w tygodniu/dniu – na inny dzień i godzinę (krok 15 min), albo na pasek „cały dzień”.
-- Zmiana długości zadania – przeciągnij dolną krawędź kafelka.
-- Nowe zadanie: przycisk **+ Zadanie** lub dwuklik w kalendarzu. Kliknięcie zadania otwiera edycję.
-- Priorytety (kolory), status „wykonane”, notatki.
-- Dane zapisują się lokalnie w przeglądarce (`localStorage`); **Eksport/Import** do JSON do backupu.
-- Jasny/ciemny motyw zgodnie z systemem.
+- Widoki Miesiąc / Tydzień / Dzień (klawisze `m`, `w`, `d`; strzałki ←/→ zmieniają okres).
+- Przeciąganie zadań myszą: na inny dzień (miesiąc) lub dzień i godzinę, krok 15 min (tydzień/dzień); pasek „cały dzień”.
+- Zmiana długości zadania dolną krawędzią kafelka. Priorytety, status „wykonane”, notatki.
+- Dane zapisywane automatycznie w `%LOCALAPPDATA%\TaskListAK\tasks.json` (poza folderem programu); eksport/import JSON.
+- **Aktualizacje:** sprawdzanie przy starcie i przyciskiem „Sprawdź aktualizacje”; instalacja jednym kliknięciem
+  (pobranie, weryfikacja SHA256, podmiana plików z kopią zapasową i wycofaniem, ponowne uruchomienie).
+
+## Uruchomienie
+- Gotowa wersja: pobierz `TaskListAK-Windows-x64.zip` z [Releases](https://github.com/xthomx/TaskList_AK/releases), rozpakuj cały folder i uruchom `TaskListAK.exe` (wymagany WebView2 Runtime).
+- Ze źródeł: `URUCHOM.bat`. Własny EXE: `ZBUDUJ_EXE.bat`. Szczegóły w `INSTRUKCJA.txt`.
+- Interfejs działa też bez Pythona: otwórz `ui/index.html` w przeglądarce (dane w localStorage, bez aktualizacji).
+
+## Wydawanie nowej wersji
+1. Zwiększ `APP_VERSION` w `app_version.py` (np. `1.0.1`).
+2. Wypchnij na `main` — workflow uruchomi testy, zbuduje EXE i opublikuje Release `v1.0.1`.
+3. Zainstalowane programy zobaczą nową wersję i zaproponują aktualizację.

@@ -1,0 +1,32 @@
+TaskList AK — instrukcja
+
+URUCHOMIENIE
+- Gotowy program: rozpakuj CAŁY folder TaskListAK z pliku TaskListAK-Windows-x64.zip
+  (razem z folderem _internal) i uruchom TaskListAK.exe. Wymagany jest Microsoft Edge WebView2 Runtime.
+- Ze źródeł: uruchom URUCHOM.bat (wymaga Pythona 3.10–3.15, 64-bit).
+- Zbudowanie własnego EXE: ZBUDUJ_EXE.bat.
+
+OBSŁUGA
+- Widoki: Miesiąc / Tydzień / Dzień (klawisze m, w, d; strzałki zmieniają okres).
+- Nowe zadanie: przycisk „+ Zadanie” albo dwuklik w kalendarzu. Kliknięcie zadania otwiera edycję.
+- Przesuwanie: przeciągnij zadanie na inny dzień (miesiąc) lub dzień i godzinę (tydzień/dzień).
+  Przeciągnięcie na pasek „cały dzień” usuwa godzinę. Dolna krawędź kafelka zmienia długość.
+- Eksport / Import: kopia zapasowa zadań w pliku JSON.
+
+DANE
+Zadania zapisują się automatycznie w: %LOCALAPPDATA%\TaskListAK\tasks.json
+Dane są poza folderem programu, więc aktualizacja ich nie zmienia.
+Uszkodzony plik nie jest nadpisywany — program zachowuje go jako tasks.uszkodzony-*.json.
+
+AKTUALIZACJE
+- Program sprawdza nowe wydanie po uruchomieniu, a także po kliknięciu „Sprawdź aktualizacje”.
+- Gdy jest nowsza wersja, kliknij „Zainstaluj i uruchom ponownie”. Program pobiera paczkę z GitHub Releases,
+  sprawdza sumę SHA256, zamyka się, podmienia pliki (z kopią zapasową i wycofaniem w razie błędu)
+  i uruchamia się ponownie. Nie są wysyłane żadne dane zadań.
+- Aktualizacja wymaga zapisywalnego folderu programu (np. Dokumenty, nie Program Files).
+- Przy awarii szczegóły są w update-error.log w folderze tymczasowym; kopia poprzedniej wersji jest w „backup”.
+
+PUBLIKOWANIE NOWEJ WERSJI (dla autora)
+1. Zwiększ APP_VERSION w app_version.py (np. 1.0.1).
+2. Wyślij zmiany na gałąź main. GitHub Actions uruchomi testy, zbuduje EXE i opublikuje wydanie vX.Y.Z.
+   Jeśli wydanie o tym numerze już istnieje, nowe nie powstanie — zwiększ numer wersji.

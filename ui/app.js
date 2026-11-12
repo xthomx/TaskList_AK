@@ -1,146 +1,40 @@
-<!doctype html>
-<html lang="pl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TaskList AK</title>
-<style>
-:root{
-  --bg:#f5f6fa; --panel:#fff; --line:#e2e5ee; --text:#1f2430; --muted:#6b7385;
-  --accent:#3b6cf6; --today:#e8efff; --weekend:#fafbfd;
-  --p1:#2e9e5b; --p2:#e0a100; --p3:#d9453d;
-}
-@media (prefers-color-scheme: dark){
-  :root{ --bg:#14161c; --panel:#1d2029; --line:#2e3340; --text:#e8eaf0; --muted:#9097a8;
-         --accent:#6d93ff; --today:#222c4a; --weekend:#191c24; }
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
-header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
-header h1{font-size:18px;margin:0 12px 0 0}
-button,select,input,textarea{font:inherit;color:inherit}
-.btn{background:var(--panel);border:1px solid var(--line);padding:6px 12px;border-radius:6px;cursor:pointer}
-.btn:hover{border-color:var(--accent)}
-.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.btn.danger{color:var(--p3)}
-.seg{display:flex}.seg .btn{border-radius:0;margin-left:-1px}.seg .btn:first-child{border-radius:6px 0 0 6px;margin:0}.seg .btn:last-child{border-radius:0 6px 6px 0}
-.seg .btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-#title{font-weight:600;font-size:16px;min-width:200px;text-transform:capitalize}
-.spacer{flex:1}
-main{flex:1;overflow:auto;padding:12px 16px}
-
-/* ---- month ---- */
-.month{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);background:var(--panel)}
-.dow{padding:6px;font-size:12px;color:var(--muted);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
-.cell{min-height:110px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px;overflow:hidden}
-.cell.other{opacity:.5}.cell.weekend{background:var(--weekend)}.cell.today{background:var(--today)}
-.cell.over,.col.over,.allday.over{outline:2px dashed var(--accent);outline-offset:-2px}
-.daynum{font-size:12px;color:var(--muted);cursor:pointer;display:inline-block;padding:1px 5px;border-radius:10px}
-.cell.today .daynum{background:var(--accent);color:#fff}
-.daynum:hover{text-decoration:underline}
-
-.chip{display:block;font-size:12px;padding:2px 6px;margin:2px 0;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 16%,var(--panel));cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}
-.chip.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 18%,var(--panel))}
-.chip.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 16%,var(--panel))}
-.chip.done{opacity:.55;text-decoration:line-through}
-.chip.dragging{opacity:.3}
-
-/* ---- time grid (week/day) ---- */
-.tg{background:var(--panel);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;height:calc(100vh - 110px)}
-.tg-head{display:grid;border-bottom:1px solid var(--line)}
-.tg-head>div{padding:6px;text-align:center;font-size:13px;border-left:1px solid var(--line)}
-.tg-head>div:first-child{border-left:0}
-.tg-head .today{color:var(--accent);font-weight:700}
-.tg-head .dn{cursor:pointer}.tg-head .dn:hover{text-decoration:underline}
-.allday-row{display:grid;border-bottom:1px solid var(--line);min-height:30px}
-.allday-row>div{border-left:1px solid var(--line);padding:2px}
-.allday-row>div:first-child{border-left:0;font-size:11px;color:var(--muted);padding:6px 2px;text-align:center}
-.tg-body{flex:1;overflow-y:auto;position:relative}
-.tg-grid{display:grid;position:relative}
-.hours div{height:48px;font-size:11px;color:var(--muted);text-align:right;padding-right:6px;transform:translateY(-7px)}
-.col{position:relative;border-left:1px solid var(--line);height:1152px;background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 48px}
-.col.today{background-color:var(--today)}
-.ev{position:absolute;padding:2px 5px;font-size:12px;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 22%,var(--panel));overflow:hidden;cursor:grab;user-select:none;z-index:2}
-.ev.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 24%,var(--panel))}
-.ev.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 22%,var(--panel))}
-.ev.done{opacity:.55;text-decoration:line-through}
-.ev small{display:block;color:var(--muted)}
-.ev .rz{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
-.nowline{position:absolute;left:0;right:0;height:2px;background:var(--p3);z-index:3;pointer-events:none}
-
-/* ---- dialog ---- */
-dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);padding:18px;width:min(440px,92vw)}
-dialog::backdrop{background:rgba(0,0,0,.4)}
-dialog h2{margin:0 0 12px;font-size:17px}
-label{display:block;font-size:12px;color:var(--muted);margin:8px 0 2px}
-input[type=text],input[type=date],input[type=time],select,textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
-.row{display:flex;gap:8px}.row>div{flex:1}
-.actions{display:flex;gap:8px;margin-top:16px}
-.chk{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:14px;color:var(--text)}
-.chk input{width:auto}
-#side{font-size:12px;color:var(--muted)}
-</style>
-</head>
-<body>
-<header>
-  <h1>📅 TaskList AK</h1>
-  <button class="btn" id="prev" title="Poprzedni">‹</button>
-  <button class="btn" id="today">Dziś</button>
-  <button class="btn" id="next" title="Następny">›</button>
-  <span id="title"></span>
-  <div class="spacer"></div>
-  <div class="seg" id="views">
-    <button class="btn" data-v="month">Miesiąc</button>
-    <button class="btn" data-v="week">Tydzień</button>
-    <button class="btn" data-v="day">Dzień</button>
-  </div>
-  <button class="btn primary" id="add">+ Zadanie</button>
-  <button class="btn" id="exp" title="Eksport do JSON">Eksport</button>
-  <button class="btn" id="imp" title="Import z JSON">Import</button>
-  <input type="file" id="file" accept=".json" hidden>
-</header>
-<main id="main"></main>
-
-<dialog id="dlg">
-  <form method="dialog" id="form">
-    <h2 id="dlgTitle">Zadanie</h2>
-    <label>Tytuł</label><input type="text" id="fTitle" required autocomplete="off">
-    <div class="row">
-      <div><label>Data</label><input type="date" id="fDate" required></div>
-      <div><label>Priorytet</label>
-        <select id="fPrio"><option value="1">Niski</option><option value="2">Średni</option><option value="3">Wysoki</option></select></div>
-    </div>
-    <div class="row">
-      <div><label>Od (puste = cały dzień)</label><input type="time" id="fStart"></div>
-      <div><label>Do</label><input type="time" id="fEnd"></div>
-    </div>
-    <label>Notatki</label><textarea id="fNotes" rows="3"></textarea>
-    <label class="chk"><input type="checkbox" id="fDone"> Wykonane</label>
-    <div class="actions">
-      <button class="btn primary" id="save" value="save">Zapisz</button>
-      <button class="btn" value="cancel" formnovalidate>Anuluj</button>
-      <span class="spacer"></span>
-      <button class="btn danger" id="del" type="button">Usuń</button>
-    </div>
-  </form>
-</dialog>
-
-<script>
 "use strict";
-const KEY = "tasklist_ak_v1";
+const KEY = "tasklist_ak_v1";      // klucz localStorage (tylko gdy uruchomiono w zwykłej przeglądarce)
+const DESKTOP = !!window.__DESKTOP__;
 const HOUR = 48;                 // px na godzinę
 const SNAP = 15;                 // minuty
 const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
 const DOW = ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
 
-let tasks = load();
-let view = pref("_view") || "month";
+
+let tasks = [];
+let view = "month";
 let cur = new Date(); cur.setHours(0,0,0,0);
 let drag = null;                 // {id, offY}
+let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve();
+const api = () => window.pywebview && window.pywebview.api;
+const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
+function note(msg){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; }
 
-function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(tasks)); }catch(e){ /* brak dostępu do localStorage – dane tylko w pamięci */ } }
-function pref(k, v){ try{ if(v === undefined) return localStorage.getItem(KEY + k); localStorage.setItem(KEY + k, v); }catch(e){} }
+/* ---- zapis: w aplikacji do pliku w %LOCALAPPDATA%\TaskListAK, w przeglądarce do localStorage ---- */
+function save(){
+  if(!DESKTOP){ try{ localStorage.setItem(KEY, JSON.stringify(tasks)); }catch(e){} return; }
+  if(readOnly) return;
+  clearTimeout(saveTimer); saveTimer = setTimeout(flush, 150);
+}
+function flush(){
+  clearTimeout(saveTimer);
+  if(!DESKTOP || readOnly) return chain;
+  const snap = JSON.parse(JSON.stringify(tasks));
+  chain = chain.then(() => api().save_tasks(snap)).then(() => note("")).catch(e => note("Zapis nie powiódł się: " + errText(e)));
+  return chain;
+}
+let savedView = null;
+function saveView(){
+  if(view === savedView) return; savedView = view;
+  if(DESKTOP){ if(api()) api().set_view(view).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_view", view); }catch(e){} }
+}
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 const pad = n => String(n).padStart(2,"0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -158,7 +52,7 @@ function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
   const main = document.getElementById("main");
   if(view === "month") renderMonth(main); else renderTimeGrid(main, view === "week");
-  pref("_view", view);
+  saveView();
 }
 
 function setTitle(s){ document.getElementById("title").textContent = s; }
@@ -357,32 +251,94 @@ document.addEventListener("keydown", e => {
   else if(e.key === "m") { view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
 });
 
+
 /* ================= eksport / import ================= */
-exp.onclick = () => {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], {type:"application/json"}));
-  a.download = `tasklist-${iso(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href);
+exp.onclick = async () => {
+  try{
+    if(DESKTOP){ const name = await api().export_tasks(tasks); if(name) note("Wyeksportowano: " + name); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], {type:"application/json"}));
+    a.download = `tasklist-${iso(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ note("Eksport nie powiódł się: " + errText(e)); }
 };
-imp.onclick = () => file.click();
+async function applyImport(data){
+  if(confirm(`Zaimportować ${data.length} zadań? Obecne zadania zostaną zastąpione.`)){ tasks = data; save(); render(); }
+}
+imp.onclick = async () => {
+  if(!DESKTOP){ file.click(); return; }
+  try{ const data = await api().import_tasks(); if(data) await applyImport(data); }
+  catch(e){ note("Import nie powiódł się: " + errText(e)); }
+};
 file.onchange = async () => {
   try{
     const data = JSON.parse(await file.files[0].text());
     if(!Array.isArray(data)) throw 0;
-    if(confirm(`Zaimportować ${data.length} zadań? (OK = zastąp obecne, Anuluj = przerwij)`)){ tasks = data; save(); render(); }
+    await applyImport(data);
   }catch(e){ alert("Nieprawidłowy plik JSON."); }
   file.value = "";
 };
 
-if(!tasks.length){ // przykładowe dane przy pierwszym uruchomieniu
+/* ================= aktualizacje (tylko w aplikacji) ================= */
+let installing = false, updateChecked = false;
+function setUpdate(msg, canInstall){ updStatus.textContent = msg; install.hidden = !canInstall; }
+chk.onclick = async () => {
+  chk.disabled = true; setUpdate("Sprawdzanie aktualizacji…", false);
+  try{
+    const r = await api().check_updates();
+    if(r.status === "available"){ setUpdate(`Dostępna wersja ${r.latest} (masz ${r.current}).`, true); }
+    else if(r.status === "pending"){ setUpdate(`Wersja ${r.latest} jest w trakcie publikacji. Spróbuj za kilka minut.`, false); }
+    else if(r.status === "current"){ setUpdate("Masz najnowszą wersję.", false); }
+    else if(r.status === "unavailable"){ setUpdate("Brak opublikowanych wydań.", false); }
+    else setUpdate(r.message || "Nie udało się sprawdzić aktualizacji.", false);
+  }catch(e){ setUpdate("Nie udało się sprawdzić aktualizacji. " + errText(e), false); }
+  finally{ chk.disabled = false; }
+};
+install.onclick = async () => {
+  if(installing) return;
+  if(!confirm("Pobrać aktualizację i ponownie uruchomić program? Twoje zadania są zapisane osobno i nie zostaną zmienione.")) return;
+  installing = true; install.disabled = chk.disabled = true;
+  try{
+    await flush();
+    setUpdate("Pobieranie i sprawdzanie aktualizacji…", false);
+    await api().prepare_update();
+    setUpdate("Aktualizacja gotowa. Program uruchomi się ponownie.", false);
+    await api().install_update();
+  }catch(e){ setUpdate("Nie zainstalowano aktualizacji: " + errText(e), false); }
+  finally{ installing = false; install.disabled = chk.disabled = false; }
+};
+function initUpdates(){
+  if(!DESKTOP) return;
+  document.getElementById("updatebox").hidden = false;
+  api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
+  if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
+}
+
+/* ================= start ================= */
+function seed(){
   const t = iso(new Date());
-  tasks = [
+  return [
     {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:""},
     {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:""},
     {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, done:false, notes:""}
-  ]; save();
+  ];
 }
-render();
-setInterval(() => { if(view !== "month" && !dlg.open && !drag) render(); }, 5*60*1000);
-</script>
-</body>
-</html>
+async function boot(){
+  if(started) return; started = true;
+  try{
+    if(DESKTOP){
+      const r = await api().load_state();
+      view = (r.prefs && r.prefs.view) || "month";
+      readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
+      tasks = r.tasks || (readOnly ? [] : seed());
+      if(r.tasks === null && !readOnly) save();
+      note(r.warning || "");
+    } else {
+      try{ tasks = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ tasks = []; }
+      try{ view = localStorage.getItem(KEY + "_view") || "month"; }catch(e){}
+      if(!tasks.length){ tasks = seed(); save(); }
+    }
+  }catch(e){ readOnly = true; note("Nie udało się wczytać zadań: " + errText(e)); }
+  render(); initUpdates();
+}
+if(DESKTOP){ if(api()) boot(); else window.addEventListener("pywebviewready", boot); } else boot();
+setInterval(() => { if(started && view !== "month" && !dlg.open && !drag) render(); }, 5*60*1000);

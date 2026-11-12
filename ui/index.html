@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaskList AK</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>📅 TaskList AK</h1>
+  <button class="btn" id="prev" title="Poprzedni">‹</button>
+  <button class="btn" id="today">Dziś</button>
+  <button class="btn" id="next" title="Następny">›</button>
+  <span id="title"></span>
+  <div class="spacer"></div>
+  <div class="seg" id="views">
+    <button class="btn" data-v="month">Miesiąc</button>
+    <button class="btn" data-v="week">Tydzień</button>
+    <button class="btn" data-v="day">Dzień</button>
+  </div>
+  <button class="btn primary" id="add">+ Zadanie</button>
+  <button class="btn" id="exp" title="Eksport do JSON">Eksport</button>
+  <button class="btn" id="imp" title="Import z JSON">Import</button>
+  <input type="file" id="file" accept=".json" hidden>
+  <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
+  <div id="note" role="status" hidden></div>
+</header>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2 id="dlgTitle">Zadanie</h2>
+    <label>Tytuł</label><input type="text" id="fTitle" required autocomplete="off">
+    <div class="row">
+      <div><label>Data</label><input type="date" id="fDate" required></div>
+      <div><label>Priorytet</label>
+        <select id="fPrio"><option value="1">Niski</option><option value="2">Średni</option><option value="3">Wysoki</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Od (puste = cały dzień)</label><input type="time" id="fStart"></div>
+      <div><label>Do</label><input type="time" id="fEnd"></div>
+    </div>
+    <label>Notatki</label><textarea id="fNotes" rows="3"></textarea>
+    <label class="chk"><input type="checkbox" id="fDone"> Wykonane</label>
+    <div class="actions">
+      <button class="btn primary" id="save" value="save">Zapisz</button>
+      <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+      <span class="spacer"></span>
+      <button class="btn danger" id="del" type="button">Usuń</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

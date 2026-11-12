@@ -1,0 +1,101 @@
+name: Windows EXE
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Opublikuj wydanie w Releases (wersja z app_version.py)'
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    outputs:
+      release_tag: ${{ steps.version.outputs.tag }}
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements.txt
+      - name: Read application version
+        id: version
+        run: |
+          $tag = python -c "from app_version import APP_VERSION; from updates import version_tuple; version_tuple(APP_VERSION); print('v' + APP_VERSION)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      - name: Check release version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python -c "import os; from app_version import APP_VERSION; assert os.environ['GITHUB_REF_NAME'] == 'v' + APP_VERSION, 'Tag must match APP_VERSION in app_version.py'"
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Build Windows application
+        run: python -m PyInstaller --noconfirm --clean --onedir --windowed --name TaskListAK --add-data "ui;ui" --collect-all webview main.py
+      - name: Build update helper
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name TaskListUpdater --distpath dist/TaskListAK updater_runner.py
+      - name: Smoke test packaged update helper
+        run: |
+          $process = Start-Process -FilePath 'dist/TaskListAK/TaskListUpdater.exe' -ArgumentList '--self-test' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Update helper smoke test failed' }
+      - name: Package complete application
+        run: |
+          if (-not (Test-Path 'dist/TaskListAK/TaskListAK.exe')) { throw 'EXE missing' }
+          Copy-Item INSTRUKCJA.txt dist/TaskListAK/
+          "Commit: $env:GITHUB_SHA`nBuild: $env:GITHUB_RUN_NUMBER" | Set-Content dist/TaskListAK/BUILD.txt
+          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE/release" | Out-Null
+          Compress-Archive -Path dist/TaskListAK -DestinationPath "$env:GITHUB_WORKSPACE/release/TaskListAK-Windows-x64.zip"
+          $hash = (Get-FileHash "$env:GITHUB_WORKSPACE/release/TaskListAK-Windows-x64.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  TaskListAK-Windows-x64.zip" | Set-Content "$env:GITHUB_WORKSPACE/release/SHA256SUMS.txt"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: TaskListAK-Windows-x64-${{ github.run_number }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_release)
+    needs: build
+    concurrency:
+      group: release-${{ needs.build.outputs.release_tag }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: TaskListAK-Windows-x64-${{ github.run_number }}
+          path: release
+      - name: Publish version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists. Increase APP_VERSION for a new release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh release create "$RELEASE_TAG" release/* --target "$RELEASE_COMMIT" --title "TaskList AK $RELEASE_TAG" --generate-notes
+          fi
