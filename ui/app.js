@@ -129,7 +129,7 @@ function renderCal(){
 }
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
-  layoutSeg.hidden = view === "month";                       // przełącznik układu dotyczy tygodnia i dnia
+  layoutSeg.hidden = false;                                  // „Kafelki / Siatka” dla miesiąca, tygodnia i dnia
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
   renderCal();
@@ -168,11 +168,14 @@ function renderMonth(main){
   const first = new Date(cur.getFullYear(), cur.getMonth(), 1);
   const start = mondayOf(first);
   const todayS = iso(new Date());
-  let h = `<div class="month">` + DOW.map(d => `<div class="dow">${d}</div>`).join("");
+  const tiles = layout === "board";                                  // miesiąc jako kalendarz: zadania jako chipy (siatka) albo karty (kafelki)
+  let h = `<div class="month${tiles ? " tiles" : ""}">` + DOW.map(d => `<div class="dow">${d}</div>`).join("");
   for(let i=0;i<42;i++){
     const d = addDays(start,i), ds = iso(d);
     const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
-    h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>${tasksOn(ds).map(t => chipHTML(t, ds)).join("")}</div>`;
+    h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>` +
+         (tiles ? tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done")).map(t => cardHTML(t, ds, false, true)).join("")
+                : tasksOn(ds).map(t => chipHTML(t, ds)).join("")) + `</div>`;
   }
   main.innerHTML = h + "</div>";
 
@@ -188,6 +191,7 @@ function renderMonth(main){
   });
   bindChips(main);
   bindSpanHandles(main);
+  if(tiles) bindChecks(main);
   main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
 }
 
@@ -263,9 +267,20 @@ const WEEKDAYS = ["Niedziela","Poniedziałek","Wtorek","Środa","Czwartek","Pią
 let boardAdd = null;                    // dzień, w którym otwarty jest formularz szybkiego dodawania
 const shortDate = ds => { const d = parse(ds); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`; };
 
-function cardHTML(t, ds, overdue){
+// kółko na karcie: zrobione ↔ oczekujące
+function bindChecks(root){
+  root.querySelectorAll("[data-check]").forEach(b => {
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      const t = byId(b.dataset.check); if(!t) return;
+      applyStatus(t, t.status === "done" ? "pending" : "done"); save(); render();
+    });
+    b.addEventListener("mousedown", e => e.stopPropagation());
+  });
+}
+function cardHTML(t, ds, overdue, compact){
   const names = namesOf(t), multi = isMulti(t);
-  const note = (t.notes || "").split(/\r?\n/).find(l => l.trim()) || "";
+  const note = compact ? "" : ((t.notes || "").split(String.fromCharCode(10)).find(l => l.trim()) || "").trim();
   const meta = [];
   if(overdue) meta.push(`<span class="late">📅 ${shortDate(t.date)}</span>`);
   if(t.start) meta.push(`<span>🕒 ${t.start}${t.end ? "–" + t.end : ""}</span>`);
@@ -336,15 +351,7 @@ function renderBoard(main){
     });
   });
   bindChips(main);
-  // kółko: zrobione ↔ oczekujące
-  main.querySelectorAll("[data-check]").forEach(b => {
-    b.addEventListener("click", e => {
-      e.stopPropagation();
-      const t = byId(b.dataset.check); if(!t) return;
-      applyStatus(t, t.status === "done" ? "pending" : "done"); save(); render();
-    });
-    b.addEventListener("mousedown", e => e.stopPropagation());
-  });
+  bindChecks(main);
   // „Zmień termin” dla zaległych
   const rs = main.querySelector("#bResched");
   if(rs) rs.onclick = e => {

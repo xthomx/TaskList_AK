@@ -197,3 +197,9 @@ table.tasks td.tcell{padding:2px 6px}
 .bcol.weekend>header b{color:var(--muted)}
 .bcol.today.weekend>header b{color:var(--accent)}
 .ctx-del{color:var(--p3)}
+/* miesiąc jako kalendarz z kafelkami: w komórkach dni karty zamiast chipów */
+.month.tiles .cell{min-height:130px;padding:4px 5px}
+.month.tiles .card{margin:4px 0;padding:6px 7px 6px 11px;gap:6px;box-shadow:none}
+.month.tiles .ccheck{flex-basis:16px;width:16px;height:16px;font-size:10px}
+.month.tiles .ctitle{font-size:12px;line-height:1.3}
+.month.tiles .cmeta{margin-top:3px;font-size:11px;gap:2px 8px}
