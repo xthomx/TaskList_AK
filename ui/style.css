@@ -203,3 +203,12 @@ table.tasks td.tcell{padding:2px 6px}
 .month.tiles .ccheck{flex-basis:16px;width:16px;height:16px;font-size:10px}
 .month.tiles .ctitle{font-size:12px;line-height:1.3}
 .month.tiles .cmeta{margin-top:3px;font-size:11px;gap:2px 8px}
+/* priorytet wysoki: pulsowanie (nie dotyczy zrobionych; wyłączone przy ograniczeniu animacji w systemie) */
+@keyframes pulseHigh{
+  0%,100%{box-shadow:0 0 0 0 rgba(217,69,61,.65),0 0 0 0 rgba(217,69,61,.0);filter:brightness(1)}
+  50%{box-shadow:0 0 0 4px rgba(217,69,61,.0),0 0 10px 2px rgba(217,69,61,.55);filter:brightness(1.08)}
+}
+.chip.p3:not(.st-done),.ev.p3:not(.st-done),.card.p3:not(.st-done),tr.trow:not(.st-done) .badge.p3{animation:pulseHigh 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .chip.p3,.ev.p3,.card.p3,.badge.p3{animation:none !important}
+}
