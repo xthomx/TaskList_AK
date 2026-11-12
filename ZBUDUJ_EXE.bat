@@ -4,9 +4,9 @@ call PRZYGOTUJ.bat
 if errorlevel 1 goto fail
 .venv\Scripts\python.exe -m unittest discover -s tests -v
 if errorlevel 1 goto fail
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windowed --name TaskListAK --add-data "ui;ui" --collect-all webview main.py
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windowed --name TaskListAK --icon "ui\icon.ico" --add-data "ui;ui" --collect-all webview main.py
 if errorlevel 1 goto fail
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --windowed --name TaskListUpdater --distpath dist\TaskListAK updater_runner.py
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --windowed --name TaskListUpdater --icon "ui\icon.ico" --distpath dist\TaskListAK updater_runner.py
 if errorlevel 1 goto fail
  echo Gotowe: dist\TaskListAK\TaskListAK.exe
  echo Przenos CALY folder dist\TaskListAK, nie sam plik EXE.

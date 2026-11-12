@@ -48,9 +48,9 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -v
       - name: Build Windows application
-        run: python -m PyInstaller --noconfirm --clean --onedir --windowed --name TaskListAK --add-data "ui;ui" --collect-all webview main.py
+        run: python -m PyInstaller --noconfirm --clean --onedir --windowed --name TaskListAK --icon ui/icon.ico --add-data "ui;ui" --collect-all webview main.py
       - name: Build update helper
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name TaskListUpdater --distpath dist/TaskListAK updater_runner.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name TaskListUpdater --icon ui/icon.ico --distpath dist/TaskListAK updater_runner.py
       - name: Smoke test packaged update helper
         run: |
           $process = Start-Process -FilePath 'dist/TaskListAK/TaskListUpdater.exe' -ArgumentList '--self-test' -Wait -PassThru

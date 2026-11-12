@@ -130,7 +130,8 @@ def main():
                                    width=1400, height=900, min_size=(900, 600), maximized=True,
                                    text_select=True)
     api._window = window
-    webview.start(gui='edgechromium', private_mode=True)
+    icon = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent)) / 'ui' / 'icon.ico'
+    webview.start(gui='edgechromium', private_mode=True, icon=str(icon) if icon.is_file() else None)
 
 
 if __name__ == '__main__':
