@@ -10,6 +10,8 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - Zmiana długości zadania dolną krawędzią kafelka. Priorytety, status „wykonane”, notatki.
 - **Osoby** (zapis „Nazwisko Imię”): zadania można przypisać do jednej lub kilku osób, filtr osoby w nagłówku.
 - **Lista zadań** pod kalendarzem, posortowana w kolejności wykonania.
+- **Status i postęp:** oczekujące / w trakcie / zrobione (prawy przycisk myszy, 3 ikony) oraz suwak postępu 0–100% co 25; „zrobione” = 100%.
+- **Przenoszenie:** zadanie na przyszły tydzień oraz masowo niezakończone na dziś lub na przyszły tydzień (menu „Przenieś”).
 - **Excel:** eksport i import `.xlsx` (menu „Dane”); arkusze „Zadania” i „Osoby”. Import zastępuje obecne dane (po potwierdzeniu).
 - Dane zapisywane automatycznie w `%LOCALAPPDATA%\TaskListAK\tasks.json` (poza folderem programu); eksport/import JSON.
 - **Aktualizacje:** sprawdzanie przy starcie i przyciskiem „Sprawdź aktualizacje”; instalacja jednym kliknięciem

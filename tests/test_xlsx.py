@@ -11,7 +11,7 @@ PEOPLE = [{'id': 'p1', 'name': 'Kowalska Anna'}, {'id': 'p2', 'name': 'Żółć 
 
 def task(i, **kw):
     base = {'id': 't%d' % i, 'title': 'Zadanie %d' % i, 'date': '2026-11-1%d' % i, 'start': '09:30',
-            'end': '10:45', 'priority': 3, 'done': False, 'notes': 'Notatka ąęć', 'assignees': ['p1', 'p2']}
+            'end': '10:45', 'priority': 3, 'status': 'pending', 'progress': 0, 'notes': 'Notatka ąęć', 'assignees': ['p1', 'p2']}
     base.update(kw)
     return base
 
@@ -30,14 +30,14 @@ def workbook(rows, header=('Tytuł', 'Data', 'Od', 'Do', 'Priorytet', 'Status', 
 
 class XlsxTests(unittest.TestCase):
     def test_roundtrip_keeps_everything_except_ids(self):
-        source = validate_data({'people': PEOPLE, 'tasks': [task(2, done=True), task(1, start='', end='', assignees=[])]})
+        source = validate_data({'people': PEOPLE, 'tasks': [task(2, status='done', progress=100), task(3, status='progress', progress=50), task(1, start='', end='', assignees=[])]})
         result = xlsx_format.loads(xlsx_format.dumps(source))
         self.assertEqual([p['name'] for p in result['people']], ['Kowalska Anna', 'Żółć Łukasz'])
         by_title = {t['title']: t for t in result['tasks']}
         names = {p['id']: p['name'] for p in result['people']}
         t2 = by_title['Zadanie 2']
-        self.assertEqual((t2['date'], t2['start'], t2['end'], t2['priority'], t2['done'], t2['notes']),
-                         ('2026-11-12', '09:30', '10:45', 3, True, 'Notatka ąęć'))
+        self.assertEqual((t2['date'], t2['start'], t2['end'], t2['priority'], t2['status'], t2['notes']),
+                         ('2026-11-12', '09:30', '10:45', 3, 'done', 'Notatka ąęć'))
         self.assertEqual([names[a] for a in t2['assignees']], ['Kowalska Anna', 'Żółć Łukasz'])
         t1 = by_title['Zadanie 1']
         self.assertEqual((t1['start'], t1['end'], t1['assignees']), ('', '', []))
@@ -58,16 +58,18 @@ class XlsxTests(unittest.TestCase):
     def test_import_handwritten_sheet(self):
         raw = workbook([
             ('Zrobić raport', dt.datetime(2026, 12, 1), dt.time(8, 0), 0.5, 'wysoki', 'Wykonane', 'Ola, Piotr', None),
-            ('Telefon', '05.12.2026', '9:15', None, None, None, None, 'notatka'),
+            ('Telefon', '05.12.2026', '9:15', None, None, 'W trakcie', None, 'notatka'),
             (None, None, None, None, None, None, None, None),
         ])
         result = xlsx_format.loads(raw)
         self.assertEqual(len(result['tasks']), 2)
         first, second = result['tasks']
-        self.assertEqual((first['date'], first['start'], first['end'], first['priority'], first['done']),
-                         ('2026-12-01', '08:00', '12:00', 3, True))
+        self.assertEqual((first['date'], first['start'], first['end'], first['priority'], first['status']),
+                         ('2026-12-01', '08:00', '12:00', 3, 'done'))
         self.assertEqual(len(first['assignees']), 2)
         self.assertEqual({p['name'] for p in result['people']}, {'Ola', 'Piotr'})
+        self.assertEqual(second['status'], 'progress')
+        self.assertEqual((first['progress'], second['progress']), (100, 0))
         self.assertEqual((second['date'], second['start'], second['end'], second['priority']), ('2026-12-05', '09:15', '', 1))
 
     def test_errors_are_readable(self):
@@ -79,3 +81,12 @@ class XlsxTests(unittest.TestCase):
             xlsx_format.loads(workbook([('X', 'jutro', None, None, None, None, None, None)]))
         with self.assertRaisesRegex(ValueError, 'Wiersz 2.*godzina'):
             xlsx_format.loads(workbook([('X', '2026-12-01', '25:99', None, None, None, None, None)]))
+
+    def test_progress_import_rounding(self):
+        rows = [('A', '2026-12-01', None, None, None, 'W trakcie', '60%', None, None),
+                ('B', '2026-12-01', None, None, None, 'Oczekujące', 0.5, None, None),
+                ('C', '2026-12-01', None, None, None, 'Zrobione', 10, None, None),
+                ('D', '2026-12-01', None, None, None, None, None, None, None)]
+        header = ('Tytuł', 'Data', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki')
+        result = xlsx_format.loads(workbook(rows, header=header))
+        self.assertEqual([t['progress'] for t in result['tasks']], [50, 50, 100, 0])

@@ -11,12 +11,21 @@ from openpyxl.utils import get_column_letter
 from storage import validate_data, MAX_TASKS, MAX_PEOPLE
 
 TASK_SHEET, PEOPLE_SHEET = 'Zadania', 'Osoby'
-HEADERS = ['Tytuł', 'Data', 'Od', 'Do', 'Priorytet', 'Status', 'Osoby', 'Notatki']
+HEADERS = ['Tytuł', 'Data', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki']
 PRIORITY = {1: 'Niski', 2: 'Średni', 3: 'Wysoki'}
 PRIORITY_BACK = {'niski': 1, 'sredni': 2, 'średni': 2, 'wysoki': 3, '1': 1, '2': 2, '3': 3,
                  'low': 1, 'medium': 2, 'high': 3}
-DONE_WORDS = {'wykonane', 'zrobione', 'tak', 'done', 'x', '1', 'true', 'prawda'}
-WIDTHS = [40, 12, 8, 8, 11, 13, 30, 50]
+STATUS_LABEL = {'pending': 'Oczekujące', 'progress': 'W trakcie', 'done': 'Zrobione'}
+DONE_WORDS = {'wykonane', 'zrobione', 'zrobiony', 'tak', 'done', 'x', '1', 'true', 'prawda'}
+PROGRESS_WORDS = {'w trakcie', 'trakcie', 'w toku', 'realizowane', 'in progress', 'progress'}
+
+
+def _status(value):
+    s = value.strip().lower()
+    return 'done' if s in DONE_WORDS else 'progress' if s in PROGRESS_WORDS else 'pending'
+
+
+WIDTHS = [40, 12, 8, 8, 11, 13, 11, 30, 50]
 
 
 
@@ -30,7 +39,7 @@ def dumps(data):
     tasks = sorted(data['tasks'], key=lambda t: (t['date'], t['start'], t['title'].lower()))
     for t in tasks:
         ws.append([t['title'], dt.date.fromisoformat(t['date']), t['start'], t['end'],
-                   PRIORITY[t['priority']], 'Wykonane' if t['done'] else 'Do zrobienia',
+                   PRIORITY[t['priority']], STATUS_LABEL[t['status']], t['progress'],
                    '; '.join(names[a] for a in t['assignees']), t['notes']])
         ws.cell(row=ws.max_row, column=2).number_format = 'yyyy-mm-dd'
     people = wb.create_sheet(PEOPLE_SHEET)
@@ -53,6 +62,21 @@ def dumps(data):
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def _progress(v, status):
+    """Postęp 0-100 zaokrąglony do 25; zrobione zawsze 100; brak wartości = z statusu."""
+    if status == 'done':
+        return 100
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return 0
+    try:
+        n = float(str(v).strip().rstrip('%').replace(',', '.')) if isinstance(v, str) else float(v)
+    except ValueError:
+        raise ValueError('nieprawidłowy postęp: ' + str(v)[:10])
+    if 0 < n <= 1 and not isinstance(v, str):      # komórka w formacie procentowym (0,5 = 50%)
+        n *= 100
+    return min(100, max(0, round(n / 25) * 25))
 
 
 def _text(v):
@@ -113,6 +137,7 @@ def loads(raw):
     col = lambda *names: next((index[n] for n in names if n in index), None)
     c_title, c_date, c_start, c_end = col('tytuł', 'tytul'), col('data'), col('od'), col('do')
     c_prio, c_status, c_people, c_notes = col('priorytet'), col('status'), col('osoby', 'osoba'), col('notatki', 'notatka')
+    c_prog = col('postęp (%)', 'postęp', 'postep', 'postęp %')
     if c_date is None:
         raise ValueError('Brak kolumny „Data”.')
     get = lambda row, c: row[c] if c is not None and c < len(row) else None
@@ -145,11 +170,13 @@ def loads(raw):
                 raise ValueError('brak tytułu')
             start, end = _time(get(row, c_start)), _time(get(row, c_end))
             prio = PRIORITY_BACK.get(_text(get(row, c_prio)).lower(), 1) if _text(get(row, c_prio)) else 1
+            status = _status(_text(get(row, c_status)))
+            progress = _progress(get(row, c_prog), status)
             owners = _text(get(row, c_people))
             names = [x.strip() for x in owners.split(';' if ';' in owners else ',') if x.strip()]
             tasks.append({'id': uuid.uuid4().hex[:12], 'title': title, 'date': _date(get(row, c_date)),
                           'start': start, 'end': end, 'priority': prio,
-                          'done': _text(get(row, c_status)).lower() in DONE_WORDS,
+                          'status': status, 'progress': progress,
                           'notes': _text(get(row, c_notes)), 'assignees': [person(x[:100]) for x in names]})
         except ValueError as exc:
             raise ValueError('Wiersz %d: %s' % (n, exc)) from exc

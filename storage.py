@@ -10,6 +10,8 @@ MAX_BYTES = 5_000_000
 MAX_TASKS = 20000
 MAX_PEOPLE = 1000
 VIEWS = ('month', 'week', 'day')
+STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakcie, zrobione
+PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
 
 def data_dir():
@@ -52,14 +54,18 @@ def validate_data(data):
         title = t.get('title')
         start, end = t.get('start', ''), t.get('end', '')
         assignees = t.get('assignees', [])
+        status = t.get('status') or ('done' if t.get('done') else 'pending')   # 'done' pochodzi z wersji < 1.2
+        progress = t.get('progress', 100 if status == 'done' else 0)
+        if status == 'done':
+            progress = 100
         if (not isinstance(title, str) or not title.strip() or not _is_date(t.get('date'))
-                or not _is_time(start) or not _is_time(end) or t.get('priority') not in (1, 2, 3)
+                or not _is_time(start) or not _is_time(end) or t.get('priority') not in (1, 2, 3) or status not in STATUSES or progress not in PROGRESS_STEPS
                 or not isinstance(t.get('notes', ''), str)
                 or not isinstance(assignees, list) or any(a not in pids for a in assignees)):
             raise ValueError('Nieprawidłowe dane zadania: ' + str(title)[:40])
         clean.append({'id': t['id'], 'title': title.strip()[:300], 'date': t['date'],
                       'start': start, 'end': end if start else '', 'priority': t['priority'],
-                      'done': bool(t.get('done')), 'notes': t.get('notes', '')[:5000],
+                      'status': status, 'progress': progress, 'notes': t.get('notes', '')[:5000],
                       'assignees': list(dict.fromkeys(assignees))})
     return {'people': clean_people, 'tasks': clean}
 

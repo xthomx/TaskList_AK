@@ -7,7 +7,7 @@ from storage import Storage, validate_data
 
 def task(**kw):
     base = {'id': 'a', 'title': 'Zadanie', 'date': '2026-11-12', 'start': '10:00', 'end': '11:00',
-            'priority': 2, 'done': False, 'notes': '', 'assignees': []}
+            'priority': 2, 'status': 'pending', 'progress': 0, 'notes': '', 'assignees': []}
     base.update(kw)
     return base
 
@@ -48,10 +48,14 @@ class StorageTests(unittest.TestCase):
                 validate_data(data(people=bad))
 
     def test_legacy_list_format_from_v1_0(self):
-        legacy = [{k: v for k, v in task().items() if k != 'assignees'}]
+        legacy = [{k: v for k, v in task().items() if k not in ('assignees', 'status')}]
         clean = validate_data(legacy)
         self.assertEqual(clean['people'], [])
         self.assertEqual(clean['tasks'][0]['assignees'], [])
+        self.assertEqual(clean['tasks'][0]['status'], 'pending')
+        self.assertEqual(validate_data([dict(legacy[0], done=True)])['tasks'][0]['status'], 'done')
+        with self.assertRaises(ValueError):
+            validate_data(data(task(status='x')))
         self.store.folder.mkdir(parents=True)
         self.store.tasks_path.write_text(json.dumps(legacy), encoding='utf-8')
         self.assertEqual(len(self.store.load_data()['data']['tasks']), 1)
@@ -77,3 +81,13 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.store.get_prefs()['view'], 'week')
         with self.assertRaises(ValueError):
             self.store.set_view('rok')
+
+    def test_progress_steps_and_done_means_100(self):
+        for bad in (task(progress=30), task(progress=-25), task(progress='50')):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                validate_data(data(bad))
+        self.assertEqual(validate_data(data(task(status='progress', progress=75)))['tasks'][0]['progress'], 75)
+        self.assertEqual(validate_data(data(task(status='done', progress=25)))['tasks'][0]['progress'], 100)
+        legacy = {k: v for k, v in task().items() if k not in ('status', 'progress')}
+        self.assertEqual(validate_data([dict(legacy, done=True)])['tasks'][0]['progress'], 100)
+        self.assertEqual(validate_data([legacy])['tasks'][0]['progress'], 0)

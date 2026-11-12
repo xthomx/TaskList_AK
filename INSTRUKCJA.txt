@@ -12,6 +12,8 @@ OBSŁUGA
 - Przesuwanie: przeciągnij zadanie na inny dzień (miesiąc) lub dzień i godzinę (tydzień/dzień).
   Przeciągnięcie na pasek „cały dzień” usuwa godzinę. Dolna krawędź kafelka zmienia długość.
 - Osoby (zapis: „Nazwisko Imię”, np. Kowalski Jan; listy sortowane po nazwisku): przycisk „Osoby” (dodawanie, zmiana nazwy, usuwanie); w zadaniu zaznaczasz jedną lub kilka osób. Filtr osoby w nagłówku zawęża kalendarz i listę.
+- Status zadania: oczekujące (domyślny), w trakcie, zrobione. Kliknij zadanie PRAWYM przyciskiem myszy (w kalendarzu lub na liście) i wybierz jedną z trzech ikon: ⏳ oczekujące, 🔄 w trakcie, ✅ zrobione. W tym samym menu jest suwak postępu (0, 25, 50, 75, 100%). „Zrobione” ustawia postęp na 100%, a 100% ustawia status „zrobione”.
+- Przenoszenie: prawy przycisk → „Przenieś na przyszły tydzień” (ten sam dzień tygodnia; zaległe trafiają do przyszłego tygodnia), przycisk „➡ Na przyszły tydzień” w oknie zadania oraz menu „Przenieś ▾” w nagłówku: „Zaległe niezakończone → na dziś” i „Niezakończone → na przyszły tydzień” (zaległe i z bieżącego tygodnia; respektuje filtr osoby).
 - Lista zadań pod kalendarzem: wszystkie zadania w kolejności wykonania (data, godzina, priorytet); zakres „Od dziś” / „Widoczny okres”, ukrywanie wykonanych, pole wyboru „wykonane” w wierszu.
 - Dane ▾ → Eksport / Import Excela (.xlsx: arkusze „Zadania” i „Osoby”; można też przygotować plik ręcznie — kolumny Tytuł, Data, Od, Do, Priorytet, Status, Osoby, Notatki) oraz JSON.
 

@@ -20,11 +20,38 @@ function note(msg){ const el = document.getElementById("note"); el.textContent =
 
 /* ---- zapis: w aplikacji do pliku w %LOCALAPPDATA%\TaskListAK, w przeglądarce do localStorage ---- */
 const currentData = () => ({people, tasks});
+/* ---- status zadania: oczekujące (domyślny) / w trakcie / zrobione + postęp 0–100 co 25 ---- */
+const STATUS = {
+  pending:  {icon: "⏳", label: "Oczekujące"},
+  progress: {icon: "🔄", label: "W trakcie"},
+  done:     {icon: "✅", label: "Zrobione"}
+};
+const STEPS = [0, 25, 50, 75, 100];
+function applyStatus(t, s){        // zrobione = 100%, oczekujące = 0%
+  t.status = s;
+  if(s === "done") t.progress = 100;
+  else if(s === "pending") t.progress = 0;
+  else if(t.progress === 0) t.progress = 25;
+  else if(t.progress === 100) t.progress = 50;
+}
+function applyProgress(t, p){      // 100% = zrobione; postęp > 0 = w trakcie
+  t.progress = p;
+  if(p === 100) t.status = "done";
+  else if(t.status === "done") t.status = p > 0 ? "progress" : "pending";
+  else if(p > 0) t.status = "progress";
+}
+function fixTask(t){               // wersje < 1.2 miały tylko pole done
+  const o = Object.assign({assignees: []}, t);
+  o.status = STATUS[o.status] ? o.status : (o.done ? "done" : "pending");
+  delete o.done;
+  if(o.status === "done") o.progress = 100; else if(!STEPS.includes(o.progress)) o.progress = 0;
+  return o;
+}
 function normalize(d){        // akceptuje stary format (sama lista zadań z wersji 1.0)
   if(Array.isArray(d)) d = {people: [], tasks: d};
   if(!d || !Array.isArray(d.tasks)) throw new Error("Nieprawidłowy format danych.");
   const ppl = Array.isArray(d.people) ? d.people : [];
-  return {people: ppl, tasks: d.tasks.map(t => Object.assign({assignees: []}, t))};
+  return {people: ppl, tasks: d.tasks.map(fixTask)};
 }
 function save(){
   if(!DESKTOP){ try{ localStorage.setItem(KEY, JSON.stringify(currentData())); }catch(e){} return; }
@@ -79,8 +106,9 @@ function chipHTML(t){
   const time = t.start ? t.start + " " : "";
   const names = namesOf(t), who = names.length ? ` <span class="who">· ${esc(names.map(shortName).join(", "))}</span>` : "";
   const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "");
-  return `<span class="chip p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" title="${tip}">${time}${esc(t.title)}${who}</span>`;
+  return `<span class="chip p${t.priority} st-${t.status}" style="--pg:${t.progress}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${stIcon(t)}${time}${esc(t.title)}${who}</span>`;
 }
+const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
 function fillPersonFilter(){
   const sel = document.getElementById("fPerson");
@@ -171,8 +199,8 @@ function renderTimeGrid(main, isWeek){
     h += `<div class="col${ds===todayS?" today":""}" data-date="${ds}">` + layoutDay(timed).map(ev => {
       const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
       const w = 100/ev.n;
-      return `<div class="ev p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" style="top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
-             `${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small><span class="rz" data-rz="${t.id}"></span></div>`;
+      return `<div class="ev p${t.priority} st-${t.status}" draggable="true" data-id="${t.id}" style="--pg:${t.progress}%;top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
+             `${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small><span class="rz" data-rz="${t.id}"></span></div>`;
     }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
   }
   main.innerHTML = h + `</div></div></div>`;
@@ -243,14 +271,25 @@ let editing = null;
 function openDialog(id, date, start){
   editing = id ? byId(id) : null;
   const preset = (!editing && filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
-  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, done:false, notes:"", assignees: preset};
+  const t = editing || {title:"", date: date || iso(cur), start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes:"", assignees: preset};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
   fTitle.value = t.title; fDate.value = t.date; fPrio.value = t.priority;
-  fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || ""; fDone.checked = !!t.done;
+  fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
+  draft = {status: t.status, progress: t.progress}; syncDraft();
+  fNext.hidden = false;
   fNewPerson.value = ""; drawPicker(t.assignees || []);
   document.getElementById("del").style.visibility = editing ? "visible" : "hidden";
   dlg.showModal(); fTitle.focus();
 }
+let draft = {status: "pending", progress: 0};
+function syncDraft(){ fStatus.value = draft.status; fProg.value = draft.progress; fProgVal.textContent = draft.progress + "%"; }
+fStatus.onchange = () => { applyStatus(draft, fStatus.value); syncDraft(); };
+fProg.oninput = () => { applyProgress(draft, +fProg.value); syncDraft(); };
+fNext.onclick = () => {      // przenieś na przyszły tydzień
+  const ds = nextWeekDate(fDate.value || iso(cur));
+  if(editing){ editing.date = ds; save(); dlg.close(); render(); note(""); }
+  else fDate.value = ds;
+};
 function drawPicker(selected){
   fPeople.innerHTML = people.length ? sortedPeople().map(p =>
     `<label><input type="checkbox" value="${esc(p.id)}"${selected.includes(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")
@@ -275,7 +314,7 @@ form.addEventListener("submit", e => {
   t.title = fTitle.value.trim(); t.date = fDate.value; t.priority = +fPrio.value;
   t.start = fStart.value; t.end = fStart.value ? (fEnd.value || toHM(toMin(fStart.value)+60)) : "";
   if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
-  t.notes = fNotes.value; t.done = fDone.checked; t.assignees = pickedIds();
+  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = pickedIds();
   if(!editing) tasks.push(t);
   save(); render();
 });
@@ -318,24 +357,26 @@ const byDue = (a,b) => a.date.localeCompare(b.date) || (a.start||"").localeCompa
 function renderList(){
   const todayS = iso(new Date()), [from, to] = periodRange();
   let rows = visibleTasks();
-  if(hideDone) rows = rows.filter(t => !t.done);
+  if(hideDone) rows = rows.filter(t => t.status !== "done");
   if(listScope === "today") rows = rows.filter(t => t.date >= todayS);
   else if(listScope === "period") rows = rows.filter(t => t.date >= from && t.date <= to);
   rows.sort(byDue);
   const el = document.getElementById("list");
   let h = `<div class="list-head"><h2>Lista zadań (${rows.length})</h2>
     <label>Zakres <select id="lScope"><option value="all">Wszystkie</option><option value="today">Od dziś</option><option value="period">Widoczny okres</option></select></label>
-    <label><input type="checkbox" id="lHide"> Ukryj wykonane</label></div>`;
+    <label><input type="checkbox" id="lHide"> Ukryj zrobione</label></div>`;
   if(!rows.length) h += `<div class="empty">Brak zadań do wyświetlenia.</div>`;
   else {
-    h += `<table class="tasks"><thead><tr><th></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th></tr></thead><tbody>`;
+    h += `<table class="tasks"><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
     let prev = "";
     for(const t of rows){
-      const cls = ["trow", t.date !== prev && prev ? "newday" : "", t.date === todayS ? "istoday" : "", t.date < todayS && !t.done ? "late" : "", t.done ? "isdone" : ""].join(" ");
+      const done = t.status === "done";
+      const cls = ["trow", t.date !== prev && prev ? "newday" : "", t.date === todayS ? "istoday" : "", t.date < todayS && !done ? "late" : "", "st-" + t.status].join(" ");
       prev = t.date;
       const when = fmtDate(t.date) + (t.start ? ` ${t.start}${t.end ? "–" + t.end : ""}` : " · cały dzień");
-      h += `<tr class="${cls}" data-id="${esc(t.id)}"><td><input type="checkbox" data-done="${esc(t.id)}"${t.done ? " checked" : ""} aria-label="Wykonane"></td>` +
-           `<td>${when}</td><td>${esc(t.title)}</td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td></tr>`;
+      h += `<tr class="${cls}" data-id="${esc(t.id)}"><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
+           `<td>${when}</td><td>${esc(t.title)}</td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
+           `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
     h += `</tbody></table>`;
   }
@@ -343,9 +384,68 @@ function renderList(){
   lScope.value = listScope; lHide.checked = hideDone;
   lScope.onchange = () => { listScope = lScope.value; renderList(); };
   lHide.onchange = () => { hideDone = lHide.checked; renderList(); };
-  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.matches("input")) openDialog(r.dataset.id); }));
-  el.querySelectorAll("[data-done]").forEach(c => c.addEventListener("change", () => { const t = byId(c.dataset.done); if(t){ t.done = c.checked; save(); render(); } }));
+  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", () => openDialog(r.dataset.id)));
 }
+
+/* ================= przenoszenie na przyszły tydzień / na dziś ================= */
+const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+// +7 dni, a gdy wypada to jeszcze w tym tygodniu (zadanie zaległe) – ten sam dzień tygodnia w przyszłym tygodniu
+function nextWeekDate(ds){
+  const orig = parse(ds), moved = addDays(orig, 7), nextMon = addDays(mondayOf(startOfToday()), 7);
+  return iso(moved < nextMon ? addDays(nextMon, (orig.getDay() + 6) % 7) : moved);
+}
+const unfinished = () => visibleTasks().filter(t => t.status !== "done");
+function bulkMove(kind){
+  closeMenu2();
+  const todayS = iso(new Date()), weekEnd = iso(addDays(mondayOf(startOfToday()), 6));
+  const rows = kind === "today" ? unfinished().filter(t => t.date < todayS) : unfinished().filter(t => t.date <= weekEnd);
+  const scope = filterPerson ? " (zgodnie z wybranym filtrem osoby)" : "";
+  if(!rows.length){ alert(kind === "today" ? "Brak zaległych niezakończonych zadań do przeniesienia na dziś." : "Brak niezakończonych zadań z tego tygodnia lub zaległych do przeniesienia."); return; }
+  const msg = kind === "today"
+    ? `Przenieść ${rows.length} zaległych niezakończonych zadań na dziś${scope}?`
+    : `Przenieść ${rows.length} niezakończonych zadań (zaległych i z tego tygodnia) na przyszły tydzień${scope}?`;
+  if(!confirm(msg)) return;
+  rows.forEach(t => { t.date = kind === "today" ? todayS : nextWeekDate(t.date); });
+  save(); render();
+}
+function closeMenu2(){ moveMenu.open = false; }
+document.addEventListener("click", e => { if(!e.target.closest("#moveMenu")) closeMenu2(); });
+mvToday.onclick = () => bulkMove("today");
+mvNext.onclick = () => bulkMove("next");
+
+/* ================= menu prawego przycisku: status, postęp, przeniesienie ================= */
+let ctxId = null;
+const ctx = document.getElementById("ctx");
+function hideCtx(){ ctx.hidden = true; ctxId = null; }
+function showCtx(id, x, y){
+  const t = byId(id); if(!t) return;
+  ctxId = id;
+  ctx.innerHTML =
+    `<div class="ctx-icons">` + Object.keys(STATUS).map(s =>
+      `<button type="button" data-s="${s}" class="${t.status === s ? "on" : ""}" title="${STATUS[s].label}"><span>${STATUS[s].icon}</span><small>${STATUS[s].label}</small></button>`).join("") + `</div>` +
+    `<div class="ctx-prog"><label>Postęp: <b id="ctxPv">${t.progress}%</b></label><input type="range" id="ctxP" min="0" max="100" step="25" value="${t.progress}" list="progTicks"></div>` +
+    `<hr><button type="button" class="ctx-item" data-act="next">➡ Przenieś na przyszły tydzień</button>` +
+    `<button type="button" class="ctx-item" data-act="edit">✏ Edytuj…</button>`;
+  ctx.hidden = false;
+  const r = ctx.getBoundingClientRect();
+  ctx.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 6)) + "px";
+  ctx.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 6)) + "px";
+  ctx.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { applyStatus(t, b.dataset.s); save(); hideCtx(); render(); });
+  const p = ctx.querySelector("#ctxP");
+  p.oninput = () => { ctx.querySelector("#ctxPv").textContent = p.value + "%"; };
+  p.onchange = () => { applyProgress(t, +p.value); save(); hideCtx(); render(); };
+  ctx.querySelector('[data-act="next"]').onclick = () => { t.date = nextWeekDate(t.date); save(); hideCtx(); render(); };
+  ctx.querySelector('[data-act="edit"]').onclick = () => { hideCtx(); openDialog(t.id); };
+}
+document.addEventListener("contextmenu", e => {
+  const el = e.target.closest("[data-id]");
+  if(!el || e.target.closest("dialog")){ if(!e.target.closest("#ctx")) hideCtx(); return; }
+  e.preventDefault(); showCtx(el.dataset.id, e.clientX, e.clientY);
+});
+document.addEventListener("mousedown", e => { if(!ctx.hidden && !e.target.closest("#ctx")) hideCtx(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape") hideCtx(); });
+window.addEventListener("blur", hideCtx);
+document.addEventListener("scroll", hideCtx, true);
 document.getElementById("del").onclick = () => {
   if(editing && confirm("Usunąć to zadanie?")){ tasks = tasks.filter(t => t !== editing); save(); dlg.close(); render(); }
 };
@@ -443,9 +543,9 @@ function initUpdates(){
 function seed(){
   const t = iso(new Date()), a = {id:uid(), name:"Nowak Anna"}, b = {id:uid(), name:"Kowalski Jan"};
   return {people: [a, b], tasks: [
-    {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:"", assignees:[a.id, b.id]},
-    {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:"", assignees:[]},
-    {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, done:false, notes:"", assignees:[a.id]}
+    {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, status:"progress", progress:50, notes:"", assignees:[a.id, b.id]},
+    {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, status:"pending", progress:0, notes:"", assignees:[]},
+    {id:uid(), title:"Przykład: termin oddania raportu", date:iso(addDays(new Date(),2)), start:"15:30", end:"16:30", priority:3, status:"pending", progress:0, notes:"", assignees:[a.id]}
   ]};
 }
 async function boot(){

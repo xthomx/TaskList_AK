@@ -35,7 +35,6 @@ main{flex:1;overflow:auto;padding:12px 16px}
 .chip{display:block;font-size:12px;padding:2px 6px;margin:2px 0;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 16%,var(--panel));cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}
 .chip.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 18%,var(--panel))}
 .chip.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 16%,var(--panel))}
-.chip.done{opacity:.55;text-decoration:line-through}
 .chip.dragging{opacity:.3}
 
 /* ---- time grid (week/day) ---- */
@@ -56,7 +55,6 @@ main{flex:1;overflow:auto;padding:12px 16px}
 .ev{position:absolute;padding:2px 5px;font-size:12px;border-radius:4px;border-left:4px solid var(--p1);background:color-mix(in srgb,var(--p1) 22%,var(--panel));overflow:hidden;cursor:grab;user-select:none;z-index:2}
 .ev.p2{border-color:var(--p2);background:color-mix(in srgb,var(--p2) 24%,var(--panel))}
 .ev.p3{border-color:var(--p3);background:color-mix(in srgb,var(--p3) 22%,var(--panel))}
-.ev.done{opacity:.55;text-decoration:line-through}
 .ev small{display:block;color:var(--muted)}
 .ev .rz{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
 .nowline{position:absolute;left:0;right:0;height:2px;background:var(--p3);z-index:3;pointer-events:none}
@@ -102,7 +100,27 @@ table.tasks tr.trow{cursor:pointer}table.tasks tr.trow:hover td{background:var(-
 table.tasks tr.newday td{border-top:2px solid var(--line)}
 table.tasks tr.istoday td:nth-child(2){font-weight:700;color:var(--accent)}
 table.tasks tr.late td:nth-child(2){color:var(--p3);font-weight:600}
-table.tasks tr.isdone td:not(:first-child){opacity:.55;text-decoration:line-through}
 .badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:var(--p1)}
 .badge.p2{background:var(--p2)}.badge.p3{background:var(--p3)}
 .empty{color:var(--muted);padding:10px 4px}
+/* status i postęp */
+.chip{position:relative}
+.chip::after,.ev::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:var(--pg,0%);background:var(--p1);opacity:.85;pointer-events:none}
+.chip.p2::after,.ev.p2::after{background:var(--p2)}.chip.p3::after,.ev.p3::after{background:var(--p3)}
+.chip.st-done,.ev.st-done{opacity:.55;text-decoration:line-through}
+.chip.st-progress,.ev.st-progress{font-weight:600}
+.sti{font-size:11px;margin-right:2px}
+table.tasks tr.st-done td:not(.stcell){opacity:.55;text-decoration:line-through}
+.stcell{font-size:16px;width:28px;text-align:center}
+.pbar{display:inline-block;width:70px;height:7px;border-radius:4px;background:var(--line);vertical-align:middle;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--accent)}
+#fProg,#ctxP{width:100%;accent-color:var(--accent)}
+#ctx{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);width:250px}
+#ctx hr{border:0;border-top:1px solid var(--line);margin:8px 0}
+.ctx-icons{display:flex;gap:6px}
+.ctx-icons button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
+.ctx-icons button span{font-size:22px;line-height:1}.ctx-icons button small{font-size:11px;color:var(--text)}
+.ctx-icons button:hover{border-color:var(--accent)}.ctx-icons button.on{border-color:var(--accent);background:var(--today)}
+.ctx-prog{margin-top:8px;font-size:12px}.ctx-prog label{margin:0 0 2px;color:var(--text)}
+.ctx-item{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 8px;border-radius:6px;cursor:pointer}
+.ctx-item:hover{background:var(--today)}
