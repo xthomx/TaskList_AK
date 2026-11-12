@@ -91,11 +91,14 @@ const visibleTasks = () => tasks.filter(matchesFilter);
 const tasksOn = ds => visibleTasks().filter(t => t.date === ds).sort(byTime);
 
 /* ================= render ================= */
+function renderCal(){
+  const cal = document.getElementById("cal");
+  if(view === "month") renderMonth(cal); else renderTimeGrid(cal, view === "week");
+}
 function render(){
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
   fillPersonFilter();
-  const cal = document.getElementById("cal");
-  if(view === "month") renderMonth(cal); else renderTimeGrid(cal, view === "week");
+  renderCal();
   renderList();
   saveView();
 }
@@ -367,7 +370,7 @@ function renderList(){
     <label><input type="checkbox" id="lHide"> Ukryj zrobione</label></div>`;
   if(!rows.length) h += `<div class="empty">Brak zadań do wyświetlenia.</div>`;
   else {
-    h += `<table class="tasks"><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
+    h += `<table class="tasks"><colgroup><col class="c-st"><col class="c-when"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
     let prev = "";
     for(const t of rows){
       const done = t.status === "done";
@@ -375,7 +378,7 @@ function renderList(){
       prev = t.date;
       const when = fmtDate(t.date) + (t.start ? ` ${t.start}${t.end ? "–" + t.end : ""}` : " · cały dzień");
       h += `<tr class="${cls}" data-id="${esc(t.id)}"><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
-           `<td>${when}</td><td>${esc(t.title)}</td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
+           `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
     h += `</tbody></table>`;
@@ -384,7 +387,20 @@ function renderList(){
   lScope.value = listScope; lHide.checked = hideDone;
   lScope.onchange = () => { listScope = lScope.value; renderList(); };
   lHide.onchange = () => { hideDone = lHide.checked; renderList(); };
-  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", () => openDialog(r.dataset.id)));
+  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.closest(".tinp")) openDialog(r.dataset.id); }));
+  el.querySelectorAll(".tinp").forEach(inp => {          // edycja tytułu bezpośrednio w komórce
+    const t = byId(inp.dataset.title);
+    inp.addEventListener("keydown", e => {
+      if(e.key === "Enter") inp.blur();
+      else if(e.key === "Escape"){ inp.value = t.title; inp.blur(); }
+      e.stopPropagation();
+    });
+    inp.addEventListener("change", () => {
+      const v = inp.value.trim();
+      if(!v){ inp.value = t.title; return; }
+      if(v !== t.title){ t.title = v; inp.value = v; save(); renderCal(); }
+    });
+  });
 }
 
 /* ================= przenoszenie na przyszły tydzień / na dziś ================= */

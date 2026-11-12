@@ -124,3 +124,13 @@ table.tasks tr.st-done td:not(.stcell){opacity:.55;text-decoration:line-through}
 .ctx-prog{margin-top:8px;font-size:12px}.ctx-prog label{margin:0 0 2px;color:var(--text)}
 .ctx-item{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 8px;border-radius:6px;cursor:pointer}
 .ctx-item:hover{background:var(--today)}
+/* kolumny listy: „Zadanie” najszersza, edycja w komórce */
+table.tasks{table-layout:fixed}
+table.tasks col.c-st{width:38px}table.tasks col.c-when{width:190px}table.tasks col.c-who{width:200px}
+table.tasks col.c-prio{width:90px}table.tasks col.c-prog{width:120px}
+table.tasks td.when{white-space:nowrap}
+table.tasks td{overflow-wrap:anywhere}
+table.tasks td.tcell{padding:2px 6px}
+.tinp{width:100%;font:inherit;color:inherit;text-decoration:inherit;background:transparent;border:1px solid transparent;border-radius:4px;padding:4px 6px;text-overflow:ellipsis}
+.tinp:hover{border-color:var(--line)}
+.tinp:focus{outline:none;border-color:var(--accent);background:var(--bg);text-decoration:none}
