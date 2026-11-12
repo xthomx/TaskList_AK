@@ -144,6 +144,7 @@ function renderCal(){
   else renderTimeGrid(cal, view === "week");
 }
 function render(){
+  hideTip();
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
   layoutSeg.hidden = false;                                  // „Kafelki / Siatka” dla miesiąca, tygodnia i dnia
   applyTheme();
@@ -168,7 +169,7 @@ function chipHTML(t, ds){
   if(multi && ds){ const n = daysBetween(t.date, end) + 1, i = daysBetween(t.date, ds); pg = Math.round(Math.min(1, Math.max(0, (t.progress / 100 - i / n) * n)) * 100); }
   const label = lj ? "&nbsp;" : `${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
   const handle = ds && ds === end ? `<span class="rzd" data-rzd="${t.id}" title="Przeciągnij, aby zmienić liczbę dni"></span>` : "";
-  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}" title="${tip} [${STATUS[t.status].label}, ${t.progress}%]">${label}${handle}</span>`;
+  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}">${label}${handle}</span>`;
 }
 const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
@@ -814,6 +815,43 @@ document.addEventListener("mousedown", e => { if(!ctx.hidden && !e.target.closes
 document.addEventListener("keydown", e => { if(e.key === "Escape") hideCtx(); });
 window.addEventListener("blur", hideCtx);
 document.addEventListener("scroll", hideCtx, true);
+
+/* ================= dymek z opisem zadania po najechaniu ================= */
+const tipEl = document.getElementById("tip");
+let tipTimer = null, tipFor = null, mouseX = 0, mouseY = 0;
+function hideTip(){ clearTimeout(tipTimer); tipTimer = null; tipFor = null; if(tipEl) tipEl.hidden = true; }
+function tipHTML(t){
+  const when = isMulti(t) ? `${fmtDate(t.date)} – ${fmtDate(endOf(t))}` : fmtDate(t.date) + (t.start ? ` · ${t.start}${t.end ? "–" + t.end : ""}` : "");
+  const names = namesOf(t), notes = (t.notes || "").trim();
+  const meta = [`📅 ${esc(when)}`, `${STATUS[t.status].icon} ${STATUS[t.status].label}${t.progress ? ` · ${t.progress}%` : ""}`,
+                names.length ? `👥 ${esc(names.join(", "))}` : "", t.series ? "🔁 Zadanie cykliczne" : ""].filter(Boolean);
+  return `<div class="tip-title">${esc(t.title)}</div><div class="tip-meta">${meta.join("<br>")}</div>` +
+         (notes ? `<div class="tip-notes">${esc(notes.length > 700 ? notes.slice(0, 700) + "…" : notes)}</div>` : `<div class="tip-none">Brak opisu</div>`);
+}
+function showTip(t){
+  if(!tipEl || !byId(t.id)) return;
+  tipEl.style.setProperty("--tc", t.color || `var(--p${t.priority})`);
+  tipEl.innerHTML = tipHTML(t); tipEl.hidden = false;
+  const r = tipEl.getBoundingClientRect();
+  let x = mouseX + 16, y = mouseY + 18;
+  if(x + r.width > innerWidth - 8) x = Math.max(8, mouseX - r.width - 12);          // brak miejsca z prawej: po lewej od kursora
+  if(y + r.height > innerHeight - 8) y = Math.max(8, mouseY - r.height - 12);       // brak miejsca na dole: nad kursorem
+  tipEl.style.left = x + "px"; tipEl.style.top = y + "px";
+}
+document.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; });
+document.addEventListener("mouseover", e => {
+  if(drag || !ctx.hidden || e.target.closest("dialog") || e.target.closest("#tip")) return;
+  const el = e.target.closest("[data-id]");
+  if(!el || el === tipFor) return;
+  const t = byId(el.dataset.id); if(!t) return;
+  hideTip(); tipFor = el;
+  tipTimer = setTimeout(() => { if(tipFor === el && el.isConnected) showTip(t); }, 350);
+});
+document.addEventListener("mouseout", e => {
+  const el = e.target.closest("[data-id]");
+  if(el && el === tipFor && !el.contains(e.relatedTarget)) hideTip();
+});
+for(const ev of ["mousedown", "dragstart", "contextmenu", "keydown", "wheel", "blur"]) window.addEventListener(ev, hideTip, true);
 // usuwanie zadania (dla serii pyta, czy usunąć tylko to, czy także kolejne); zwraca true, gdy usunięto
 async function deleteTask(t){
   const later = t.series ? tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).length : 0;

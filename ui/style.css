@@ -254,3 +254,10 @@ input[type=color]{width:32px;height:26px;padding:0;border:1px solid var(--line);
 .ctx-colors{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .ctx-colors .swatch{width:20px;height:20px}
 #themeSeg .btn{padding:6px 10px}
+/* dymek z opisem zadania */
+#tip{position:fixed;z-index:70;max-width:380px;min-width:180px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-left:4px solid var(--tc,var(--accent));border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:13px;pointer-events:none}
+#tip[hidden]{display:none}
+.tip-title{font-weight:700;margin-bottom:4px;overflow-wrap:anywhere}
+.tip-meta{color:var(--muted);font-size:12px;line-height:1.55}
+.tip-notes{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:hidden}
+.tip-none{margin-top:6px;color:var(--muted);font-style:italic;font-size:12px}
