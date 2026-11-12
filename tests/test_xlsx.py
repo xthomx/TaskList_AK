@@ -6,7 +6,7 @@ from openpyxl import Workbook, load_workbook
 import xlsx_format
 from storage import validate_data
 
-PEOPLE = [{'id': 'p1', 'name': 'Anna Kowalska'}, {'id': 'p2', 'name': 'Łukasz Żółć'}]
+PEOPLE = [{'id': 'p1', 'name': 'Kowalska Anna'}, {'id': 'p2', 'name': 'Żółć Łukasz'}]
 
 
 def task(i, **kw):
@@ -32,13 +32,13 @@ class XlsxTests(unittest.TestCase):
     def test_roundtrip_keeps_everything_except_ids(self):
         source = validate_data({'people': PEOPLE, 'tasks': [task(2, done=True), task(1, start='', end='', assignees=[])]})
         result = xlsx_format.loads(xlsx_format.dumps(source))
-        self.assertEqual([p['name'] for p in result['people']], ['Anna Kowalska', 'Łukasz Żółć'])
+        self.assertEqual([p['name'] for p in result['people']], ['Kowalska Anna', 'Żółć Łukasz'])
         by_title = {t['title']: t for t in result['tasks']}
         names = {p['id']: p['name'] for p in result['people']}
         t2 = by_title['Zadanie 2']
         self.assertEqual((t2['date'], t2['start'], t2['end'], t2['priority'], t2['done'], t2['notes']),
                          ('2026-11-12', '09:30', '10:45', 3, True, 'Notatka ąęć'))
-        self.assertEqual([names[a] for a in t2['assignees']], ['Anna Kowalska', 'Łukasz Żółć'])
+        self.assertEqual([names[a] for a in t2['assignees']], ['Kowalska Anna', 'Żółć Łukasz'])
         t1 = by_title['Zadanie 1']
         self.assertEqual((t1['start'], t1['end'], t1['assignees']), ('', '', []))
 

@@ -39,9 +39,9 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(validate_data(data(task(start='', end='11:00')))['tasks'][0]['end'], '')
 
     def test_people_and_assignees(self):
-        people = [{'id': 'p1', 'name': ' Anna Kowalska '}, {'id': 'p2', 'name': 'Jan'}]
+        people = [{'id': 'p1', 'name': ' Kowalska Anna '}, {'id': 'p2', 'name': 'Jan'}]
         clean = validate_data(data(task(assignees=['p1', 'p2', 'p1']), people=people))
-        self.assertEqual(clean['people'][0]['name'], 'Anna Kowalska')
+        self.assertEqual(clean['people'][0]['name'], 'Kowalska Anna')
         self.assertEqual(clean['tasks'][0]['assignees'], ['p1', 'p2'])
         for bad in ([{'id': 'p1', 'name': ''}], [{'id': 'p1', 'name': 'A'}, {'id': 'p1', 'name': 'B'}]):
             with self.assertRaises(ValueError):

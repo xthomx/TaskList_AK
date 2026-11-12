@@ -56,7 +56,9 @@ const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'
 const byTime = (a,b) => (a.start||"").localeCompare(b.start||"") || a.title.localeCompare(b.title);
 const personName = id => { const p = people.find(x => x.id === id); return p ? p.name : ""; };
 const namesOf = t => (t.assignees || []).map(personName).filter(Boolean);
-const initials = n => n.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join("");
+const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.name, "pl"));
+// osoby zapisujemy jako „Nazwisko Imię”; na kafelkach skrót: „Nazwisko I.”
+const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
 const matchesFilter = t => !filterPerson || (filterPerson === "__none" ? !(t.assignees||[]).length : (t.assignees||[]).includes(filterPerson));
 const visibleTasks = () => tasks.filter(matchesFilter);
 const tasksOn = ds => visibleTasks().filter(t => t.date === ds).sort(byTime);
@@ -75,7 +77,7 @@ function setTitle(s){ document.getElementById("title").textContent = s; }
 
 function chipHTML(t){
   const time = t.start ? t.start + " " : "";
-  const names = namesOf(t), who = names.length ? ` <span class="who">· ${esc(names.map(initials).join(", "))}</span>` : "";
+  const names = namesOf(t), who = names.length ? ` <span class="who">· ${esc(names.map(shortName).join(", "))}</span>` : "";
   const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "");
   return `<span class="chip p${t.priority}${t.done?" done":""}" draggable="true" data-id="${t.id}" title="${tip}">${time}${esc(t.title)}${who}</span>`;
 }
@@ -84,7 +86,7 @@ function fillPersonFilter(){
   const sel = document.getElementById("fPerson");
   if(filterPerson && filterPerson !== "__none" && !people.some(p => p.id === filterPerson)) filterPerson = "";
   sel.innerHTML = `<option value="">Wszystkie osoby</option><option value="__none">Nieprzypisane</option>` +
-    people.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+    sortedPeople().map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
   sel.value = filterPerson;
 }
 
@@ -250,7 +252,7 @@ function openDialog(id, date, start){
   dlg.showModal(); fTitle.focus();
 }
 function drawPicker(selected){
-  fPeople.innerHTML = people.length ? people.map(p =>
+  fPeople.innerHTML = people.length ? sortedPeople().map(p =>
     `<label><input type="checkbox" value="${esc(p.id)}"${selected.includes(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")
     : `<span class="hint">Brak osób — dodaj poniżej lub w oknie „Osoby”.</span>`;
 }
@@ -281,7 +283,7 @@ form.addEventListener("submit", e => {
 /* ================= osoby ================= */
 const pdlg = document.getElementById("pdlg");
 function drawPeople(){
-  pList.innerHTML = people.length ? people.map(p => {
+  pList.innerHTML = people.length ? sortedPeople().map(p => {
     const n = tasks.filter(t => (t.assignees||[]).includes(p.id)).length;
     return `<div class="prow" data-id="${esc(p.id)}"><input type="text" value="${esc(p.name)}" maxlength="100" aria-label="Nazwa osoby"><small>${n} zad.</small><button class="btn danger" type="button" data-del="${esc(p.id)}">Usuń</button></div>`;
   }).join("") : `<div class="empty">Brak osób.</div>`;
@@ -439,7 +441,7 @@ function initUpdates(){
 
 /* ================= start ================= */
 function seed(){
-  const t = iso(new Date()), a = {id:uid(), name:"Anna Nowak"}, b = {id:uid(), name:"Jan Kowalski"};
+  const t = iso(new Date()), a = {id:uid(), name:"Nowak Anna"}, b = {id:uid(), name:"Kowalski Jan"};
   return {people: [a, b], tasks: [
     {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, done:false, notes:"", assignees:[a.id, b.id]},
     {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, done:false, notes:"", assignees:[]},

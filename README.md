@@ -8,7 +8,7 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - Widoki Miesiąc / Tydzień / Dzień (klawisze `m`, `w`, `d`; strzałki ←/→ zmieniają okres).
 - Przeciąganie zadań myszą: na inny dzień (miesiąc) lub dzień i godzinę, krok 15 min (tydzień/dzień); pasek „cały dzień”.
 - Zmiana długości zadania dolną krawędzią kafelka. Priorytety, status „wykonane”, notatki.
-- **Osoby:** zadania można przypisać do jednej lub kilku osób, filtr osoby w nagłówku.
+- **Osoby** (zapis „Nazwisko Imię”): zadania można przypisać do jednej lub kilku osób, filtr osoby w nagłówku.
 - **Lista zadań** pod kalendarzem, posortowana w kolejności wykonania.
 - **Excel:** eksport i import `.xlsx` (menu „Dane”); arkusze „Zadania” i „Osoby”. Import zastępuje obecne dane (po potwierdzeniu).
 - Dane zapisywane automatycznie w `%LOCALAPPDATA%\TaskListAK\tasks.json` (poza folderem programu); eksport/import JSON.
