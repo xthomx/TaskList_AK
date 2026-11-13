@@ -5,6 +5,7 @@ const HOUR = 48;                 // px na godzinę
 const SNAP = 15;                 // minuty
 const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
 const DOW = ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
+const DOW_FULL = ["Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota","Niedziela"];
 
 
 let tasks = [], people = [];
@@ -195,7 +196,7 @@ function renderMonth(main){
   const start = mondayOf(first);
   const todayS = iso(new Date());
   const tiles = layout === "board";                                  // miesiąc jako kalendarz: zadania jako chipy (siatka) albo karty (kafelki)
-  let h = `<div class="month${tiles ? " tiles" : ""}">` + DOW.map(d => `<div class="dow">${d}</div>`).join("");
+  let h = `<div class="month${tiles ? " tiles" : ""}">` + DOW.map((d, i) => `<div class="dow${i >= 5 ? " wkd" : ""}"><span class="dfull">${DOW_FULL[i]}</span><span class="dabbr">${d}</span></div>`).join("");
   for(let i=0;i<42;i++){
     const d = addDays(start,i), ds = iso(d);
     const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
@@ -323,8 +324,8 @@ function cardHTML(t, ds, overdue, compact){
 
 function dayLabel(d, todayS){
   const ds = iso(d), tomorrow = iso(addDays(new Date(), 1));
-  const name = ds === todayS ? "Dziś" : ds === tomorrow ? "Jutro" : WEEKDAYS[d.getDay()];
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} · ${name}`;
+  const badge = ds === todayS ? `<span class="bbadge">Dziś</span>` : ds === tomorrow ? `<span class="bbadge soft">Jutro</span>` : "";
+  return `<span class="bwd">${WEEKDAYS[d.getDay()]}</span><span class="bdate">${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</span>${badge}`;
 }
 
 let boardKey = "", boardScrollX = 0;      // zapamiętane przewinięcie poziome (miesiąc: 30 kolumn)
@@ -354,7 +355,7 @@ function renderBoard(main){
   for(const d of days){
     const ds = iso(d);
     const list = tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done"));   // zrobione na dole
-    h += `<section class="bcol${ds === todayS ? " today" : ""}${d.getDay() % 6 === 0 ? " weekend" : ""}" data-date="${ds}"><header><b>${dayLabel(d, todayS)}</b><span class="bcount">${list.length}</span></header>` +
+    h += `<section class="bcol${ds === todayS ? " today" : ""}${d.getDay() % 6 === 0 ? " weekend" : ""}" data-date="${ds}"><header><div class="bhead">${dayLabel(d, todayS)}</div><span class="bcount">${list.length}</span></header>` +
          `<div class="bcards">${list.map(t => cardHTML(t, ds, false)).join("")}</div>` +
          `<div class="badd" data-add="${ds}"><button class="bplus" type="button">＋ Dodaj zadanie</button></div></section>`;
   }
@@ -425,7 +426,7 @@ function renderTimeGrid(main, isWeek){
   const n = days.length, todayS = iso(new Date());
   const tpl = `56px repeat(${n}, 1fr)`;
   let h = `<div class="tg"><div class="tg-head" style="grid-template-columns:${tpl}"><div></div>` +
-    days.map(d => `<div class="${iso(d)===todayS?"today":""}"><span class="dn" data-goto="${iso(d)}">${DOW[(d.getDay()+6)%7]} ${d.getDate()}</span></div>`).join("") + `</div>`;
+    days.map(d => { const w = (d.getDay() + 6) % 7; return `<div class="${iso(d)===todayS?"today":""}${w >= 5 ? " wkd" : ""}"><span class="dn" data-goto="${iso(d)}"><span class="wd"><span class="dfull">${DOW_FULL[w]}</span><span class="dabbr">${DOW[w]}</span></span><span class="dd">${d.getDate()}</span></span></div>`; }).join("") + `</div>`;
   h += `<div class="allday-row" style="grid-template-columns:${tpl}"><div>cały dzień</div>` +
     days.map(d => `<div class="allday" data-date="${iso(d)}">${tasksOn(iso(d)).filter(t => !t.start).map(t => chipHTML(t, iso(d))).join("")}</div>`).join("") + `</div>`;
   h += `<div class="tg-body" id="tgb"><div class="tg-grid" style="grid-template-columns:${tpl}"><div class="hours">` +
