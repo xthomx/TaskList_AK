@@ -182,7 +182,7 @@ function renderCal(){
 }
 function render(){
   hideTip();
-  pruneSel();
+  pruneSel(); updateMoveButtons();
   document.getElementById("main").classList.toggle("today-mode", daySummary());
   todayBtn.classList.toggle("active", daySummary() && iso(cur) === iso(new Date()));
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
@@ -798,7 +798,7 @@ function renderList(){
 /* ================= zaznaczanie wielu zadań (lista i ekran „Dziś”) ================= */
 let sel = new Set();
 const pruneSel = () => { for(const id of [...sel]) if(!byId(id)) sel.delete(id); };
-const refreshSel = () => { if(daySummary()) renderCal(); else renderList(); };
+const refreshSel = () => { if(daySummary()) renderCal(); else renderList(); updateMoveButtons(); };
 
 function selBarHTML(){
   if(!sel.size) return "";
@@ -819,6 +819,12 @@ function selBarHTML(){
 
 function moveSelected(kind){
   const rows = [...sel].map(byId).filter(Boolean); if(!rows.length) return;
+  if(kind === "nextweek"){                              // ten sam dzień tygodnia w przyszłym tygodniu (zachowuje odstępy i długość zadań)
+    rows.forEach(t => moveToDate(t, nextWeekDate(t.date)));
+    sel.clear(); save(); render();
+    note(`Przeniesiono na przyszły tydzień: ${rows.length} ${zadWord(rows.length)}.`, true);
+    return;
+  }
   const now = new Date();
   let target = null;
   if(kind === "today") target = iso(now);
@@ -930,10 +936,20 @@ function bulkMove(kind){
   rows.forEach(t => moveToDate(t, kind === "today" ? todayS : nextWeekDate(t.date)));
   save(); render();
 }
-function closeMenu2(){ moveMenu.open = false; }
-document.addEventListener("click", e => { if(!e.target.closest("#moveMenu")) closeMenu2(); });
+function closeMenu2(){ const m = document.getElementById("moveMenu"); if(m) m.open = false; }     // (menu zastąpione przyciskami w panelu)
+
+/* ---- przyciski „Przenieś” w panelu: zaległe → dziś, zaznaczone → przyszły tydzień (z licznikami) ---- */
+const zadWord = n => n === 1 ? "zadanie" : (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) ? "zadania" : "zadań";
+function updateMoveButtons(){
+  if(typeof mvToday === "undefined" || !mvToday) return;
+  const todayS = iso(new Date()), n = unfinished().filter(t => endOf(t) < todayS).length, k = sel.size;
+  mvToday.disabled = n === 0;
+  mvTodaySub.textContent = n ? `${n} ${zadWord(n)} do przeniesienia` : "brak zaległych zadań";
+  mvSel.disabled = k === 0;
+  mvSelSub.textContent = k ? `Zaznaczono: ${k} ${zadWord(k)}` : "najpierw zaznacz zadania";
+}
 mvToday.onclick = () => bulkMove("today");
-mvNext.onclick = () => bulkMove("next");
+mvSel.onclick = () => moveSelected("nextweek");
 
 /* ================= menu prawego przycisku: status, postęp, przeniesienie ================= */
 let ctxId = null;

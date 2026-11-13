@@ -16,16 +16,17 @@
   <button class="btn snav" id="ppl" title="Zarządzaj osobami"><i data-ic="users"></i>Osoby</button>
   <label class="sidelabel" for="fPerson">Filtr osoby</label>
   <select id="fPerson" class="btn" aria-label="Filtr osoby"></select>
-  <details class="menu" id="moveMenu">
-    <summary class="btn"><i data-ic="calnext"></i>Przenieś <span class="caret">▾</span></summary>
-    <div class="menu-items">
-      <div class="mgroup">
-        <div class="mhead">Niezakończone zadania</div>
-        <button type="button" id="mvToday"><i data-ic="calcheck"></i><span>Zaległe → na dziś</span></button>
-        <button type="button" id="mvNext"><i data-ic="calnext"></i><span>Zaległe i z tego tygodnia → na przyszły tydzień</span></button>
-      </div>
-    </div>
-  </details>
+  <small class="sec">Przenieś zadania</small>
+  <div class="mvgroup" id="moveBox">
+    <button class="mvbtn" id="mvToday" type="button" title="Przenosi niezakończone zadania z przeszłości na dzisiaj">
+      <span class="mvico today"><i data-ic="calcheck"></i></span>
+      <span class="mvtxt"><b>Zaległe → na dziś</b><small id="mvTodaySub"></small></span>
+    </button>
+    <button class="mvbtn" id="mvSel" type="button" title="Przenosi zaznaczone zadania na przyszły tydzień (ten sam dzień tygodnia)">
+      <span class="mvico week"><i data-ic="calnext"></i></span>
+      <span class="mvtxt"><b>Zaznaczone → przyszły tydzień</b><small id="mvSelSub"></small></span>
+    </button>
+  </div>
   <small class="sec">Wygląd</small>
   <span class="sidelabel">Układ</span>
   <div class="seg" id="layoutSeg" title="Układ: kafelki lub siatka">

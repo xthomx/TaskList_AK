@@ -7,7 +7,7 @@ URUCHOMIENIE
 - Zbudowanie własnego EXE: ZBUDUJ_EXE.bat.
 
 OBSŁUGA
-- Układ ekranu: po lewej panel boczny (Nowe zadanie; Zadania na dziś, Osoby, filtr osoby, Przenieś; Wygląd: układ Kafelki/Siatka, motyw, przypomnienia; Pliki: Excel, JSON, e-mail, Zapisz; na dole wersja i aktualizacje oraz komunikaty), a w górnej belce tylko nawigacja ‹ Dziś › z tytułem okresu i przełącznik 🗓 Miesiąc / 📆 Tydzień. Widok jednego dnia to „Zadania na dziś” (inny dzień otworzysz, klikając jego numer w kalendarzu). Klawisze: m, w, d.
+- Układ ekranu: po lewej panel boczny (Nowe zadanie; Zadania na dziś, Osoby, filtr osoby; sekcja „Przenieś zadania” z dwoma przyciskami: „Zaległe → na dziś” oraz „Zaznaczone → przyszły tydzień” (każdy z licznikiem; drugi działa na zadaniach zaznaczonych polami wyboru na liście lub kafelkach i zachowuje dzień tygodnia oraz długość zadań); Wygląd: układ Kafelki/Siatka, motyw, przypomnienia; Pliki: Excel, JSON, e-mail, Zapisz; na dole wersja i aktualizacje oraz komunikaty), a w górnej belce tylko nawigacja ‹ Dziś › z tytułem okresu i przełącznik 🗓 Miesiąc / 📆 Tydzień. Widok jednego dnia to „Zadania na dziś” (inny dzień otworzysz, klikając jego numer w kalendarzu). Klawisze: m, w, d.
 - Nowe zadanie: przycisk „+ Zadanie” albo dwuklik w kalendarzu. Kliknięcie zadania otwiera edycję.
 - Przesuwanie: przeciągnij zadanie na inny dzień (miesiąc) lub dzień i godzinę (tydzień/dzień).
   Przeciągnięcie na pasek „cały dzień” usuwa godzinę. Dolna krawędź kafelka zmienia długość.
