@@ -383,3 +383,22 @@ summary.btn .caret{font-size:11px;opacity:.7;margin-left:1px}
 .chip .xdel .ic{width:11px;height:11px}
 .ev .xdel{right:4px;bottom:9px;width:20px;height:20px}
 @media (hover:none){.xdel{opacity:.8}}
+/* przypomnienia: okienka w prawym górnym rogu (warstwa popover nad oknami dialogowymi) */
+#remBox{position:fixed;inset:auto;top:68px;right:16px;margin:0;padding:0;border:0;background:transparent;overflow:visible;width:min(360px,calc(100vw - 32px));color:var(--text)}
+#remBox:not(:popover-open){display:none}
+#remBox{display:flex;flex-direction:column;gap:10px}
+.remcard{--tc:var(--p1);background:var(--panel);color:var(--text);border:1px solid var(--line);border-left:6px solid var(--tc);border-radius:12px;padding:12px 14px;box-shadow:0 14px 36px rgba(0,0,0,.35);animation:remIn .25s ease-out}
+.remcard.p2{--tc:var(--p2)}.remcard.p3{--tc:var(--p3)}
+@keyframes remIn{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
+.rem-head{display:flex;align-items:center;gap:8px;color:var(--tc);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.rem-head b{flex:1}
+.rem-x{background:none;border:0;color:var(--muted);cursor:pointer;padding:2px;border-radius:6px;display:flex}
+.rem-x:hover{background:var(--today);color:var(--text)}
+.rem-title{font-size:17px;font-weight:700;margin:6px 0 4px;overflow-wrap:anywhere}
+.rem-meta{font-size:13px;color:var(--muted);line-height:1.5}
+.rem-note{margin-top:6px;font-size:13px;overflow-wrap:anywhere}
+.rem-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.rem-actions .btn{padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+#remBtn{padding:6px 10px;display:inline-flex;align-items:center}
+#remBtn.off{opacity:.6}
+#remBtn:not(.off){color:var(--accent)}

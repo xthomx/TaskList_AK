@@ -126,3 +126,18 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.store.get_prefs()['theme'], 'dark')
         with self.assertRaises(ValueError):
             self.store.set_theme('fioletowy')
+
+    def test_reminder_preferences(self):
+        prefs = self.store.get_prefs()
+        self.assertTrue(prefs['reminders'])
+        self.assertEqual(prefs['notified'], [])
+        self.store.set_reminders(False)
+        self.store.set_notified(['a|2026-11-13|10:00'])
+        prefs = self.store.get_prefs()
+        self.assertFalse(prefs['reminders'])
+        self.assertEqual(prefs['notified'], ['a|2026-11-13|10:00'])
+        with self.assertRaises(ValueError):
+            self.store.set_notified('nie lista')
+        with self.assertRaises(ValueError):
+            self.store.set_notified(['x' * 200])
+        self.assertEqual(self.store.get_prefs()['view'], 'month')

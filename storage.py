@@ -150,15 +150,24 @@ class Storage:
             view = data.get('view')
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
             layout, theme = data.get('layout'), data.get('theme')
+            notified = data.get('notified', [])
+            notified = [k for k in notified if isinstance(k, str) and len(k) < 120][:300] if isinstance(notified, list) else []
             return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board', 'theme': theme if theme in THEMES else '',
+                    'reminders': data.get('reminders') is not False, 'notified': notified,
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'last_xlsx': '', 'xlsx_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'last_xlsx', 'xlsx_fp'}:
             raise ValueError('Nieznane ustawienie.')
+        if 'reminders' in changes and not isinstance(changes['reminders'], bool):
+            raise ValueError('Nieprawidłowe ustawienie przypomnień.')
+        if 'notified' in changes:
+            n = changes['notified']
+            if not isinstance(n, list) or len(n) > 300 or any(not isinstance(k, str) or len(k) >= 120 for k in n):
+                raise ValueError('Nieprawidłowa lista powiadomień.')
         if 'theme' in changes and changes['theme'] not in THEMES:
             raise ValueError('Nieprawidłowy motyw.')
         if 'layout' in changes and changes['layout'] not in LAYOUTS:
@@ -170,6 +179,14 @@ class Storage:
             values.update(changes)
             self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
         return values
+
+    def set_reminders(self, enabled):
+        self.set_prefs(reminders=bool(enabled))
+        return True
+
+    def set_notified(self, keys):
+        self.set_prefs(notified=keys)
+        return True
 
     def set_theme(self, theme):
         self.set_prefs(theme=theme)

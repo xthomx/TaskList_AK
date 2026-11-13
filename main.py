@@ -80,6 +80,23 @@ class Api:
     def set_view(self, view):
         return self._storage.set_view(view)
 
+    def set_reminders(self, enabled):
+        return self._storage.set_reminders(enabled)
+
+    def set_notified(self, keys):
+        return self._storage.set_notified(keys)
+
+    def attention(self):
+        """Przypomnienie: przywróć okno i wyciągnij je na wierzch (błędy platformy ignorujemy)."""
+        try:
+            self._window.restore()
+            self._window.show()
+            self._window.on_top = True
+            self._window.on_top = False
+        except Exception:
+            pass
+        return True
+
     def set_theme(self, theme):
         return self._storage.set_theme(theme)
 

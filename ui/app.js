@@ -16,6 +16,9 @@ const ICON_PATHS = {
   mail:     '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>',
   check:    '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   close:    '<path d="M6 6l12 12M18 6L6 18"/>',
+  bell:     '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/>',
+  bellOff:  '<path d="M6 16v-5a6 6 0 0 1 9-5.2M18 11v5l1.5 2H8M10 20a2 2 0 0 0 4 0M4 4l16 16"/>',
+  clock:    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>'
 };
 const ic = name => `<svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -116,6 +119,7 @@ function saveView(){
 }
 /* ---- motyw jasny / ciemny: wybór użytkownika ma pierwszeństwo, bez wyboru obowiązuje motyw systemu ---- */
 let theme = "";                                  // "" = wg systemu, "light" lub "dark"
+let reminders = true, notified = new Set(), snoozed = new Map();      // przypomnienia o zadaniach z godziną
 const systemDark = () => !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
 const effectiveTheme = () => theme || (systemDark() ? "dark" : "light");
 function applyTheme(){
@@ -1187,7 +1191,6 @@ function initUpdates(){
 /* ================= start ================= */
 function seed(){
   const t = iso(new Date()), a = {id:uid(), name:"Nowak Anna"}, b = {id:uid(), name:"Kowalski Jan"};
-      theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
   return {people: [a, b], tasks: [
     {id:uid(), title:"Przykład: spotkanie zespołu", date:t, start:"10:00", end:"11:00", priority:2, status:"progress", progress:50, notes:"", assignees:[a.id, b.id]},
     {id:uid(), title:"Przykład: zadanie na cały dzień", date:t, start:"", end:"", priority:1, status:"pending", progress:0, notes:"", assignees:[]},
@@ -1201,6 +1204,8 @@ async function boot(){
       const r = await api().load_state();
       view = (r.prefs && r.prefs.view) || "month";
       layout = (r.prefs && r.prefs.layout) === "grid" ? "grid" : "board"; savedLayout = layout;
+      theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
+      reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
       tasks = d.tasks; people = d.people;
@@ -1213,6 +1218,7 @@ async function boot(){
       try{ view = localStorage.getItem(KEY + "_view") || "month"; }catch(e){}
       try{ layout = localStorage.getItem(KEY + "_layout") === "grid" ? "grid" : "board"; savedLayout = layout; }catch(e){}
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
+      try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }
@@ -1229,3 +1235,82 @@ document.addEventListener("click", async e => {
   const t = byId(b.dataset.del); if(!t) return;
   if(await deleteTask(t)) render();
 }, true);
+
+/* ================= przypomnienia: okienko, gdy nadejdzie godzina zadania ================= */
+const remBox = document.getElementById("remBox"), remCards = new Map();
+const remKey = t => `${t.id}|${t.date}|${t.start}`;
+function updateRemBtn(){
+  remBtn.innerHTML = ic(reminders ? "bell" : "bellOff");
+  remBtn.classList.toggle("off", !reminders);
+  remBtn.title = reminders ? "Przypomnienia włączone: okienko pojawi się o godzinie zadania (kliknij, aby wyłączyć)" : "Przypomnienia wyłączone (kliknij, aby włączyć)";
+}
+function persistNotified(){
+  const today = iso(new Date());
+  for(const k of [...notified]) if(k.split("|")[1] !== today) notified.delete(k);      // tylko dzisiejsze
+  if(DESKTOP && api()) api().set_notified([...notified].slice(-300)).catch(() => {});
+}
+function beep(){                                   // krótki sygnał dźwiękowy (bez plików dźwiękowych)
+  try{
+    const C = window.AudioContext || window.webkitAudioContext; if(!C) return;
+    const ctxA = new C(), o = ctxA.createOscillator(), g = ctxA.createGain(), t0 = ctxA.currentTime;
+    o.type = "sine"; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
+    o.connect(g); g.connect(ctxA.destination); o.start(t0); o.stop(t0 + 0.75);
+    setTimeout(() => ctxA.close(), 1000);
+  }catch(e){}
+}
+function syncRemPopover(){                         // popover = warstwa nad oknami dialogowymi
+  if(!remBox.showPopover) return;
+  let open = false; try{ open = remBox.matches(":popover-open"); }catch(e){}
+  try{ if(remCards.size && !open) remBox.showPopover(); else if(!remCards.size && open) remBox.hidePopover(); }catch(e){}
+}
+function closeReminder(key){ const el = remCards.get(key); if(el) el.remove(); remCards.delete(key); syncRemPopover(); }
+function showReminder(t){
+  const key = remKey(t); if(remCards.has(key)) return;
+  const names = namesOf(t), note = ((t.notes || "").split(String.fromCharCode(10)).find(l => l.trim()) || "").trim();
+  const el = document.createElement("div");
+  el.className = `remcard p${t.priority}`; el.setAttribute("style", colorStyle(t)); el.setAttribute("role", "alert");
+  el.innerHTML = `<div class="rem-head">${ic("bell")}<b>Przypomnienie</b><button type="button" class="rem-x" data-ra="close" title="Zamknij" aria-label="Zamknij">${ic("close")}</button></div>` +
+    `<div class="rem-title">${esc(t.title)}</div>` +
+    `<div class="rem-meta">🕒 ${t.start}${t.end ? "–" + t.end : ""} · ${fmtDate(t.date)}${names.length ? `<br>👥 ${esc(names.join(", "))}` : ""}</div>` +
+    (note ? `<div class="rem-note">${esc(note.slice(0, 160))}</div>` : "") +
+    `<div class="rem-actions"><button type="button" class="btn primary" data-ra="open">${ic("edit")}Otwórz</button>` +
+    `<button type="button" class="btn" data-ra="done">${ic("check")}Zrobione</button>` +
+    `<button type="button" class="btn" data-ra="snooze">${ic("clock")}Za 10 min</button></div>`;
+  el.querySelectorAll("[data-ra]").forEach(b => b.onclick = () => {
+    const act = b.dataset.ra;
+    closeReminder(key);
+    if(act === "open") openDialog(t.id);
+    else if(act === "done"){ applyStatus(t, "done"); save(); render(); }
+    else if(act === "snooze") snoozed.set(key, Date.now() + 10 * 60 * 1000);
+  });
+  remBox.appendChild(el); remCards.set(key, el); syncRemPopover();
+  beep(); if(DESKTOP && api()) api().attention().catch(() => {});
+}
+function checkReminders(){
+  if(!started) return;
+  const now = new Date(), todayS = iso(now), nowMin = now.getHours() * 60 + now.getMinutes();
+  for(const [key, el] of [...remCards]){            // zamknij karty zadań usuniętych, zrobionych lub przesuniętych
+    const t = tasks.find(x => remKey(x) === key);
+    if(!t || t.status === "done") closeReminder(key);
+  }
+  if(!reminders) return;
+  for(const t of tasks){
+    if(!t.start || t.status === "done" || t.date !== todayS) continue;
+    const key = remKey(t), due = snoozed.get(key);
+    if(due){ if(Date.now() >= due){ snoozed.delete(key); showReminder(t); } continue; }
+    if(notified.has(key)) continue;
+    const s = toMin(t.start), e = t.end ? toMin(t.end) : s + 15;      // okno: od godziny rozpoczęcia do końca zadania (bez godziny końca: 15 min)
+    if(nowMin >= s && nowMin <= e){ notified.add(key); persistNotified(); showReminder(t); }
+  }
+}
+remBtn.onclick = () => {
+  reminders = !reminders; updateRemBtn();
+  if(DESKTOP){ if(api()) api().set_reminders(reminders).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_rem", reminders ? "1" : "0"); }catch(e){} }
+  note(reminders ? "Przypomnienia włączone." : "Przypomnienia wyłączone.", true);
+  if(reminders) checkReminders();
+};
+setInterval(checkReminders, 15000);
+setTimeout(checkReminders, 2500);
+window.addEventListener("focus", checkReminders);
