@@ -27,6 +27,7 @@ const ICON_PATHS = {
   rows:     '<path d="M4 6h16M4 12h16M4 18h16"/>',
   sun:      '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
   moon:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  filter:   '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
   eye:      '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
   eyeOff:   '<path d="M3 3l18 18M10.6 6a9.6 9.6 0 0 1 1.4-.1c6 0 9.5 6.1 9.5 6.1a16 16 0 0 1-3 3.7M6.6 7.4A15.7 15.7 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 4-.9M9.9 9.9a2.8 2.8 0 0 0 4 4"/>',
   list:     '<path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20"/><circle cx="4.5" cy="6.5" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1" fill="currentColor"/>'
@@ -42,7 +43,10 @@ const DOW_FULL = ["Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota
 
 
 let tasks = [], people = [];
-let filterPerson = "";           // "" = wszyscy, "__none" = nieprzypisane, inaczej id osoby
+let filterPersons = new Set(), filterPrios = new Set(), filterProgs = new Set();   // puste zbiory = bez filtra; w filterPersons "__none" = nieprzypisane
+const anyFilter = () => filterPersons.size + filterPrios.size + filterProgs.size > 0;
+const presetPersons = () => { const ids = [...filterPersons].filter(x => x !== "__none"); return ids.length === 1 && !filterPersons.has("__none") ? ids : []; };   // nowe zadanie dostaje osobę z filtra, gdy wybrano jedną
+function clearFilters(){ filterPersons.clear(); filterPrios.clear(); filterProgs.clear(); }
 let listScope = "all", hideDone = false;
 let view = "month", layout = "board";      // layout: tydzień/dzień jako kafelki (board) albo siatka godzinowa (grid)
 let cur = new Date(); cur.setHours(0,0,0,0);
@@ -163,7 +167,7 @@ const namesOf = t => (t.assignees || []).map(personName).filter(Boolean);
 const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.name, "pl"));
 // osoby zapisujemy jako „Nazwisko Imię”; na kafelkach skrót: „Nazwisko I.”
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
-const matchesFilter = t => !filterPerson || (filterPerson === "__none" ? !(t.assignees||[]).length : (t.assignees||[]).includes(filterPerson));
+const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
 const visibleTasks = () => tasks.filter(matchesFilter);
 /* ---- zadania wielodniowe i przesuwanie ---- */
 const endOf = t => t.end_date || t.date;
@@ -196,7 +200,7 @@ function render(){
   layoutSeg.hidden = false;
   applyTheme();
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
-  fillPersonFilter();
+  renderFilters();
   renderCal();
   renderList();
   saveView(); saveLayout();
@@ -220,13 +224,27 @@ function chipHTML(t, ds){
 }
 const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
-function fillPersonFilter(){
-  const sel = document.getElementById("fPerson");
-  if(filterPerson && filterPerson !== "__none" && !people.some(p => p.id === filterPerson)) filterPerson = "";
-  sel.innerHTML = `<option value="">Wszystkie osoby</option><option value="__none">Nieprzypisane</option>` +
-    sortedPeople().map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-  sel.value = filterPerson;
+/* ---- filtry w panelu: osoby (wielokrotny wybór), priorytet, postęp ---- */
+function renderFilters(){
+  for(const id of [...filterPersons]) if(id !== "__none" && !people.some(p => p.id === id)) filterPersons.delete(id);   // osoba usunięta
+  const names = sortedPeople().filter(p => filterPersons.has(p.id)).map(p => shortName(p.name));
+  if(filterPersons.has("__none")) names.unshift("Nieprzypisane");
+  fpSummary.textContent = !names.length ? "Wszystkie osoby" : names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+  fpList.innerHTML = `<label class="fp-item"><input type="checkbox" data-fp="__none"${filterPersons.has("__none") ? " checked" : ""}><span>Nieprzypisane</span></label>` +
+    sortedPeople().map(p => `<label class="fp-item"><input type="checkbox" data-fp="${esc(p.id)}"${filterPersons.has(p.id) ? " checked" : ""}><span>${esc(p.name)}</span></label>`).join("") +
+    (people.length ? "" : `<div class="empty">Brak osób — dodaj je w oknie „Osoby”.</div>`);
+  fpList.querySelectorAll("[data-fp]").forEach(c => c.onchange = () => { c.checked ? filterPersons.add(c.dataset.fp) : filterPersons.delete(c.dataset.fp); render(); });
+  fPrioChips.innerHTML = [[1, "Niski"], [2, "Średni"], [3, "Wysoki"]].map(([v, l]) =>
+    `<button type="button" class="chipf p${v}${filterPrios.has(v) ? " on" : ""}" data-fprio="${v}" aria-pressed="${filterPrios.has(v)}">${l}</button>`).join("");
+  fProgChips.innerHTML = [0, 25, 50, 75, 100].map(v =>
+    `<button type="button" class="chipf${filterProgs.has(v) ? " on" : ""}" data-fprog="${v}" aria-pressed="${filterProgs.has(v)}">${v}%</button>`).join("");
+  fPrioChips.querySelectorAll("[data-fprio]").forEach(b => b.onclick = () => { const v = +b.dataset.fprio; filterPrios.has(v) ? filterPrios.delete(v) : filterPrios.add(v); render(); });
+  fProgChips.querySelectorAll("[data-fprog]").forEach(b => b.onclick = () => { const v = +b.dataset.fprog; filterProgs.has(v) ? filterProgs.delete(v) : filterProgs.add(v); render(); });
+  fClear.hidden = !anyFilter();
+  secFilter.classList.toggle("active", anyFilter());
 }
+fClear.onclick = () => { clearFilters(); render(); };
+document.addEventListener("click", e => { const d = document.getElementById("fpMenu"); if(d && d.open && !d.contains(e.target)) d.open = false; });
 
 function renderMonth(main){
   const start = monthTop ? new Date(monthTop) : mondayOf(new Date(cur.getFullYear(), cur.getMonth(), 1));
@@ -444,7 +462,7 @@ function renderBoard(main){
       const inp = box.querySelector(".binp");
       const add = () => {
         const title = inp.value.trim(); if(!title){ inp.focus(); return; }
-        const preset = (filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
+        const preset = presetPersons();
         tasks.push({id: uid(), title, date: ds, end_date: ds, start: "", end: "", priority: 1, status: "pending", progress: 0, notes: "", assignees: preset, series: ""});
         save(); render();                                    // formularz otworzy się ponownie (boardAdd) — kolejne zadanie
       };
@@ -557,7 +575,7 @@ const dlg = document.getElementById("dlg");
 let editing = null;
 function openDialog(id, date, start, pre){          // pre = {title, notes} — wstępnie wypełnione np. z maila
   editing = id ? byId(id) : null;
-  const preset = (!editing && filterPerson && filterPerson !== "__none") ? [filterPerson] : [];
+  const preset = !editing ? presetPersons() : [];
   const d0 = date || iso(cur);
   const t = editing || {title: (pre && pre.title) || "", date: d0, end_date: d0, start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: ""};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
@@ -645,7 +663,7 @@ function addPerson(name){
 }
 pkAdd.onclick = () => {
   const p = addPerson(pkNew.value); if(!p) return;
-  pickSel.add(p.id); pkNew.value = ""; pkSearch.value = ""; drawPick(); updatePeopleBtn(); save(); fillPersonFilter();
+  pickSel.add(p.id); pkNew.value = ""; pkSearch.value = ""; drawPick(); updatePeopleBtn(); save(); renderFilters();
 };
 pkNew.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); pkAdd.click(); } });
 
@@ -737,7 +755,6 @@ ppl.onclick = () => { pNew.value = ""; drawPeople(); pdlg.showModal(); pNew.focu
 pAdd.onclick = () => { if(addPerson(pNew.value)){ pNew.value = ""; save(); drawPeople(); render(); } };
 pNew.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); pAdd.click(); } });
 pClose.onclick = () => pdlg.close();
-fPerson.onchange = () => { filterPerson = fPerson.value; render(); };
 
 /* ================= lista zadań pod kalendarzem ================= */
 function periodRange(){
@@ -935,7 +952,7 @@ function bulkMove(kind){
   const todayS = iso(new Date()), weekEnd = iso(addDays(mondayOf(startOfToday()), 6));
   const overdue = unfinished().filter(t => endOf(t) < todayS);
   const rows = kind === "next" ? unfinished().filter(t => endOf(t) <= weekEnd) : overdue;
-  const scope = filterPerson ? " (zgodnie z wybranym filtrem osoby)" : "";
+  const scope = anyFilter() ? " (zgodnie z wybranymi filtrami)" : "";
   if(!rows.length){ alert(kind === "next" ? "Brak niezakończonych zadań z tego tygodnia lub zaległych do przeniesienia." : "Brak zaległych niezakończonych zadań do przeniesienia."); return; }
   const msg = kind === "today"
     ? `Przenieść ${rows.length} zaległych niezakończonych zadań na dziś${scope}?`
@@ -1093,7 +1110,7 @@ async function doExport(){            // kopia zapasowa JSON
 function applyImport(raw){
   const d = normalize(raw);
   if(confirm(`Zaimportować ${d.tasks.length} zadań i ${d.people.length} osób? Obecne dane zostaną zastąpione.`)){
-    tasks = d.tasks; people = d.people; filterPerson = ""; save(); render(); note("");
+    tasks = d.tasks; people = d.people; clearFilters(); save(); render(); note("");
   }
 }
 async function doImport(){
@@ -1162,7 +1179,7 @@ async function openXlsx(){
     if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne dane zostaną zastąpione. Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
     await flush();                                  // nie pozwól, by starszy zapis nadpisał nowy plik
     fileInfo = await api().accept_xlsx(r.token);
-    tasks = d.tasks; people = d.people; filterPerson = "";
+    tasks = d.tasks; people = d.people; clearFilters();
     render(); showFile(); note("Otwarto: " + r.name, true);
   }catch(e){ note("Nie otwarto pliku: " + errText(e)); }
 }
