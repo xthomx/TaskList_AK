@@ -150,3 +150,11 @@ class StorageTests(unittest.TestCase):
         self.assertTrue(self.store.get_prefs()['show_list'])
         with self.assertRaises(ValueError):
             self.store.set_prefs(show_list='tak')
+
+    def test_day_mode_preference(self):
+        self.assertEqual(self.store.get_prefs()['day_mode'], 'sections')
+        self.store.set_day_mode('hours')
+        self.assertEqual(self.store.get_prefs()['day_mode'], 'hours')
+        with self.assertRaises(ValueError):
+            self.store.set_day_mode('minuty')
+        self.assertEqual(self.store.get_prefs()['day_mode'], 'hours')

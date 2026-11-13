@@ -365,7 +365,7 @@ function bindChecks(root){
     b.addEventListener("mousedown", e => e.stopPropagation());
   });
 }
-function cardHTML(t, ds, overdue, compact, selectable){      // selectable: karta w podsumowaniu dnia (pole zaznaczania, bez przeciągania)
+function cardHTML(t, ds, overdue, compact, selectable, dragSlot){      // selectable: karta w podsumowaniu dnia (pole zaznaczania, bez przeciągania)
   const names = namesOf(t), multi = isMulti(t);
   const note = compact ? "" : ((t.notes || "").split(String.fromCharCode(10)).find(l => l.trim()) || "").trim();
   const meta = [];
@@ -377,7 +377,7 @@ function cardHTML(t, ds, overdue, compact, selectable){      // selectable: kart
   if(t.status === "progress") meta.push(`<span>🔄 ${t.progress}%</span>`);
   if(selectable) meta.push(`<span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span>`);
   const pick = selectable ? `<label class="csel" title="Zaznacz zadanie"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></label>` : "";
-  return `<article class="card p${t.priority} st-${t.status}${selectable ? " big" : ""}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="${selectable ? "false" : "true"}" data-id="${esc(t.id)}">` + pick +
+  return `<article class="card p${t.priority} st-${t.status}${selectable ? " big" : ""}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="${selectable && !dragSlot ? "false" : "true"}" data-id="${esc(t.id)}">` + pick +
     `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
     `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
     (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div>${xdelBtn(t)}</article>`;
@@ -906,6 +906,124 @@ function todayCards(list, dayS){
   return `<div class="tgrid">${list.map(t => cardHTML(t, dayS, false, false, true)).join("")}</div>`;
 }
 
+/* ================= „Zadania na dziś” w trybie Godziny: sloty Cały dzień / 7–17 / po 17:00, zadania przypisuje się przeciąganiem ================= */
+const DAY_START = 7, DAY_END = 17;                    // widoczne godziny; wcześniejsze i późniejsze trafiają do slotów „Przed” / „Po”
+let dayMode = "sections";                              // "sections" = Sekcje (rozpoczynają się / trwają), "hours" = Godziny
+let hoursScrollPending = false;
+const pad2 = n => String(n).padStart(2, "0");
+function slotOf(t){                                    // do którego slotu należy zadanie
+  if(isMulti(t) || !t.start) return "allday";
+  const h = Math.floor(toMin(t.start) / 60);
+  return h < DAY_START ? "before" : h >= DAY_END ? "after" : "h" + h;
+}
+function slotList(all){
+  const hasBefore = all.some(t => slotOf(t) === "before");
+  const slots = [{key: "allday", label: "Cały dzień", sub: "bez godziny", cls: "allday", start: ""}];
+  if(hasBefore) slots.push({key: "before", label: `Przed ${DAY_START}:00`, sub: "wczesne", cls: "edge", start: "06:00"});
+  for(let h = DAY_START; h < DAY_END; h++) slots.push({key: "h" + h, label: `${h}:00`, sub: `–${h + 1}:00`, cls: "", start: pad2(h) + ":00"});
+  slots.push({key: "after", label: `Po ${DAY_END}:00`, sub: "wieczór", cls: "edge", start: pad2(DAY_END) + ":00"});
+  return slots;
+}
+const HOUR_PX = 96, SNAP_MIN = 15;                    // wysokość godziny w siatce i krok czasu przy przeciąganiu / rozciąganiu
+function timelineHTML(all, dayS, isToday){
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const by = {};
+  for(const t of all) (by[slotOf(t)] = by[slotOf(t)] || []).push(t);
+  const row = (key, label, sub, cls, hintOn) => {
+    const list = (by[key] || []).sort(todaySort);
+    return `<div class="slot ${cls}" data-slot="${key}"><div class="slot-time"><b>${label}</b><small>${sub}</small></div>` +
+      `<div class="slot-body">${list.map(t => cardHTML(t, dayS, false, false, true, true)).join("") || `<span class="slot-hint">upuść tu zadanie</span>`}` +
+      `<button type="button" class="slot-add" data-addslot="${key}" title="Dodaj zadanie w tym slocie">＋</button></div></div>`;
+  };
+  let h = `<div class="timeline">`;
+  h += row("allday", "Cały dzień", "bez godziny", "allday");
+  if((by.before || []).length) h += row("before", `Przed ${DAY_START}:00`, "wczesne", "edge");
+  // siatka godzin: karta ma wysokość proporcjonalną do czasu trwania, dolną krawędzią można ją rozciągnąć
+  const timed = all.filter(t => /^h\d+$/.test(slotOf(t))), gridH = (DAY_END - DAY_START) * HOUR_PX;
+  const labels = Array.from({length: DAY_END - DAY_START}, (_, i) => {
+    const hr = DAY_START + i, cur = isToday && now.getHours() === hr;
+    return `<div class="hl${cur ? " now" : ""}" style="height:${HOUR_PX}px"><b>${hr}:00</b>${cur ? "<small>teraz</small>" : ""}</div>`;
+  }).join("");
+  const evs = layoutDay(timed).map(ev => {
+    const t = ev.t, top = (ev.s - DAY_START * 60) / 60 * HOUR_PX, w = 100 / ev.n;
+    const endMin = t.end ? toMin(t.end) : ev.s + 60;
+    const hgt = Math.max(54, Math.min((endMin - ev.s) / 60 * HOUR_PX, gridH - top) - 6);
+    return `<div class="hevt" style="top:${top + 2}px;height:${hgt}px;left:calc(${ev.c * w}% + 3px);width:calc(${w}% - 8px)">` +
+      cardHTML(t, dayS, false, hgt < 96, true, true) + `<span class="rzs" data-rzs="${esc(t.id)}" title="Przeciągnij, aby zmienić czas trwania"></span></div>`;
+  }).join("");
+  const nowLine = isToday && nowMin >= DAY_START * 60 && nowMin < DAY_END * 60
+    ? `<div class="nowline2" style="top:${(nowMin - DAY_START * 60) / 60 * HOUR_PX}px"></div>` : "";
+  h += `<div class="hgrid" style="--hp:${HOUR_PX}px"><div class="hlabels">${labels}</div><div class="hcol" style="height:${gridH}px">${evs}${nowLine}</div></div>`;
+  h += row("after", `Po ${DAY_END}:00`, "wieczór", "edge");
+  return h + `</div><div class="tl-help">Przeciągnij kartę na godzinę (krok ${SNAP_MIN} min) · przeciągnij dolną krawędź karty, aby wydłużyć lub skrócić zadanie · dwuklik w siatce = nowe zadanie</div>`;
+}
+function assignSlot(t, key, dayS){                     // przypisanie do slotów „Cały dzień” / „Przed” / „Po” (przeciągnięcie)
+  if(key === "allday"){ t.start = ""; t.end = ""; }
+  else{
+    if(isMulti(t)){ note("Zadanie wielodniowe jest całodniowe — nie można przypisać mu godziny.", false); return; }
+    const slot = slotList([t]).find(s => s.key === key); if(!slot) return;
+    const dur = t.start && t.end ? Math.max(15, toMin(t.end) - toMin(t.start)) : 60;
+    t.start = slot.start; t.end = toHM(Math.min(1439, toMin(slot.start) + dur));
+  }
+  save(); render();
+}
+function bindTimeline(main, dayS){
+  main.querySelectorAll(".slot").forEach(s => {          // sloty: Cały dzień, Przed, Po
+    s.addEventListener("dragover", e => { if(drag){ e.preventDefault(); s.classList.add("over"); } });
+    s.addEventListener("dragleave", e => { if(!s.contains(e.relatedTarget)) s.classList.remove("over"); });
+    s.addEventListener("drop", e => {
+      e.preventDefault(); s.classList.remove("over");
+      const t = drag && byId(drag.id); if(t) assignSlot(t, s.dataset.slot, dayS);
+    });
+  });
+  main.querySelectorAll("[data-addslot]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const slot = slotList([{start: "06:00", date: dayS, end_date: dayS}]).find(s => s.key === b.dataset.addslot);
+    openDialog(null, dayS, slot ? slot.start : "");
+  }));
+  const col = main.querySelector(".hcol");
+  if(col){
+    const timeAt = y => Math.max(DAY_START * 60, Math.min(DAY_END * 60 - SNAP_MIN, DAY_START * 60 + Math.round(y / HOUR_PX * 60 / SNAP_MIN) * SNAP_MIN));
+    col.addEventListener("dragover", e => { if(drag){ e.preventDefault(); col.classList.add("over"); } });
+    col.addEventListener("dragleave", e => { if(!col.contains(e.relatedTarget)) col.classList.remove("over"); });
+    col.addEventListener("drop", e => {                    // upuszczenie na godzinę: ustaw początek, zachowaj czas trwania
+      e.preventDefault(); col.classList.remove("over");
+      const t = drag && byId(drag.id); if(!t) return;
+      if(isMulti(t)){ note("Zadanie wielodniowe jest całodniowe — nie można przypisać mu godziny.", false); return; }
+      const s = timeAt(e.clientY - col.getBoundingClientRect().top - (drag.offY || 0));
+      const dur = t.start && t.end ? Math.max(SNAP_MIN, toMin(t.end) - toMin(t.start)) : 60;
+      t.start = toHM(s); t.end = toHM(Math.min(1439, s + dur));
+      save(); render();
+    });
+    col.addEventListener("dblclick", e => {                // dwuklik w pustą siatkę: nowe zadanie o tej godzinie
+      if(e.target.closest(".hevt")) return;
+      openDialog(null, dayS, toHM(timeAt(e.clientY - col.getBoundingClientRect().top - 8)));
+    });
+  }
+  main.querySelectorAll("[data-rzs]").forEach(hd => {      // rozciąganie dolną krawędzią karty
+    hd.addEventListener("click", e => e.stopPropagation());
+    hd.addEventListener("mousedown", e => {
+      e.preventDefault(); e.stopPropagation();
+      const t = byId(hd.dataset.rzs); if(!t) return;
+      const box = hd.parentElement, card = box.querySelector(".card"); if(card) card.draggable = false;
+      const y0 = e.clientY, s = toMin(t.start), e0 = t.end ? toMin(t.end) : s + 60, h0 = box.offsetHeight;
+      let newEnd = e0;
+      const move = m => {
+        newEnd = Math.max(s + SNAP_MIN, Math.min(1439, Math.round((e0 + (m.clientY - y0) / HOUR_PX * 60) / SNAP_MIN) * SNAP_MIN));
+        box.style.height = Math.max(54, h0 + (newEnd - e0) / 60 * HOUR_PX) + "px";
+        box.dataset.endlabel = `${t.start}–${toHM(newEnd)}`;
+      };
+      const up = () => {
+        document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+        if(newEnd !== e0){ t.end = toHM(newEnd); save(); }
+        render();
+      };
+      document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    });
+  });
+  if(hoursScrollPending){ hoursScrollPending = false; const n = main.querySelector(".hl.now"); if(n) n.scrollIntoView({block: "center"}); }
+}
+
 function renderDaySummary(main){          // podsumowanie wybranego dnia (domyślnie dziś): zadania zaczynające się lub trwające tego dnia
   const dayS = iso(cur), realToday = iso(new Date()), isToday = dayS === realToday, d = new Date(cur), when = isToday ? "dziś" : "tego dnia";
   setTitle(`${isToday ? "Dziś — " : ""}${WEEKDAYS[d.getDay()].toLowerCase()}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`);
@@ -924,9 +1042,11 @@ function renderDaySummary(main){          // podsumowanie wybranego dnia (domyś
     `<div class="tstat"><span>${STATUS.pending.icon} Oczekujące</span><b>${nPend}</b></div>` +
     `<div class="tstat${overdue ? " warn" : ""}"><span>⚠ Zaległe</span><b>${overdue}</b>${overdue ? `<button class="blink" type="button" id="tdOverdue">Przenieś na dziś</button>` : ""}</div></div>`;
   h += `<div class="tprog"><div class="tprog-bar"><i style="width:${pct}%"></i></div><span>Postęp dnia: <b>${pct}%</b> (${nDone} z ${all.length} zrobionych)</span>` +
-       `<button class="btn primary" type="button" id="tdAdd" style="margin-left:auto">＋ Zadanie ${isToday ? "na dziś" : "na ten dzień"}</button></div>`;
+       `<div class="seg dmseg" id="dayModeSeg" title="Sposób pokazania zadań dnia"><button type="button" class="btn${dayMode === "sections" ? " active" : ""}" data-dm="sections">Sekcje</button><button type="button" class="btn${dayMode === "hours" ? " active" : ""}" data-dm="hours">Godziny</button></div>` +
+       `<button class="btn primary" type="button" id="tdAdd">＋ Zadanie ${isToday ? "na dziś" : "na ten dzień"}</button></div>`;
   h += selBarHTML();
-  if(!all.length) h += `<div class="empty tbig">Brak zadań ${when} 🎉 Dodaj nowe przyciskiem „＋ Zadanie”.</div>`;
+  if(dayMode === "hours") h += timelineHTML(all, dayS, isToday);
+  else if(!all.length) h += `<div class="empty tbig">Brak zadań ${when} 🎉 Dodaj nowe przyciskiem „＋ Zadanie”.</div>`;
   else {
     h += `<section class="tsec"><h3>Rozpoczynają się ${when} <span class="bcount">${starting.length}</span>${starting.length ? ` <label class="tsec-all"><input type="checkbox" data-sel-all> Zaznacz wszystkie</label>` : ""}</h3>` +
          (starting.length ? todayCards(starting, dayS) : `<div class="empty">Żadne zadanie nie zaczyna się ${when}.</div>`) + `</section>`;
@@ -938,6 +1058,10 @@ function renderDaySummary(main){          // podsumowanie wybranego dnia (domyś
   bindChips(main); bindChecks(main);                  // klik karty = edycja, kółko = zrobione, prawy przycisk = menu
   const add = main.querySelector("#tdAdd"); if(add) add.onclick = () => openDialog(null, dayS);
   const od = main.querySelector("#tdOverdue"); if(od) od.onclick = () => bulkMove("today");
+  main.querySelectorAll("[data-dm]").forEach(b => b.onclick = () => {
+    dayMode = b.dataset.dm; hoursScrollPending = dayMode === "hours"; saveDayMode(); render();
+  });
+  if(dayMode === "hours") bindTimeline(main, dayS);
 }
 
 /* ================= przenoszenie na przyszły tydzień / na dziś ================= */
@@ -1257,6 +1381,7 @@ async function boot(){
       layout = (r.prefs && r.prefs.layout) === "grid" ? "grid" : "board"; savedLayout = layout;
       theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
       showList = !(r.prefs && r.prefs.show_list === false);
+      dayMode = (r.prefs && r.prefs.day_mode) === "hours" ? "hours" : "sections";
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
@@ -1272,6 +1397,7 @@ async function boot(){
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
+      try{ dayMode = localStorage.getItem(KEY + "_daymode") === "hours" ? "hours" : "sections"; }catch(e){}
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }
@@ -1420,4 +1546,9 @@ function scrollMonthWeeks(dir){                       // płynne przewijanie wid
   monthTop = addDays(start, 7 * dir);
   cur = addDays(monthTop, 17); cur.setHours(0, 0, 0, 0);
   render();
+}
+
+function saveDayMode(){                               // zapamiętaj tryb podsumowania dnia (Sekcje / Godziny)
+  if(DESKTOP){ if(api()) api().set_day_mode(dayMode).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_daymode", dayMode); }catch(e){} }
 }
