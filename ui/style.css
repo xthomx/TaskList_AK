@@ -553,3 +553,18 @@ main.nolist .tg{height:100%}
 .nowline2{position:absolute;left:0;right:0;height:2px;background:var(--p3);z-index:4;pointer-events:none}
 .nowline2::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--p3)}
 .tl-help{margin:8px 4px 0;color:var(--muted);font-size:12.5px}
+/* widok tygodnia (kafelki): kolumny na pełną wysokość; strefa upuszczenia od końca ostatniej karty do dołu kolumny */
+.board{align-items:stretch;min-height:380px}
+.bcol{display:flex;flex-direction:column}
+.bcol .bcards{flex:0 0 auto}
+.bfree{flex:1 1 auto;display:flex;flex-direction:column;min-height:90px;border-radius:12px;border:2px dashed transparent;transition:background .12s,border-color .12s}
+.bfree .badd{margin-top:6px;flex:0 0 auto}
+.bdrop{flex:1 1 auto;min-height:40px;display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px;font-weight:600;opacity:0;transition:opacity .12s;pointer-events:none}
+.bcol.over .bfree{background:var(--today);border-color:var(--accent)}
+.bcol.over .bdrop{opacity:.9}
+.bcol.over>header{border-bottom-color:var(--accent)}
+.bcol.over .bcards,.bcol.over .badd{background:transparent}
+main.nolist .board{height:100%}
+.bcol>header[data-goto]{cursor:pointer;border-radius:8px 8px 0 0}
+.bcol>header[data-goto]:hover .bwd{text-decoration:underline}
+.bcol>header[data-goto]:hover{background:var(--today)}

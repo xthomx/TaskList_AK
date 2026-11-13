@@ -416,9 +416,9 @@ function renderBoard(main){
   for(const d of days){
     const ds = iso(d);
     const list = tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done"));   // zrobione na dole
-    h += `<section class="bcol${ds === todayS ? " today" : ""}${d.getDay() % 6 === 0 ? " weekend" : ""}" data-date="${ds}"><header><div class="bhead">${dayLabel(d, todayS)}</div><span class="bcount">${list.length}</span></header>` +
+    h += `<section class="bcol${ds === todayS ? " today" : ""}${d.getDay() % 6 === 0 ? " weekend" : ""}" data-date="${ds}"><header data-goto="${ds}" title="Otwórz widok tego dnia"><div class="bhead">${dayLabel(d, todayS)}</div><span class="bcount">${list.length}</span></header>` +
          `<div class="bcards">${list.map(t => cardHTML(t, ds, false)).join("")}</div>` +
-         `<div class="badd" data-add="${ds}"><button class="bplus" type="button">＋ Dodaj zadanie</button></div></section>`;
+         `<div class="bfree"><div class="badd" data-add="${ds}"><button class="bplus" type="button">＋ Dodaj zadanie</button></div><div class="bdrop"><span>Upuść tutaj</span></div></div></section>`;
   }
   main.innerHTML = h + `</div>`;
   const board = main.querySelector(".board");
@@ -440,6 +440,7 @@ function renderBoard(main){
     });
   });
   bindChips(main);
+  main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });      // klik w nagłówek dnia: widok tego dnia
   bindChecks(main);
   // „Zmień termin” dla zaległych
   const rs = main.querySelector("#bResched");
