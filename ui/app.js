@@ -19,6 +19,7 @@ const ICON_PATHS = {
   move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>'
 };
 const ic = name => `<svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
+const xdelBtn = t => `<button class="xdel" type="button" data-del="${esc(t.id)}" title="Usuń zadanie" aria-label="Usuń zadanie">${ic("trash")}</button>`;     // kosz w prawym dolnym rogu elementu
 document.querySelectorAll("[data-ic]").forEach(e => { e.innerHTML = ic(e.dataset.ic); });
 const HOUR = 48;                 // px na godzinę
 const SNAP = 15;                 // minuty
@@ -197,7 +198,7 @@ function chipHTML(t, ds){
   if(multi && ds){ const n = daysBetween(t.date, end) + 1, i = daysBetween(t.date, ds); pg = Math.round(Math.min(1, Math.max(0, (t.progress / 100 - i / n) * n)) * 100); }
   const label = lj ? "&nbsp;" : `${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
   const handle = ds && ds === end ? `<span class="rzd" data-rzd="${t.id}" title="Przeciągnij, aby zmienić liczbę dni"></span>` : "";
-  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}">${label}${handle}</span>`;
+  return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}">${label}${xdelBtn(t)}${handle}</span>`;
 }
 const stIcon = t => t.status === "pending" ? "" : `<span class="sti">${STATUS[t.status].icon}</span>`;
 
@@ -340,7 +341,7 @@ function cardHTML(t, ds, overdue, compact, selectable){      // selectable: kart
   return `<article class="card p${t.priority} st-${t.status}${selectable ? " big" : ""}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="${selectable ? "false" : "true"}" data-id="${esc(t.id)}">` + pick +
     `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
     `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
-    (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div></article>`;
+    (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div>${xdelBtn(t)}</article>`;
 }
 
 function dayLabel(d, todayS){
@@ -458,7 +459,7 @@ function renderTimeGrid(main, isWeek){
       const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
       const w = 100/ev.n;
       return `<div class="ev p${t.priority} st-${t.status}" draggable="true" data-id="${t.id}" style="${colorStyle(t)}--pg:${t.progress}%;top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
-             `${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small><span class="rz" data-rz="${t.id}"></span></div>`;
+             `${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small>${xdelBtn(t)}<span class="rz" data-rz="${t.id}"></span></div>`;
     }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
   }
   main.innerHTML = h + `</div></div></div>`;
@@ -1220,3 +1221,11 @@ async function boot(){
 }
 if(DESKTOP){ if(api()) boot(); else window.addEventListener("pywebviewready", boot); } else boot();
 setInterval(() => { if(started && view !== "month" && !dlg.open && !drag) render(); }, 5*60*1000);
+
+/* ikona kosza w rogu zadania (kafelek, karta, pasek): usuwa zadanie; przechwytywane przed kliknięciem w sam element */
+document.addEventListener("click", async e => {
+  const b = e.target.closest(".xdel"); if(!b) return;
+  e.stopPropagation(); e.preventDefault(); hideTip();
+  const t = byId(b.dataset.del); if(!t) return;
+  if(await deleteTask(t)) render();
+}, true);

@@ -373,3 +373,13 @@ summary.btn .caret{font-size:11px;opacity:.7;margin-left:1px}
 .ctx-del:hover{background:color-mix(in srgb,var(--p3) 12%,var(--panel))}
 #ctx{border-radius:12px;width:270px}
 .selbar .btn{display:inline-flex;align-items:center;gap:6px}
+/* kosz w prawym dolnym rogu zadania (widoczny po najechaniu) */
+.xdel{position:absolute;display:flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border-radius:7px;border:1px solid color-mix(in srgb,var(--p3) 40%,var(--line));background:var(--panel);color:var(--p3);cursor:pointer;opacity:0;transition:opacity .12s;z-index:4}
+.xdel .ic{width:14px;height:14px}
+.xdel:hover{background:var(--p3);color:#fff;border-color:var(--p3)}
+.card:hover .xdel,.chip:hover .xdel,.ev:hover .xdel,.xdel:focus-visible{opacity:1}
+.card .xdel{right:8px;bottom:9px}
+.chip .xdel{right:11px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:5px}
+.chip .xdel .ic{width:11px;height:11px}
+.ev .xdel{right:4px;bottom:9px;width:20px;height:20px}
+@media (hover:none){.xdel{opacity:.8}}
