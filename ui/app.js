@@ -241,6 +241,8 @@ function renderFilters(){
     `<button type="button" class="chipf${filterProgs.has(v) ? " on" : ""}" data-fprog="${v}" aria-pressed="${filterProgs.has(v)}">${v}%</button>`).join("");
   fPrioChips.querySelectorAll("[data-fprio]").forEach(b => b.onclick = () => { const v = +b.dataset.fprio; filterPrios.has(v) ? filterPrios.delete(v) : filterPrios.add(v); render(); });
   fProgChips.querySelectorAll("[data-fprog]").forEach(b => b.onclick = () => { const v = +b.dataset.fprog; filterProgs.has(v) ? filterProgs.delete(v) : filterProgs.add(v); render(); });
+  const nf = filterPersons.size + filterPrios.size + filterProgs.size;           // liczba aktywnych filtrów widoczna także przy zwiniętej sekcji
+  const ttl = secFilter.querySelector(".sechead span"); if(ttl) ttl.textContent = nf ? `Filtry (${nf})` : "Filtry";
   fClear.hidden = !anyFilter();
   secFilter.classList.toggle("active", anyFilter());
 }
@@ -909,7 +911,7 @@ function todayCards(list, dayS){
 
 /* ================= „Zadania na dziś” w trybie Godziny: sloty Cały dzień / 7–17 / po 17:00, zadania przypisuje się przeciąganiem ================= */
 const DAY_START = 7, DAY_END = 17;                    // widoczne godziny; wcześniejsze i późniejsze trafiają do slotów „Przed” / „Po”
-let dayMode = "sections";                              // "sections" = Sekcje (rozpoczynają się / trwają), "hours" = Godziny
+let dayMode = "hours";                                 // "sections" = Sekcje (rozpoczynają się / trwają), "hours" = Godziny
 let hoursScrollPending = false;
 const pad2 = n => String(n).padStart(2, "0");
 function slotOf(t){                                    // do którego slotu należy zadanie
@@ -1382,7 +1384,8 @@ async function boot(){
       layout = (r.prefs && r.prefs.layout) === "grid" ? "grid" : "board"; savedLayout = layout;
       theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
       showList = !(r.prefs && r.prefs.show_list === false);
-      dayMode = (r.prefs && r.prefs.day_mode) === "hours" ? "hours" : "sections";
+      dayMode = (r.prefs && r.prefs.day_mode) === "sections" ? "sections" : "hours";                  // domyślnie godziny
+      collapsedSecs = new Set((r.prefs && r.prefs.collapsed) || []); applyCollapsed();
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
@@ -1398,7 +1401,8 @@ async function boot(){
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
-      try{ dayMode = localStorage.getItem(KEY + "_daymode") === "hours" ? "hours" : "sections"; }catch(e){}
+      try{ dayMode = localStorage.getItem(KEY + "_daymode") === "sections" ? "sections" : "hours"; }catch(e){}
+      try{ collapsedSecs = new Set(JSON.parse(localStorage.getItem(KEY + "_collapsed") || "[]")); }catch(e){} applyCollapsed();
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }
@@ -1553,3 +1557,31 @@ function saveDayMode(){                               // zapamiętaj tryb podsum
   if(DESKTOP){ if(api()) api().set_day_mode(dayMode).catch(() => {}); }
   else { try{ localStorage.setItem(KEY + "_daymode", dayMode); }catch(e){} }
 }
+
+/* ================= zwijane sekcje panelu: Filtry i Konfiguracja (stan zapamiętywany) ================= */
+let collapsedSecs = new Set();
+function applyCollapsed(){
+  document.querySelectorAll("#side .sidesec[data-sec]").forEach(s => {
+    const c = collapsedSecs.has(s.dataset.sec), h = s.querySelector(".sechead");
+    s.classList.toggle("collapsed", c);
+    if(h){ h.setAttribute("role", "button"); h.setAttribute("tabindex", "0"); h.setAttribute("aria-expanded", String(!c)); h.title = c ? "Rozwiń sekcję" : "Zwiń sekcję"; }
+  });
+}
+function saveCollapsed(){
+  const list = [...collapsedSecs];
+  if(DESKTOP){ if(api()) api().set_collapsed(list).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_collapsed", JSON.stringify(list)); }catch(e){} }
+}
+function toggleSection(head){
+  const key = head.parentElement.dataset.sec;
+  collapsedSecs.has(key) ? collapsedSecs.delete(key) : collapsedSecs.add(key);
+  applyCollapsed(); saveCollapsed();
+}
+document.getElementById("side").addEventListener("click", e => {
+  const head = e.target.closest(".sidesec[data-sec] > .sechead");
+  if(head && !e.target.closest(".linkbtn")) toggleSection(head);
+});
+document.getElementById("side").addEventListener("keydown", e => {
+  const head = e.target.closest(".sidesec[data-sec] > .sechead");
+  if(head && e.target === head && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); toggleSection(head); }
+});

@@ -15,6 +15,7 @@ VIEWS = ('month', 'week', 'day')
 LAYOUTS = ('board', 'grid')                  # tydzień/dzień: kafelki (domyślnie) lub siatka godzinowa
 THEMES = ('light', 'dark')                    # brak wyboru = motyw systemowy
 DAY_MODES = ('sections', 'hours')            # podsumowanie dnia: sekcje albo siatka godzin
+SECTIONS = ('filters', 'config')              # sekcje panelu, które można zwijać
 STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakcie, zrobione
 PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
@@ -156,15 +157,21 @@ class Storage:
             return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board', 'theme': theme if theme in THEMES else '',
                     'reminders': data.get('reminders') is not False, 'notified': notified,
                     'show_list': data.get('show_list') is not False,
-                    'day_mode': data.get('day_mode') if data.get('day_mode') in DAY_MODES else 'sections',
+                    'day_mode': data.get('day_mode') if data.get('day_mode') in DAY_MODES else 'hours',
+                    'collapsed': [k for k in data.get('collapsed', []) if k in SECTIONS] if isinstance(data.get('collapsed', []), list) else [],
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'day_mode': 'sections', 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'day_mode', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp'}:
             raise ValueError('Nieznane ustawienie.')
+        if 'collapsed' in changes:
+            c = changes['collapsed']
+            if not isinstance(c, list) or any(k not in SECTIONS for k in c):
+                raise ValueError('Nieprawidłowa lista zwiniętych sekcji.')
+            changes['collapsed'] = list(dict.fromkeys(c))
         if 'day_mode' in changes and changes['day_mode'] not in DAY_MODES:
             raise ValueError('Nieprawidłowy tryb dnia.')
         if 'show_list' in changes and not isinstance(changes['show_list'], bool):
@@ -186,6 +193,10 @@ class Storage:
             values.update(changes)
             self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
         return values
+
+    def set_collapsed(self, keys):
+        self.set_prefs(collapsed=keys)
+        return True
 
     def set_day_mode(self, mode):
         self.set_prefs(day_mode=mode)

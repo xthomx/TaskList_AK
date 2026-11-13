@@ -80,6 +80,9 @@ class Api:
     def set_view(self, view):
         return self._storage.set_view(view)
 
+    def set_collapsed(self, keys):
+        return self._storage.set_collapsed(keys)
+
     def set_day_mode(self, mode):
         return self._storage.set_day_mode(mode)
 

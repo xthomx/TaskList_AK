@@ -152,9 +152,19 @@ class StorageTests(unittest.TestCase):
             self.store.set_prefs(show_list='tak')
 
     def test_day_mode_preference(self):
+        self.assertEqual(self.store.get_prefs()['day_mode'], 'hours')        # domyślnie widok godzinowy
+        self.store.set_day_mode('sections')
         self.assertEqual(self.store.get_prefs()['day_mode'], 'sections')
         self.store.set_day_mode('hours')
-        self.assertEqual(self.store.get_prefs()['day_mode'], 'hours')
         with self.assertRaises(ValueError):
             self.store.set_day_mode('minuty')
         self.assertEqual(self.store.get_prefs()['day_mode'], 'hours')
+
+    def test_collapsed_sections_preference(self):
+        self.assertEqual(self.store.get_prefs()['collapsed'], [])
+        self.store.set_collapsed(['filters', 'config', 'filters'])
+        self.assertEqual(self.store.get_prefs()['collapsed'], ['filters', 'config'])
+        for bad in (['inne'], 'filters', [1]):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.store.set_collapsed(bad)
+        self.assertEqual(self.store.get_prefs()['collapsed'], ['filters', 'config'])

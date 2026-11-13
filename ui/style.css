@@ -568,3 +568,16 @@ main.nolist .board{height:100%}
 .bcol>header[data-goto]{cursor:pointer;border-radius:8px 8px 0 0}
 .bcol>header[data-goto]:hover .bwd{text-decoration:underline}
 .bcol>header[data-goto]:hover{background:var(--today)}
+/* zwijane sekcje panelu */
+.sidesec[data-sec]>.sechead{cursor:pointer;user-select:none;border-radius:8px;padding:4px 6px;margin:-4px -4px 4px}
+.sidesec[data-sec]>.sechead:hover{background:var(--today)}
+.sidesec[data-sec]>.sechead:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sidesec[data-sec]>.sechead::after{content:"";flex:0 0 auto;width:8px;height:8px;margin:-3px 4px 0 6px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.sidesec[data-sec]>.sechead .linkbtn{margin-left:auto}
+.sidesec[data-sec]>.sechead span:not(.caret){flex:0 1 auto}
+.sidesec[data-sec]:not(:has(.linkbtn:not([hidden])))>.sechead::after{margin-left:auto}
+.sidesec.collapsed{gap:0;padding-bottom:10px}
+.sidesec.collapsed>:not(.sechead){display:none}
+.sidesec.collapsed>.sechead{margin-bottom:-4px}
+.sidesec.collapsed>.sechead::after{transform:rotate(-45deg);margin-top:0}
+#side .sidesec.collapsed>:not(.sechead){display:none !important}
