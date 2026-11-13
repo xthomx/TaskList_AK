@@ -1370,3 +1370,27 @@ function isoWeek(d){
   const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
   return Math.ceil(((t - y0) / 864e5 + 1) / 7);
 }
+
+/* ================= kółko myszy nad kalendarzem przewija daty (miesiąc → miesiąc, tydzień → tydzień) ================= */
+let wheelAcc = 0, wheelLock = 0, wheelIdle = null, innerScrollAt = 0;
+const calArea = document.getElementById("cal");
+calArea.addEventListener("scroll", () => { innerScrollAt = Date.now(); }, true);
+calArea.addEventListener("wheel", e => {
+  if(e.ctrlKey || e.shiftKey || daySummary() || (view !== "month" && view !== "week")) return;
+  // jeśli pod kursorem jest przewijana zawartość (godziny w tygodniu, wysokie kolumny), najpierw przewijaj ją
+  for(let el = e.target; el && el !== document.body; el = el.parentElement){
+    const oy = getComputedStyle(el).overflowY;
+    if((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1){
+      const canDown = el.scrollTop + el.clientHeight < el.scrollHeight - 1, canUp = el.scrollTop > 0;
+      if((e.deltaY > 0 && canDown) || (e.deltaY < 0 && canUp)) return;                 // zwykłe przewijanie
+      if(Date.now() - innerScrollAt < 500){ e.preventDefault(); return; }              // tuż po dojechaniu do brzegu nie zmieniaj dat
+      break;
+    }
+    if(el === calArea) break;
+  }
+  e.preventDefault();
+  clearTimeout(wheelIdle); wheelAcc += e.deltaY; wheelIdle = setTimeout(() => { wheelAcc = 0; }, 220);
+  if(Date.now() < wheelLock || Math.abs(wheelAcc) < 50) return;                        // próg i blokada: jeden krok na ruch kółka
+  const dir = wheelAcc > 0 ? 1 : -1; wheelAcc = 0; wheelLock = Date.now() + 420;
+  shift(dir);                                                                          // w dół = późniejsze daty
+}, {passive: false});
