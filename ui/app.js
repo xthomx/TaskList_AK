@@ -19,7 +19,14 @@ const ICON_PATHS = {
   bell:     '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/>',
   bellOff:  '<path d="M6 16v-5a6 6 0 0 1 9-5.2M18 11v5l1.5 2H8M10 20a2 2 0 0 0 4 0M4 4l16 16"/>',
   clock:    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-  move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>'
+  move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>',
+  plus:     '<path d="M12 5v14M5 12h14"/>',
+  users:    '<circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/>',
+  tasks:    '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8.5 9l1.5 1.5L13 7.5M8.5 15l1.5 1.5 3-3M15 9.5h2.5M15 15.5h2.5"/>',
+  tiles:    '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
+  rows:     '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  sun:      '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
+  moon:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'
 };
 const ic = name => `<svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
 const xdelBtn = t => `<button class="xdel" type="button" data-del="${esc(t.id)}" title="Usuń zadanie" aria-label="Usuń zadanie">${ic("trash")}</button>`;     // kosz w prawym dolnym rogu elementu
@@ -1240,7 +1247,7 @@ document.addEventListener("click", async e => {
 const remBox = document.getElementById("remBox"), remCards = new Map();
 const remKey = t => `${t.id}|${t.date}|${t.start}`;
 function updateRemBtn(){
-  remBtn.innerHTML = ic(reminders ? "bell" : "bellOff");
+  remBtn.innerHTML = ic(reminders ? "bell" : "bellOff") + (remBtn.dataset.label ? `<span>Przypomnienia: ${reminders ? "włączone" : "wyłączone"}</span>` : "");
   remBtn.classList.toggle("off", !reminders);
   remBtn.title = reminders ? "Przypomnienia włączone: okienko pojawi się o godzinie zadania (kliknij, aby wyłączyć)" : "Przypomnienia wyłączone (kliknij, aby włączyć)";
 }

@@ -6,31 +6,16 @@
 <title>TaskList AK</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<header>
-  <h1>📅 TaskList AK</h1>
-  <button class="btn" id="prev" title="Poprzedni">‹</button>
-  <button class="btn" id="today">Dziś</button>
-  <button class="btn" id="todayBtn" title="Zadania na dziś — podsumowanie zadań, które zaczynają się lub trwają dzisiaj">📋 Zadania na dziś</button>
-  <button class="btn" id="next" title="Następny">›</button>
-  <span id="title"></span>
-  <div class="spacer"></div>
-  <div class="seg" id="views">
-    <button class="btn" data-v="month"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><g fill="currentColor" stroke="none"><circle cx="5" cy="9" r=".95"/><circle cx="8" cy="9" r=".95"/><circle cx="11" cy="9" r=".95"/><circle cx="5" cy="12" r=".95"/><circle cx="8" cy="12" r=".95"/><circle cx="11" cy="12" r=".95"/></g></svg>Miesiąc</button>
-    <button class="btn" data-v="week"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><rect x="3.2" y="8" width="9.6" height="2.8" rx="1.2" fill="currentColor" stroke="none"/></svg>Tydzień</button>
-  </div>
-  <div class="seg" id="themeSeg" title="Motyw">
-    <button class="btn" data-t="light">☀ Jasny</button>
-    <button class="btn" data-t="dark">🌙 Ciemny</button>
-  </div>
-  <div class="seg" id="layoutSeg" title="Układ: kafelki lub siatka">
-    <button class="btn" data-l="board">▦ Kafelki</button>
-    <button class="btn" data-l="grid">☰ Siatka</button>
-  </div>
-  <button class="btn" id="remBtn" type="button" aria-label="Przypomnienia"></button>
-  <select id="fPerson" class="btn" title="Filtruj po osobie" aria-label="Filtr osoby"></select>
-  <button class="btn" id="ppl" title="Zarządzaj osobami">👥 Osoby</button>
-  <button class="btn primary" id="add">+ Zadanie</button>
+<body class="withside">
+<div class="app">
+<aside id="side">
+  <div class="brand"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 15l2 2 4-4"/></svg><span>TaskList AK</span></div>
+  <button class="btn primary snew" id="add"><i data-ic="plus"></i>Nowe zadanie</button>
+  <small class="sec">Przestrzeń robocza</small>
+  <button class="btn snav" id="todayBtn" title="Zadania na dziś — podsumowanie zadań, które zaczynają się lub trwają dzisiaj"><i data-ic="tasks"></i>Zadania na dziś</button>
+  <button class="btn snav" id="ppl" title="Zarządzaj osobami"><i data-ic="users"></i>Osoby</button>
+  <label class="sidelabel" for="fPerson">Filtr osoby</label>
+  <select id="fPerson" class="btn" aria-label="Filtr osoby"></select>
   <details class="menu" id="moveMenu">
     <summary class="btn"><i data-ic="calnext"></i>Przenieś <span class="caret">▾</span></summary>
     <div class="menu-items">
@@ -41,6 +26,19 @@
       </div>
     </div>
   </details>
+  <small class="sec">Wygląd</small>
+  <span class="sidelabel">Układ</span>
+  <div class="seg" id="layoutSeg" title="Układ: kafelki lub siatka">
+    <button class="btn" data-l="board"><i data-ic="tiles"></i>Kafelki</button>
+    <button class="btn" data-l="grid"><i data-ic="rows"></i>Siatka</button>
+  </div>
+  <span class="sidelabel">Motyw</span>
+  <div class="seg" id="themeSeg" title="Motyw">
+    <button class="btn" data-t="light"><i data-ic="sun"></i>Jasny</button>
+    <button class="btn" data-t="dark"><i data-ic="moon"></i>Ciemny</button>
+  </div>
+  <button class="btn snav" id="remBtn" type="button" data-label="1" aria-label="Przypomnienia"></button>
+  <small class="sec">Pliki</small>
   <details class="menu" id="dataMenu">
     <summary class="btn"><i data-ic="folder"></i>Pliki <span class="caret">▾</span></summary>
     <div class="menu-items">
@@ -61,13 +59,29 @@
       </div>
     </div>
   </details>
-  <button class="btn" id="saveBtn" type="button" hidden><i data-ic="save"></i>Zapisz</button>
+  <button class="btn snav" id="saveBtn" type="button" hidden><i data-ic="save"></i>Zapisz</button>
   <span id="fileTag" hidden></span>
   <input type="file" id="file" accept=".json" hidden>
-  <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
-  <div id="note" role="status" hidden></div>
+  <div class="side-bottom">
+    <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
+    <div id="note" role="status" hidden></div>
+  </div>
+</aside>
+<div class="content">
+<header class="top">
+  <button class="btn" id="prev" title="Poprzedni">‹</button>
+  <button class="btn" id="today">Dziś</button>
+  <button class="btn" id="next" title="Następny">›</button>
+  <span id="title"></span>
+  <div class="spacer"></div>
+  <div class="seg" id="views">
+    <button class="btn" data-v="month"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><g fill="currentColor" stroke="none"><circle cx="5" cy="9" r=".95"/><circle cx="8" cy="9" r=".95"/><circle cx="11" cy="9" r=".95"/><circle cx="5" cy="12" r=".95"/><circle cx="8" cy="12" r=".95"/><circle cx="11" cy="12" r=".95"/></g></svg>Miesiąc</button>
+    <button class="btn" data-v="week"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><rect x="3.2" y="8" width="9.6" height="2.8" rx="1.2" fill="currentColor" stroke="none"/></svg>Tydzień</button>
+  </div>
 </header>
 <main id="main"><div id="cal"></div><section id="list" aria-label="Lista zadań"></section></main>
+</div>
+</div>
 
 <dialog id="dlg">
   <form method="dialog" id="form">
