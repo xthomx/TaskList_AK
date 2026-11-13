@@ -266,3 +266,36 @@ input[type=color]{width:32px;height:26px;padding:0;border:1px solid var(--line);
 #saveBtn.dirty{background:var(--accent);color:#fff;border-color:var(--accent)}
 #saveBtn.dirty::after{content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--p3);border:2px solid var(--panel)}
 #saveBtn:disabled{opacity:.6;cursor:progress}
+/* zaznaczanie wielu zadań */
+table.tasks col.c-sel{width:34px}
+table.tasks td.selcell,table.tasks th.selcell{text-align:center;padding-left:2px;padding-right:2px}
+table.tasks td.selcell input,table.tasks th.selcell input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent)}
+.selbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;margin:4px 0 8px;background:var(--today);border:1px solid var(--accent);border-radius:8px;position:sticky;top:0;z-index:3}
+.selbar .btn{padding:4px 10px;font-size:13px}
+.selbar .menu-items{right:auto;left:0;min-width:270px;z-index:30}
+.mv-pick{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);margin-top:4px}
+.mv-pick input{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}
+/* ekran „Zadania na dziś” */
+#todayBtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+main.today-mode #list{display:none}
+main.today-mode #cal{flex:1 1 auto}
+.today-screen{padding:2px 2px 16px}
+.tstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.tstat{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.tstat span{color:var(--muted);font-size:13px}
+.tstat b{font-size:26px;line-height:1.1}
+.tstat.warn{border-color:var(--p3)}.tstat.warn b{color:var(--p3)}
+.tstat .blink{margin-left:0;text-align:left;margin-top:2px}
+.tprog{display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:13px;flex-wrap:wrap}
+.tprog-bar{width:260px;max-width:40vw;height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+.tprog-bar i{display:block;height:100%;background:var(--p1)}
+.tsec{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tsec h3{margin:0 0 6px;font-size:15px}
+.tsec .empty{padding:6px 2px}
+.tbig{font-size:15px;padding:24px 4px}
+table.tdy col.c-time{width:110px}
+table.tdy td.ttl{font-size:14px}
+.tspan{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.stbtn{cursor:pointer}.stbtn:hover{background:var(--today)}
+table.tdy tr.st-done td:not(.stcell):not(.selcell){opacity:.55;text-decoration:line-through}
+table.tdy tr.trow:hover td{background:var(--today)}

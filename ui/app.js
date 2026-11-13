@@ -143,14 +143,18 @@ const tasksOn = ds => visibleTasks().filter(t => occursOn(t, ds)).sort(daySort);
 /* ================= render ================= */
 function renderCal(){
   const cal = document.getElementById("cal");
-  if(view === "month") renderMonth(cal);                    // miesiąc: zawsze klasyczny kalendarz
+  if(daySummary()) renderDaySummary(cal);                    // widok „Dzień” w trybie kafelków: podsumowanie dnia
+  else if(view === "month") renderMonth(cal);                // miesiąc: klasyczny kalendarz (siatka lub kafelki)
   else if(layout === "board") renderBoard(cal);
   else renderTimeGrid(cal, view === "week");
 }
 function render(){
   hideTip();
+  pruneSel();
+  document.getElementById("main").classList.toggle("today-mode", daySummary());
+  todayBtn.classList.toggle("active", daySummary() && iso(cur) === iso(new Date()));
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
-  layoutSeg.hidden = false;                                  // „Kafelki / Siatka” dla miesiąca, tygodnia i dnia
+  layoutSeg.hidden = false;
   applyTheme();
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
   fillPersonFilter();
@@ -284,6 +288,7 @@ function layoutDay(list){
 }
 
 /* ================= widok kafelkowy (tydzień / dzień): kolumna „Zaległe” + kolumny dni z kartami ================= */
+const MONTHS_GEN = ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"];
 const MONTHS_SHORT = ["sty","lut","mar","kwi","maj","cze","lip","sie","wrz","paź","lis","gru"];
 const WEEKDAYS = ["Niedziela","Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota"];
 let boardAdd = null;                    // dzień, w którym otwarty jest formularz szybkiego dodawania
@@ -715,29 +720,32 @@ function renderList(){
   else if(listScope === "period") rows = rows.filter(t => t.date <= to && endOf(t) >= from);
   rows.sort(byDue);
   const el = document.getElementById("list");
+  const prevScroll = (el.querySelector(".list-scroll") || {}).scrollTop || 0;      // zachowaj przewinięcie listy przy odświeżeniu
   let h = `<div class="list-head"><h2>Lista zadań (${rows.length})</h2>
     <label>Zakres <select id="lScope"><option value="all">Wszystkie</option><option value="today">Od dziś</option><option value="period">Widoczny okres</option></select></label>
-    <label><input type="checkbox" id="lHide"> Ukryj zrobione</label></div>`;
+    <label><input type="checkbox" id="lHide"> Ukryj zrobione</label></div>` + selBarHTML();
   if(!rows.length) h += `<div class="empty">Brak zadań do wyświetlenia.</div>`;
   else {
-    h += `<div class="list-scroll"><table class="tasks"><colgroup><col class="c-st"><col class="c-when"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup><thead><tr><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
+    h += `<div class="list-scroll"><table class="tasks"><colgroup><col class="c-sel"><col class="c-st"><col class="c-when"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup><thead><tr><th class="selcell"><input type="checkbox" data-sel-all title="Zaznacz wszystkie"></th><th title="Status — prawy przycisk myszy zmienia status"></th><th>Termin</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead><tbody>`;
     let prev = "";
     for(const t of rows){
       const done = t.status === "done";
       const cls = ["trow", t.date !== prev && prev ? "newday" : "", occursOn(t, todayS) ? "istoday" : "", endOf(t) < todayS && !done ? "late" : "", "st-" + t.status].join(" ");
       prev = t.date;
       const when = fmtDate(t.date) + (t.series ? " 🔁" : "");      // lista: tylko początek (zakres wielodniowy widać w kalendarzu)
-      h += `<tr class="${cls}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
+      h += `<tr class="${cls}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}><td class="selcell"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></td><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
            `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
     h += `</tbody></table></div>`;
   }
   el.innerHTML = h;
+  const ls = el.querySelector(".list-scroll"); if(ls) ls.scrollTop = prevScroll;
+  bindSelBoxes(el); bindSelBar(el);
   lScope.value = listScope; lHide.checked = hideDone;
   lScope.onchange = () => { listScope = lScope.value; renderList(); };
   lHide.onchange = () => { hideDone = lHide.checked; renderList(); };
-  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.closest(".tinp")) openDialog(r.dataset.id); }));
+  el.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.closest(".tinp, .selcell")) openDialog(r.dataset.id); }));
   el.querySelectorAll(".tinp").forEach(inp => {          // edycja tytułu bezpośrednio w komórce
     const t = byId(inp.dataset.title);
     inp.addEventListener("keydown", e => {
@@ -751,6 +759,133 @@ function renderList(){
       if(v !== t.title){ t.title = v; inp.value = v; save(); renderCal(); }
     });
   });
+}
+
+/* ================= zaznaczanie wielu zadań (lista i ekran „Dziś”) ================= */
+let sel = new Set();
+const pruneSel = () => { for(const id of [...sel]) if(!byId(id)) sel.delete(id); };
+const refreshSel = () => { if(daySummary()) renderCal(); else renderList(); };
+
+function selBarHTML(){
+  if(!sel.size) return "";
+  const now = new Date(), nextMon = addDays(mondayOf(startOfToday()), 7);
+  return `<div class="selbar"><b>Zaznaczono: ${sel.size}</b>` +
+    `<details class="menu" id="selMove"><summary class="btn">📅 Przenieś ▾</summary><div class="menu-items">` +
+    `<button type="button" data-mv="today">Na dziś</button>` +
+    `<button type="button" data-mv="tomorrow">Na jutro (${fmtDate(iso(addDays(now, 1)))})</button>` +
+    `<button type="button" data-mv="week">Za tydzień (${fmtDate(iso(addDays(now, 7)))})</button>` +
+    `<button type="button" data-mv="monday">Na przyszły poniedziałek (${fmtDate(iso(nextMon))})</button>` +
+    `<button type="button" data-mv="+1">Przesuń o 1 dzień</button><button type="button" data-mv="+7">Przesuń o 7 dni</button>` +
+    `<div class="mv-pick"><input type="date" id="selDate" value="${iso(addDays(now, 1))}"><button type="button" class="btn" data-mv="pick">Przenieś</button></div>` +
+    `</div></details>` +
+    `<button type="button" class="btn" data-sel="done">✅ Zrobione</button>` +
+    `<button type="button" class="btn danger" data-sel="del">🗑 Usuń</button>` +
+    `<button type="button" class="btn" data-sel="clear">Odznacz</button></div>`;
+}
+
+function moveSelected(kind){
+  const rows = [...sel].map(byId).filter(Boolean); if(!rows.length) return;
+  const now = new Date();
+  let target = null;
+  if(kind === "today") target = iso(now);
+  else if(kind === "tomorrow") target = iso(addDays(now, 1));
+  else if(kind === "week") target = iso(addDays(now, 7));
+  else if(kind === "monday") target = iso(addDays(mondayOf(startOfToday()), 7));
+  else if(kind === "pick"){
+    target = (document.getElementById("selDate") || {}).value || "";
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(target)){ alert("Wybierz datę, na którą przenieść zadania."); return; }
+  }
+  for(const t of rows){ if(target) moveToDate(t, target); else shiftBy(t, kind === "+1" ? 1 : 7); }   // zadania wielodniowe zachowują długość
+  sel.clear(); save(); render();
+  note(`Przeniesiono zadań: ${rows.length}.`, true);
+}
+
+function bindSelBar(root){
+  root.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => moveSelected(b.dataset.mv));
+  root.querySelectorAll("[data-sel]").forEach(b => b.onclick = () => {
+    const rows = [...sel].map(byId).filter(Boolean), kind = b.dataset.sel;
+    if(kind === "clear"){ sel.clear(); refreshSel(); return; }
+    if(!rows.length) return;
+    if(kind === "done"){ rows.forEach(t => applyStatus(t, "done")); sel.clear(); save(); render(); note(`Oznaczono jako zrobione: ${rows.length}.`, true); }
+    else if(kind === "del" && confirm(`Usunąć zaznaczone zadania (${rows.length})? Tej operacji nie można cofnąć.`)){
+      const ids = new Set(rows.map(t => t.id)); tasks = tasks.filter(t => !ids.has(t.id)); sel.clear(); save(); render();
+    }
+  });
+}
+
+// pola wyboru w wierszach i „zaznacz wszystkie” w nagłówku tabeli
+function bindSelBoxes(root){
+  root.querySelectorAll("[data-sel-id]").forEach(c => {
+    c.addEventListener("click", e => e.stopPropagation());
+    c.addEventListener("change", () => { c.checked ? sel.add(c.dataset.selId) : sel.delete(c.dataset.selId); refreshSel(); });
+  });
+  root.querySelectorAll("[data-sel-all]").forEach(c => {
+    const ids = [...c.closest("table").querySelectorAll("[data-sel-id]")].map(x => x.dataset.selId);
+    c.checked = ids.length > 0 && ids.every(id => sel.has(id));
+    c.addEventListener("click", e => e.stopPropagation());
+    c.addEventListener("change", () => { ids.forEach(id => c.checked ? sel.add(id) : sel.delete(id)); refreshSel(); });
+  });
+}
+document.addEventListener("click", e => {          // zamknij rozwinięte menu przeniesienia po kliknięciu obok
+  document.querySelectorAll("#selMove[open]").forEach(d => { if(!d.contains(e.target)) d.open = false; });
+});
+
+/* ================= ekran „Zadania na dziś”: zadania zaczynające się lub trwające dzisiaj ================= */
+const daySummary = () => view === "day" && layout === "board";      // podsumowanie dnia = widok Dzień w trybie kafelków
+const todaySort = (a, b) => (a.status === "done") - (b.status === "done") || (a.start || "").localeCompare(b.start || "") || b.priority - a.priority || a.title.localeCompare(b.title);
+
+function todayRows(list, todayS, ongoing){
+  const head = `<thead><tr><th class="selcell"><input type="checkbox" data-sel-all title="Zaznacz wszystkie w tej sekcji"></th><th></th><th>Godzina</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead>`;
+  const body = list.map(t => {
+    const total = daysBetween(t.date, endOf(t)) + 1, nr = daysBetween(t.date, todayS) + 1;
+    const span = isMulti(t) ? `<small class="tspan">dzień ${nr} z ${total} · do ${shortDate(endOf(t))}</small>` : "";
+    return `<tr class="trow st-${t.status}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}>` +
+      `<td class="selcell"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></td>` +
+      `<td class="stcell stbtn" data-toggle="${esc(t.id)}" title="Kliknij, aby oznaczyć jako zrobione / cofnąć">${STATUS[t.status].icon}</td>` +
+      `<td class="when">${t.start ? t.start + (t.end ? "–" + t.end : "") : ""}</td>` +
+      `<td class="ttl">${esc(t.title)}${t.series ? " 🔁" : ""}${span}</td><td>${esc(namesOf(t).join(", "))}</td>` +
+      `<td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
+      `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
+  }).join("");
+  return `<table class="tasks tdy"><colgroup><col class="c-sel"><col class="c-st"><col class="c-time"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup>${head}<tbody>${body}</tbody></table>`;
+}
+
+function renderDaySummary(main){          // podsumowanie wybranego dnia (domyślnie dziś): zadania zaczynające się lub trwające tego dnia
+  const dayS = iso(cur), realToday = iso(new Date()), isToday = dayS === realToday, d = new Date(cur), when = isToday ? "dziś" : "tego dnia";
+  setTitle(`${isToday ? "Dziś — " : ""}${WEEKDAYS[d.getDay()].toLowerCase()}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`);
+  const all = visibleTasks().filter(t => occursOn(t, dayS));
+  const starting = all.filter(t => t.date === dayS).sort(todaySort);
+  const ongoing = all.filter(t => t.date < dayS).sort(todaySort);
+  const nDone = all.filter(t => t.status === "done").length, nProg = all.filter(t => t.status === "progress").length;
+  const nPend = all.length - nDone - nProg;
+  const overdue = visibleTasks().filter(t => t.status !== "done" && endOf(t) < realToday).length;
+  const pct = all.length ? Math.round(all.reduce((s, t) => s + t.progress, 0) / all.length) : 0;
+  let h = `<div class="today-screen">`;
+  h += `<div class="tstats">` +
+    `<div class="tstat"><span>Zadań ${isToday ? "na dziś" : "tego dnia"}</span><b>${all.length}</b></div>` +
+    `<div class="tstat"><span>${STATUS.done.icon} Zrobione</span><b>${nDone}</b></div>` +
+    `<div class="tstat"><span>${STATUS.progress.icon} W trakcie</span><b>${nProg}</b></div>` +
+    `<div class="tstat"><span>${STATUS.pending.icon} Oczekujące</span><b>${nPend}</b></div>` +
+    `<div class="tstat${overdue ? " warn" : ""}"><span>⚠ Zaległe</span><b>${overdue}</b>${overdue ? `<button class="blink" type="button" id="tdOverdue">Przenieś na dziś</button>` : ""}</div></div>`;
+  h += `<div class="tprog"><div class="tprog-bar"><i style="width:${pct}%"></i></div><span>Postęp dnia: <b>${pct}%</b> (${nDone} z ${all.length} zrobionych)</span>` +
+       `<button class="btn primary" type="button" id="tdAdd" style="margin-left:auto">＋ Zadanie ${isToday ? "na dziś" : "na ten dzień"}</button></div>`;
+  h += selBarHTML();
+  if(!all.length) h += `<div class="empty tbig">Brak zadań ${when} 🎉 Dodaj nowe przyciskiem „＋ Zadanie”.</div>`;
+  else {
+    h += `<section class="tsec"><h3>Rozpoczynają się ${when} <span class="bcount">${starting.length}</span></h3>` +
+         (starting.length ? todayRows(starting, dayS, false) : `<div class="empty">Żadne zadanie nie zaczyna się ${when}.</div>`) + `</section>`;
+    h += `<section class="tsec"><h3>Trwają ${when} <span class="bcount">${ongoing.length}</span></h3>` +
+         (ongoing.length ? todayRows(ongoing, dayS, true) : `<div class="empty">Żadne wcześniej rozpoczęte zadanie nie trwa ${when}.</div>`) + `</section>`;
+  }
+  main.innerHTML = h + `</div>`;
+  bindSelBoxes(main); bindSelBar(main);
+  main.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.closest(".selcell, .stbtn")) openDialog(r.dataset.id); }));
+  main.querySelectorAll("[data-toggle]").forEach(c => c.addEventListener("click", e => {          // szybkie „zrobione” / cofnięcie
+    e.stopPropagation(); const t = byId(c.dataset.toggle); if(!t) return;
+    applyStatus(t, t.status === "done" ? "pending" : "done"); save(); render();
+  }));
+  const add = main.querySelector("#tdAdd"); if(add) add.onclick = () => openDialog(null, dayS);
+  const od = main.querySelector("#tdOverdue"); if(od) od.onclick = () => bulkMove("today");
 }
 
 /* ================= przenoszenie na przyszły tydzień / na dziś ================= */
@@ -884,6 +1019,7 @@ prev.onclick = () => shift(-1); next.onclick = () => shift(1);
 today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
 add.onclick = () => openDialog(null, iso(cur));
 document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
+todayBtn.onclick = () => { view = "day"; layout = "board"; cur = startOfToday(); render(); };      // skrót: dzisiejsze podsumowanie w widoku Dzień
 document.querySelectorAll("#layoutSeg .btn").forEach(b => b.onclick = () => { layout = b.dataset.l; render(); });
 document.querySelectorAll("#themeSeg .btn").forEach(b => b.onclick = () => { theme = b.dataset.t; applyTheme(); saveTheme(); });
 document.addEventListener("keydown", e => {
