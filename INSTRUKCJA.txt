@@ -7,7 +7,7 @@ URUCHOMIENIE
 - Zbudowanie własnego EXE: ZBUDUJ_EXE.bat.
 
 OBSŁUGA
-- Widoki: Miesiąc / Tydzień / Dzień (klawisze m, w, d; strzałki zmieniają okres).
+- Widoki: 🗓 Miesiąc i 📆 Tydzień (przyciski z ikonami; strzałki zmieniają okres). Widok jednego dnia to „📋 Zadania na dziś” (podsumowanie dnia z kafelkami); inny dzień otworzysz, klikając jego numer w kalendarzu. Klawisze: m, w, d.
 - Nowe zadanie: przycisk „+ Zadanie” albo dwuklik w kalendarzu. Kliknięcie zadania otwiera edycję.
 - Przesuwanie: przeciągnij zadanie na inny dzień (miesiąc) lub dzień i godzinę (tydzień/dzień).
   Przeciągnięcie na pasek „cały dzień” usuwa godzinę. Dolna krawędź kafelka zmienia długość.

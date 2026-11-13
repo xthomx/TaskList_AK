@@ -340,3 +340,6 @@ table.tdy tr.trow:hover td{background:var(--today)}
 .card.big:has(.csel input:checked){outline:2px solid var(--accent);outline-offset:-1px}
 .today-screen .tsec{background:transparent;border:0;padding:0;margin-top:18px}
 .today-screen .tsec h3{font-size:16px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+/* ikony przy przyciskach widoków */
+#views .btn{display:inline-flex;align-items:center;gap:6px}
+#views .ico{flex:0 0 auto}
