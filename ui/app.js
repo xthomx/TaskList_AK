@@ -306,17 +306,19 @@ function bindChecks(root){
     b.addEventListener("mousedown", e => e.stopPropagation());
   });
 }
-function cardHTML(t, ds, overdue, compact){
+function cardHTML(t, ds, overdue, compact, selectable){      // selectable: karta w podsumowaniu dnia (pole zaznaczania, bez przeciągania)
   const names = namesOf(t), multi = isMulti(t);
   const note = compact ? "" : ((t.notes || "").split(String.fromCharCode(10)).find(l => l.trim()) || "").trim();
   const meta = [];
   if(overdue) meta.push(`<span class="late">📅 ${shortDate(t.date)}</span>`);
   if(t.start) meta.push(`<span>🕒 ${t.start}${t.end ? "–" + t.end : ""}</span>`);
-  if(multi && ds) meta.push(`<span>📅 dzień ${daysBetween(t.date, ds) + 1}/${daysBetween(t.date, endOf(t)) + 1}</span>`);
+  if(multi && ds) meta.push(`<span>📅 dzień ${daysBetween(t.date, ds) + 1}/${daysBetween(t.date, endOf(t)) + 1}${selectable ? " · do " + shortDate(endOf(t)) : ""}</span>`);
   if(names.length) meta.push(`<span title="${esc(names.join(", "))}">👥 ${esc(names.map(shortName).join(", "))}</span>`);
   if(t.series) meta.push(`<span title="Zadanie cykliczne">🔁</span>`);
   if(t.status === "progress") meta.push(`<span>🔄 ${t.progress}%</span>`);
-  return `<article class="card p${t.priority} st-${t.status}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="true" data-id="${esc(t.id)}">` +
+  if(selectable) meta.push(`<span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span>`);
+  const pick = selectable ? `<label class="csel" title="Zaznacz zadanie"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></label>` : "";
+  return `<article class="card p${t.priority} st-${t.status}${selectable ? " big" : ""}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="${selectable ? "false" : "true"}" data-id="${esc(t.id)}">` + pick +
     `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
     `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
     (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div></article>`;
@@ -821,7 +823,7 @@ function bindSelBoxes(root){
     c.addEventListener("change", () => { c.checked ? sel.add(c.dataset.selId) : sel.delete(c.dataset.selId); refreshSel(); });
   });
   root.querySelectorAll("[data-sel-all]").forEach(c => {
-    const ids = [...c.closest("table").querySelectorAll("[data-sel-id]")].map(x => x.dataset.selId);
+    const ids = [...c.closest("table, .tsec").querySelectorAll("[data-sel-id]")].map(x => x.dataset.selId);
     c.checked = ids.length > 0 && ids.every(id => sel.has(id));
     c.addEventListener("click", e => e.stopPropagation());
     c.addEventListener("change", () => { ids.forEach(id => c.checked ? sel.add(id) : sel.delete(id)); refreshSel(); });
@@ -835,20 +837,9 @@ document.addEventListener("click", e => {          // zamknij rozwinięte menu p
 const daySummary = () => view === "day" && layout === "board";      // podsumowanie dnia = widok Dzień w trybie kafelków
 const todaySort = (a, b) => (a.status === "done") - (b.status === "done") || (a.start || "").localeCompare(b.start || "") || b.priority - a.priority || a.title.localeCompare(b.title);
 
-function todayRows(list, todayS, ongoing){
-  const head = `<thead><tr><th class="selcell"><input type="checkbox" data-sel-all title="Zaznacz wszystkie w tej sekcji"></th><th></th><th>Godzina</th><th>Zadanie</th><th>Osoby</th><th>Priorytet</th><th>Postęp</th></tr></thead>`;
-  const body = list.map(t => {
-    const total = daysBetween(t.date, endOf(t)) + 1, nr = daysBetween(t.date, todayS) + 1;
-    const span = isMulti(t) ? `<small class="tspan">dzień ${nr} z ${total} · do ${shortDate(endOf(t))}</small>` : "";
-    return `<tr class="trow st-${t.status}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}>` +
-      `<td class="selcell"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></td>` +
-      `<td class="stcell stbtn" data-toggle="${esc(t.id)}" title="Kliknij, aby oznaczyć jako zrobione / cofnąć">${STATUS[t.status].icon}</td>` +
-      `<td class="when">${t.start ? t.start + (t.end ? "–" + t.end : "") : ""}</td>` +
-      `<td class="ttl">${esc(t.title)}${t.series ? " 🔁" : ""}${span}</td><td>${esc(namesOf(t).join(", "))}</td>` +
-      `<td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
-      `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
-  }).join("");
-  return `<table class="tasks tdy"><colgroup><col class="c-sel"><col class="c-st"><col class="c-time"><col class="c-title"><col class="c-who"><col class="c-prio"><col class="c-prog"></colgroup>${head}<tbody>${body}</tbody></table>`;
+// zadania dnia jako kafelki (karty) w siatce
+function todayCards(list, dayS){
+  return `<div class="tgrid">${list.map(t => cardHTML(t, dayS, false, false, true)).join("")}</div>`;
 }
 
 function renderDaySummary(main){          // podsumowanie wybranego dnia (domyślnie dziś): zadania zaczynające się lub trwające tego dnia
@@ -873,18 +864,14 @@ function renderDaySummary(main){          // podsumowanie wybranego dnia (domyś
   h += selBarHTML();
   if(!all.length) h += `<div class="empty tbig">Brak zadań ${when} 🎉 Dodaj nowe przyciskiem „＋ Zadanie”.</div>`;
   else {
-    h += `<section class="tsec"><h3>Rozpoczynają się ${when} <span class="bcount">${starting.length}</span></h3>` +
-         (starting.length ? todayRows(starting, dayS, false) : `<div class="empty">Żadne zadanie nie zaczyna się ${when}.</div>`) + `</section>`;
-    h += `<section class="tsec"><h3>Trwają ${when} <span class="bcount">${ongoing.length}</span></h3>` +
-         (ongoing.length ? todayRows(ongoing, dayS, true) : `<div class="empty">Żadne wcześniej rozpoczęte zadanie nie trwa ${when}.</div>`) + `</section>`;
+    h += `<section class="tsec"><h3>Rozpoczynają się ${when} <span class="bcount">${starting.length}</span>${starting.length ? ` <label class="tsec-all"><input type="checkbox" data-sel-all> Zaznacz wszystkie</label>` : ""}</h3>` +
+         (starting.length ? todayCards(starting, dayS) : `<div class="empty">Żadne zadanie nie zaczyna się ${when}.</div>`) + `</section>`;
+    h += `<section class="tsec"><h3>Trwają ${when} <span class="bcount">${ongoing.length}</span>${ongoing.length ? ` <label class="tsec-all"><input type="checkbox" data-sel-all> Zaznacz wszystkie</label>` : ""}</h3>` +
+         (ongoing.length ? todayCards(ongoing, dayS) : `<div class="empty">Żadne wcześniej rozpoczęte zadanie nie trwa ${when}.</div>`) + `</section>`;
   }
   main.innerHTML = h + `</div>`;
   bindSelBoxes(main); bindSelBar(main);
-  main.querySelectorAll("tr.trow").forEach(r => r.addEventListener("click", e => { if(!e.target.closest(".selcell, .stbtn")) openDialog(r.dataset.id); }));
-  main.querySelectorAll("[data-toggle]").forEach(c => c.addEventListener("click", e => {          // szybkie „zrobione” / cofnięcie
-    e.stopPropagation(); const t = byId(c.dataset.toggle); if(!t) return;
-    applyStatus(t, t.status === "done" ? "pending" : "done"); save(); render();
-  }));
+  bindChips(main); bindChecks(main);                  // klik karty = edycja, kółko = zrobione, prawy przycisk = menu
   const add = main.querySelector("#tdAdd"); if(add) add.onclick = () => openDialog(null, dayS);
   const od = main.querySelector("#tdOverdue"); if(od) od.onclick = () => bulkMove("today");
 }
