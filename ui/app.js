@@ -26,7 +26,10 @@ const ICON_PATHS = {
   tiles:    '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
   rows:     '<path d="M4 6h16M4 12h16M4 18h16"/>',
   sun:      '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
-  moon:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'
+  moon:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  eye:      '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+  eyeOff:   '<path d="M3 3l18 18M10.6 6a9.6 9.6 0 0 1 1.4-.1c6 0 9.5 6.1 9.5 6.1a16 16 0 0 1-3 3.7M6.6 7.4A15.7 15.7 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 4-.9M9.9 9.9a2.8 2.8 0 0 0 4 4"/>',
+  list:     '<path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20"/><circle cx="4.5" cy="6.5" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1" fill="currentColor"/>'
 };
 const ic = name => `<svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
 const xdelBtn = t => `<button class="xdel" type="button" data-del="${esc(t.id)}" title="Usuń zadanie" aria-label="Usuń zadanie">${ic("trash")}</button>`;     // kosz w prawym dolnym rogu elementu
@@ -126,6 +129,7 @@ function saveView(){
 }
 /* ---- motyw jasny / ciemny: wybór użytkownika ma pierwszeństwo, bez wyboru obowiązuje motyw systemu ---- */
 let theme = "";                                  // "" = wg systemu, "light" lub "dark"
+let showList = true;                              // lista zadań pod kalendarzem (miesiąc / tydzień)
 let reminders = true, notified = new Set(), snoozed = new Map();      // przypomnienia o zadaniach z godziną
 const systemDark = () => !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
 const effectiveTheme = () => theme || (systemDark() ? "dark" : "light");
@@ -183,6 +187,8 @@ function renderCal(){
 function render(){
   hideTip();
   pruneSel(); updateMoveButtons();
+  document.getElementById("main").classList.toggle("nolist", !showList);
+  updateListBtn();
   document.getElementById("main").classList.toggle("today-mode", daySummary());
   todayBtn.classList.toggle("active", daySummary() && iso(cur) === iso(new Date()));
   document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("active", b.dataset.v === view));
@@ -227,9 +233,10 @@ function renderMonth(main){
   const start = mondayOf(first);
   const todayS = iso(new Date());
   const tiles = layout === "board";                                  // miesiąc jako kalendarz: zadania jako chipy (siatka) albo karty (kafelki)
-  let h = `<div class="month${tiles ? " tiles" : ""}">` + DOW.map((d, i) => `<div class="dow${i >= 5 ? " wkd" : ""}"><span class="dfull">${DOW_FULL[i]}</span><span class="dabbr">${d}</span></div>`).join("");
+  let h = `<div class="month${tiles ? " tiles" : ""}"><div class="dow wkh" title="Numer tygodnia (ISO)">Tydz.</div>` + DOW.map((d, i) => `<div class="dow${i >= 5 ? " wkd" : ""}"><span class="dfull">${DOW_FULL[i]}</span><span class="dabbr">${d}</span></div>`).join("");
   for(let i=0;i<42;i++){
     const d = addDays(start,i), ds = iso(d);
+    if(i % 7 === 0){ const wn = isoWeek(d), cw = isoWeek(new Date()) === wn && ds <= todayS && todayS <= iso(addDays(d, 6)); h += `<div class="wknum${cw ? " now" : ""}" data-gotoweek="${ds}" title="Tydzień ${wn} — kliknij, aby otworzyć widok tygodnia">${wn}</div>`; }
     const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
     h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>` +
          (tiles ? tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done")).map(t => cardHTML(t, ds, false, true)).join("")
@@ -251,6 +258,7 @@ function renderMonth(main){
   bindSpanHandles(main);
   if(tiles) bindChecks(main);
   main.querySelectorAll("[data-goto]").forEach(s => s.onclick = () => { cur = parse(s.dataset.goto); view = "day"; render(); });
+  main.querySelectorAll("[data-gotoweek]").forEach(c => c.onclick = () => { cur = parse(c.dataset.gotoweek); view = "week"; render(); });
 }
 
 function bindChips(root){
@@ -371,7 +379,7 @@ function renderBoard(main){
   } else if(view === "week"){
     days = Array.from({length: 7}, (_, i) => addDays(mondayOf(cur), i));
     const a = days[0], b = days[6];
-    setTitle(`${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
+    setTitle(`Tydzień ${isoWeek(a)} · ${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
   } else {
     days = [new Date(cur)];
     setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
@@ -453,12 +461,12 @@ function renderBoard(main){
 function renderTimeGrid(main, isWeek){
   const days = isWeek ? Array.from({length:7}, (_,i) => addDays(mondayOf(cur), i)) : [new Date(cur)];
   if(isWeek){ const a = days[0], b = days[6];
-    setTitle(`${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
+    setTitle(`Tydzień ${isoWeek(a)} · ${a.getDate()} ${MONTHS[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0,3)} ${b.getFullYear()}`);
   } else setTitle(`${DOW[(cur.getDay()+6)%7]}, ${cur.getDate()} ${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
 
   const n = days.length, todayS = iso(new Date());
   const tpl = `56px repeat(${n}, 1fr)`;
-  let h = `<div class="tg"><div class="tg-head" style="grid-template-columns:${tpl}"><div></div>` +
+  let h = `<div class="tg"><div class="tg-head" style="grid-template-columns:${tpl}"><div class="wkbadge" title="Numer tygodnia (ISO)">${isWeek ? "T" + isoWeek(days[0]) : ""}</div>` +
     days.map(d => { const w = (d.getDay() + 6) % 7; return `<div class="${iso(d)===todayS?"today":""}${w >= 5 ? " wkd" : ""}"><span class="dn" data-goto="${iso(d)}"><span class="wd"><span class="dfull">${DOW_FULL[w]}</span><span class="dabbr">${DOW[w]}</span></span><span class="dd">${d.getDate()}</span></span></div>`; }).join("") + `</div>`;
   h += `<div class="allday-row" style="grid-template-columns:${tpl}"><div>cały dzień</div>` +
     days.map(d => `<div class="allday" data-date="${iso(d)}">${tasksOn(iso(d)).filter(t => !t.start).map(t => chipHTML(t, iso(d))).join("")}</div>`).join("") + `</div>`;
@@ -1228,6 +1236,7 @@ async function boot(){
       view = (r.prefs && r.prefs.view) || "month";
       layout = (r.prefs && r.prefs.layout) === "grid" ? "grid" : "board"; savedLayout = layout;
       theme = (r.prefs && r.prefs.theme) || ""; applyTheme();
+      showList = !(r.prefs && r.prefs.show_list === false);
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
@@ -1242,6 +1251,7 @@ async function boot(){
       try{ layout = localStorage.getItem(KEY + "_layout") === "grid" ? "grid" : "board"; savedLayout = layout; }catch(e){}
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
+      try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
       if(!d || !d.tasks.length) d = seed();
       tasks = d.tasks; people = d.people; save();
     }
@@ -1337,3 +1347,26 @@ remBtn.onclick = () => {
 setInterval(checkReminders, 15000);
 setTimeout(checkReminders, 2500);
 window.addEventListener("focus", checkReminders);
+
+/* ================= pokaż / ukryj listę zadań pod kalendarzem (miesiąc, tydzień) ================= */
+function updateListBtn(){
+  const b = document.getElementById("listBtn"); if(!b) return;
+  const inactive = daySummary();                      // w „Zadania na dziś” lista nie jest używana
+  b.innerHTML = ic(showList ? "eyeOff" : "eye") + `<span>${showList ? "Ukryj listę zadań" : "Pokaż listę zadań"}</span>`;
+  b.disabled = inactive;
+  b.title = inactive ? "W widoku „Zadania na dziś” lista jest zawsze ukryta" : (showList ? "Ukryj listę zadań pod kalendarzem" : "Pokaż listę zadań pod kalendarzem");
+}
+document.getElementById("listBtn").onclick = () => {
+  showList = !showList;
+  if(DESKTOP){ if(api()) api().set_show_list(showList).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_list", showList ? "1" : "0"); }catch(e){} }
+  render();
+};
+
+/* ================= numery tygodni (ISO 8601) ================= */
+function isoWeek(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);                                   // czwartek tego tygodnia wyznacza rok
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 864e5 + 1) / 7);
+}

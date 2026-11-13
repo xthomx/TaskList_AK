@@ -460,3 +460,17 @@ header.top #title{font-size:17px;font-weight:700;margin-left:6px}
 .mvtxt{display:flex;flex-direction:column;min-width:0;gap:1px}
 .mvtxt b{font-size:13.5px;font-weight:600;line-height:1.25}
 .mvtxt small{font-size:12px;color:var(--muted);line-height:1.25}
+/* numery tygodni */
+.month{grid-template-columns:minmax(42px,48px) repeat(7,1fr)}
+.dow.wkh{font-size:11px;letter-spacing:.04em;color:var(--muted);background:var(--bg)}
+.wknum{display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-size:13px;font-weight:700;color:var(--muted);background:var(--bg);border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.wknum:hover{color:var(--accent);background:var(--today)}
+.wknum.now{color:#fff;background:var(--accent)}
+.tg-head .wkbadge{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);background:var(--bg)}
+/* ukryta lista zadań: kalendarz zajmuje całe okno */
+main.nolist #list{display:none}
+main.nolist #cal{flex:1 1 auto}
+main.nolist .month{height:100%;grid-template-rows:auto repeat(6,minmax(74px,1fr))}
+main.nolist .tg{height:100%}
+#side #listBtn:disabled{opacity:.5;cursor:not-allowed}
+#side #listBtn span{font-size:14px}

@@ -13,6 +13,10 @@
   <button class="btn primary snew" id="add"><i data-ic="plus"></i>Nowe zadanie</button>
   <small class="sec">Przestrzeń robocza</small>
   <button class="btn snav" id="todayBtn" title="Zadania na dziś — podsumowanie zadań, które zaczynają się lub trwają dzisiaj"><i data-ic="tasks"></i>Zadania na dziś</button>
+  <div class="seg" id="views">
+    <button class="btn" data-v="month"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><g fill="currentColor" stroke="none"><circle cx="5" cy="9" r=".95"/><circle cx="8" cy="9" r=".95"/><circle cx="11" cy="9" r=".95"/><circle cx="5" cy="12" r=".95"/><circle cx="8" cy="12" r=".95"/><circle cx="11" cy="12" r=".95"/></g></svg>Miesiąc</button>
+    <button class="btn" data-v="week"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><rect x="3.2" y="8" width="9.6" height="2.8" rx="1.2" fill="currentColor" stroke="none"/></svg>Tydzień</button>
+  </div>
   <button class="btn snav" id="ppl" title="Zarządzaj osobami"><i data-ic="users"></i>Osoby</button>
   <label class="sidelabel" for="fPerson">Filtr osoby</label>
   <select id="fPerson" class="btn" aria-label="Filtr osoby"></select>
@@ -38,6 +42,7 @@
     <button class="btn" data-t="light"><i data-ic="sun"></i>Jasny</button>
     <button class="btn" data-t="dark"><i data-ic="moon"></i>Ciemny</button>
   </div>
+  <button class="btn snav" id="listBtn" type="button"></button>
   <button class="btn snav" id="remBtn" type="button" data-label="1" aria-label="Przypomnienia"></button>
   <small class="sec">Pliki</small>
   <details class="menu" id="dataMenu">
@@ -75,10 +80,6 @@
   <button class="btn" id="next" title="Następny">›</button>
   <span id="title"></span>
   <div class="spacer"></div>
-  <div class="seg" id="views">
-    <button class="btn" data-v="month"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><g fill="currentColor" stroke="none"><circle cx="5" cy="9" r=".95"/><circle cx="8" cy="9" r=".95"/><circle cx="11" cy="9" r=".95"/><circle cx="5" cy="12" r=".95"/><circle cx="8" cy="12" r=".95"/><circle cx="11" cy="12" r=".95"/></g></svg>Miesiąc</button>
-    <button class="btn" data-v="week"><svg class="ico" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2"/><path d="M1.7 6.2h12.6M5 1.4v2.5M11 1.4v2.5"/><rect x="3.2" y="8" width="9.6" height="2.8" rx="1.2" fill="currentColor" stroke="none"/></svg>Tydzień</button>
-  </div>
 </header>
 <main id="main"><div id="cal"></div><section id="list" aria-label="Lista zadań"></section></main>
 </div>

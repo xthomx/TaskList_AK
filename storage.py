@@ -154,14 +154,17 @@ class Storage:
             notified = [k for k in notified if isinstance(k, str) and len(k) < 120][:300] if isinstance(notified, list) else []
             return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board', 'theme': theme if theme in THEMES else '',
                     'reminders': data.get('reminders') is not False, 'notified': notified,
+                    'show_list': data.get('show_list') is not False,
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'last_xlsx': '', 'xlsx_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'last_xlsx', 'xlsx_fp'}:
             raise ValueError('Nieznane ustawienie.')
+        if 'show_list' in changes and not isinstance(changes['show_list'], bool):
+            raise ValueError('Nieprawidłowe ustawienie listy zadań.')
         if 'reminders' in changes and not isinstance(changes['reminders'], bool):
             raise ValueError('Nieprawidłowe ustawienie przypomnień.')
         if 'notified' in changes:
@@ -179,6 +182,10 @@ class Storage:
             values.update(changes)
             self._atomic_write(self.prefs_path, json.dumps(values, ensure_ascii=False))
         return values
+
+    def set_show_list(self, visible):
+        self.set_prefs(show_list=bool(visible))
+        return True
 
     def set_reminders(self, enabled):
         self.set_prefs(reminders=bool(enabled))

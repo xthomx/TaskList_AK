@@ -141,3 +141,12 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.set_notified(['x' * 200])
         self.assertEqual(self.store.get_prefs()['view'], 'month')
+
+    def test_show_list_preference(self):
+        self.assertTrue(self.store.get_prefs()['show_list'])
+        self.store.set_show_list(False)
+        self.assertFalse(self.store.get_prefs()['show_list'])
+        self.store.set_show_list(True)
+        self.assertTrue(self.store.get_prefs()['show_list'])
+        with self.assertRaises(ValueError):
+            self.store.set_prefs(show_list='tak')

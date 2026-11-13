@@ -80,6 +80,9 @@ class Api:
     def set_view(self, view):
         return self._storage.set_view(view)
 
+    def set_show_list(self, visible):
+        return self._storage.set_show_list(visible)
+
     def set_reminders(self, enabled):
         return self._storage.set_reminders(enabled)
 
