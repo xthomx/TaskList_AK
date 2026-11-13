@@ -130,6 +130,7 @@ function saveView(){
 /* ---- motyw jasny / ciemny: wybór użytkownika ma pierwszeństwo, bez wyboru obowiązuje motyw systemu ---- */
 let theme = "";                                  // "" = wg systemu, "light" lub "dark"
 let showList = true;                              // lista zadań pod kalendarzem (miesiąc / tydzień)
+let monthTop = null;                              // widok miesiąca przewijany kółkiem co tydzień: poniedziałek górnego wiersza (null = początek miesiąca)
 let reminders = true, notified = new Set(), snoozed = new Map();      // przypomnienia o zadaniach z godziną
 const systemDark = () => !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
 const effectiveTheme = () => theme || (systemDark() ? "dark" : "light");
@@ -228,16 +229,16 @@ function fillPersonFilter(){
 }
 
 function renderMonth(main){
-  setTitle(`${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`);
-  const first = new Date(cur.getFullYear(), cur.getMonth(), 1);
-  const start = mondayOf(first);
+  const start = monthTop ? new Date(monthTop) : mondayOf(new Date(cur.getFullYear(), cur.getMonth(), 1));
+  const anchor = addDays(start, 17);                                 // środek siatki wyznacza „bieżący” miesiąc (tytuł, przyciemnianie dni)
+  setTitle(`${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`);
   const todayS = iso(new Date());
   const tiles = layout === "board";                                  // miesiąc jako kalendarz: zadania jako chipy (siatka) albo karty (kafelki)
   let h = `<div class="month${tiles ? " tiles" : ""}"><div class="dow wkh" title="Numer tygodnia (ISO)">Tydz.</div>` + DOW.map((d, i) => `<div class="dow${i >= 5 ? " wkd" : ""}"><span class="dfull">${DOW_FULL[i]}</span><span class="dabbr">${d}</span></div>`).join("");
   for(let i=0;i<42;i++){
     const d = addDays(start,i), ds = iso(d);
     if(i % 7 === 0){ const wn = isoWeek(d), cw = isoWeek(new Date()) === wn && ds <= todayS && todayS <= iso(addDays(d, 6)); h += `<div class="wknum${cw ? " now" : ""}" data-gotoweek="${ds}" title="Tydzień ${wn} — kliknij, aby otworzyć widok tygodnia">${wn}</div>`; }
-    const cls = ["cell", d.getMonth()!==cur.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
+    const cls = ["cell", d.getMonth()!==anchor.getMonth()?"other":"", d.getDay()%6===0?"weekend":"", ds===todayS?"today":""].join(" ");
     h += `<div class="${cls}" data-date="${ds}"><span class="daynum" data-goto="${ds}">${d.getDate()}</span>` +
          (tiles ? tasksOn(ds).sort((a, b) => (a.status === "done") - (b.status === "done")).map(t => cardHTML(t, ds, false, true)).join("")
                 : tasksOn(ds).map(t => chipHTML(t, ds)).join("")) + `</div>`;
@@ -1054,21 +1055,22 @@ document.getElementById("del").onclick = async () => {
 
 /* ================= nawigacja ================= */
 function shift(dir){
+  monthTop = null;
   if(view === "month") cur = new Date(cur.getFullYear(), cur.getMonth() + dir, 1);
   else cur = addDays(cur, dir * (view === "week" ? 7 : 1));
   render();
 }
 prev.onclick = () => shift(-1); next.onclick = () => shift(1);
-today.onclick = () => { cur = new Date(); cur.setHours(0,0,0,0); render(); };
+today.onclick = () => { monthTop = null; cur = new Date(); cur.setHours(0,0,0,0); render(); };
 add.onclick = () => openDialog(null, iso(cur));
-document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
+document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { monthTop = null; view = b.dataset.v; render(); });
 todayBtn.onclick = () => { view = "day"; layout = "board"; cur = startOfToday(); render(); };      // skrót: dzisiejsze podsumowanie w widoku Dzień
 document.querySelectorAll("#layoutSeg .btn").forEach(b => b.onclick = () => { layout = b.dataset.l; render(); });
 document.querySelectorAll("#themeSeg .btn").forEach(b => b.onclick = () => { theme = b.dataset.t; applyTheme(); saveTheme(); });
 document.addEventListener("keydown", e => {
   if(dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
-  else if(e.key === "m") { view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
+  else if(e.key === "m") { monthTop = null; view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
 });
 
 
@@ -1390,7 +1392,14 @@ calArea.addEventListener("wheel", e => {
   }
   e.preventDefault();
   clearTimeout(wheelIdle); wheelAcc += e.deltaY; wheelIdle = setTimeout(() => { wheelAcc = 0; }, 220);
-  if(Date.now() < wheelLock || Math.abs(wheelAcc) < 50) return;                        // próg i blokada: jeden krok na ruch kółka
-  const dir = wheelAcc > 0 ? 1 : -1; wheelAcc = 0; wheelLock = Date.now() + 420;
-  shift(dir);                                                                          // w dół = późniejsze daty
+  const month = view === "month", need = month ? 40 : 50, lock = month ? 130 : 420;     // miesiąc: drobniejszy krok (tydzień), szybsze powtarzanie
+  if(Date.now() < wheelLock || Math.abs(wheelAcc) < need) return;                      // próg i blokada: jeden krok na ruch kółka
+  const dir = wheelAcc > 0 ? 1 : -1; wheelAcc = 0; wheelLock = Date.now() + lock;
+  if(month) scrollMonthWeeks(dir); else shift(dir);                                    // w dół = późniejsze daty
 }, {passive: false});
+function scrollMonthWeeks(dir){                       // płynne przewijanie widoku miesiąca co tydzień
+  const start = monthTop ? new Date(monthTop) : mondayOf(new Date(cur.getFullYear(), cur.getMonth(), 1));
+  monthTop = addDays(start, 7 * dir);
+  cur = addDays(monthTop, 17); cur.setHours(0, 0, 0, 0);
+  render();
+}
