@@ -343,3 +343,33 @@ table.tdy tr.trow:hover td{background:var(--today)}
 /* ikony przy przyciskach widoków */
 #views .btn{display:inline-flex;align-items:center;gap:6px}
 #views .ico{flex:0 0 auto}
+/* ===== ikony i ładniejsze przyciski/menu ===== */
+i[data-ic]{display:inline-flex;font-style:normal;line-height:0}
+.ic{flex:0 0 auto}
+.btn:has(> .ic),.btn:has(> i[data-ic]),summary.btn,.actions .btn,#saveBtn{display:inline-flex;align-items:center;gap:7px}
+summary.btn .caret{font-size:11px;opacity:.7;margin-left:1px}
+.btn .ic{color:currentColor;opacity:.92}
+.btn.primary .ic{opacity:1}
+#saveBtn{padding:6px 12px}
+.actions .btn{padding:8px 14px;border-radius:8px}
+.actions .btn.primary{font-weight:600}
+.actions #fNext{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent)}
+.actions #fNext:hover{background:var(--today)}
+.actions .btn.danger{border-color:color-mix(in srgb,var(--p3) 45%,var(--line))}
+.actions .btn.danger:hover{background:color-mix(in srgb,var(--p3) 12%,var(--panel));border-color:var(--p3)}
+/* rozwijane menu (Pliki, Przenieś, zaznaczanie): grupy, ikony, skróty */
+.menu-items{padding:6px;border-radius:12px;min-width:300px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.menu-items button,.ctx-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 11px;border-radius:8px;font-size:14px;text-align:left}
+.menu-items button .ic,.ctx-item .ic{color:var(--accent)}
+.menu-items button span,.ctx-item span{flex:1 1 auto}
+.menu-items button small{flex:0 0 auto;color:var(--muted);font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin-left:auto}
+.mgroup{display:flex;flex-direction:column}
+.mgroup[hidden]{display:none}
+.mgroup + .mgroup{border-top:1px solid var(--line);margin-top:5px;padding-top:5px}
+.mhead{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 11px 4px}
+.ctx-del{color:var(--p3)}
+.ctx-del .ic{color:var(--p3)}
+.ctx-item:hover,.menu-items button:hover{background:var(--today)}
+.ctx-del:hover{background:color-mix(in srgb,var(--p3) 12%,var(--panel))}
+#ctx{border-radius:12px;width:270px}
+.selbar .btn{display:inline-flex;align-items:center;gap:6px}

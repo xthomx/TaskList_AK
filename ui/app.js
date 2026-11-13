@@ -1,6 +1,25 @@
 "use strict";
 const KEY = "tasklist_ak_v1";      // klucz localStorage (tylko gdy uruchomiono w zwykłej przeglądarce)
 const DESKTOP = !!window.__DESKTOP__;
+
+/* ---- ikony (SVG w kolorze tekstu): <i data-ic="nazwa"></i> w HTML, ic("nazwa") w kodzie ---- */
+const ICON_PATHS = {
+  edit:     '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l3 3"/>',
+  trash:    '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  calnext:  '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 15h7m-2.8-2.8L15.5 15l-2.8 2.8"/>',
+  calcheck: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+  folder:   '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2.5h6.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
+  save:     '<path d="M5 4h11l3.5 3.5V18a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
+  saveas:   '<path d="M6 3h8l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M12 12v6M9 15h6"/>',
+  download: '<path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/>',
+  upload:   '<path d="M12 16V5m0 0L8 9m4-4l4 4M5 19h14"/>',
+  mail:     '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>',
+  check:    '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  close:    '<path d="M6 6l12 12M18 6L6 18"/>',
+  move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>'
+};
+const ic = name => `<svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
+document.querySelectorAll("[data-ic]").forEach(e => { e.innerHTML = ic(e.dataset.ic); });
 const HOUR = 48;                 // px na godzinę
 const SNAP = 15;                 // minuty
 const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
@@ -387,8 +406,8 @@ function renderBoard(main){
   if(rs) rs.onclick = e => {
     e.stopPropagation();
     const r = rs.getBoundingClientRect();
-    ctx.innerHTML = `<button type="button" class="ctx-item" data-od="today">📅 Przenieś zaległe na dziś</button>` +
-                    `<button type="button" class="ctx-item" data-od="overdueNext">➡ Przenieś zaległe na przyszły tydzień</button>`;
+    ctx.innerHTML = `<button type="button" class="ctx-item" data-od="today">${ic("calcheck")}<span>Przenieś zaległe na dziś</span></button>` +
+                    `<button type="button" class="ctx-item" data-od="overdueNext">${ic("calnext")}<span>Przenieś zaległe na przyszły tydzień</span></button>`;
     ctx.hidden = false;
     ctx.style.left = Math.max(4, Math.min(r.left, innerWidth - 270)) + "px"; ctx.style.top = (r.bottom + 4) + "px";
     ctx.querySelectorAll("[data-od]").forEach(x => x.onclick = () => { hideCtx(); bulkMove(x.dataset.od); });
@@ -773,17 +792,17 @@ function selBarHTML(){
   if(!sel.size) return "";
   const now = new Date(), nextMon = addDays(mondayOf(startOfToday()), 7);
   return `<div class="selbar"><b>Zaznaczono: ${sel.size}</b>` +
-    `<details class="menu" id="selMove"><summary class="btn">📅 Przenieś ▾</summary><div class="menu-items">` +
-    `<button type="button" data-mv="today">Na dziś</button>` +
-    `<button type="button" data-mv="tomorrow">Na jutro (${fmtDate(iso(addDays(now, 1)))})</button>` +
-    `<button type="button" data-mv="week">Za tydzień (${fmtDate(iso(addDays(now, 7)))})</button>` +
-    `<button type="button" data-mv="monday">Na przyszły poniedziałek (${fmtDate(iso(nextMon))})</button>` +
-    `<button type="button" data-mv="+1">Przesuń o 1 dzień</button><button type="button" data-mv="+7">Przesuń o 7 dni</button>` +
+    `<details class="menu" id="selMove"><summary class="btn">${ic("calnext")}Przenieś <span class="caret">▾</span></summary><div class="menu-items"><div class="mgroup">` +
+    `<button type="button" data-mv="today">${ic("calcheck")}<span>Na dziś</span></button>` +
+    `<button type="button" data-mv="tomorrow">${ic("calnext")}<span>Na jutro</span><small>${fmtDate(iso(addDays(now, 1)))}</small></button>` +
+    `<button type="button" data-mv="week">${ic("calnext")}<span>Za tydzień</span><small>${fmtDate(iso(addDays(now, 7)))}</small></button>` +
+    `<button type="button" data-mv="monday">${ic("calnext")}<span>Na przyszły poniedziałek</span><small>${fmtDate(iso(nextMon))}</small></button>` +
+    `<button type="button" data-mv="+1">${ic("move")}<span>Przesuń o 1 dzień</span></button><button type="button" data-mv="+7">${ic("move")}<span>Przesuń o 7 dni</span></button>` +
     `<div class="mv-pick"><input type="date" id="selDate" value="${iso(addDays(now, 1))}"><button type="button" class="btn" data-mv="pick">Przenieś</button></div>` +
     `</div></details>` +
-    `<button type="button" class="btn" data-sel="done">✅ Zrobione</button>` +
-    `<button type="button" class="btn danger" data-sel="del">🗑 Usuń</button>` +
-    `<button type="button" class="btn" data-sel="clear">Odznacz</button></div>`;
+    `<button type="button" class="btn" data-sel="done">${ic("check")}Zrobione</button>` +
+    `<button type="button" class="btn danger" data-sel="del">${ic("trash")}Usuń</button>` +
+    `<button type="button" class="btn" data-sel="clear">${ic("close")}Odznacz</button></div>`;
 }
 
 function moveSelected(kind){
@@ -917,9 +936,9 @@ function showCtx(id, x, y){
     `<div class="ctx-prog"><label>Postęp: <b id="ctxPv">${t.progress}%</b></label><input type="range" id="ctxP" min="0" max="100" step="25" value="${t.progress}" list="progTicks"></div>` +
     `<div class="ctx-colors" title="Kolor zadania"><button type="button" class="swatch def${t.color ? "" : " on"}" data-cc="" title="Domyślny (wg priorytetu)">↺</button>` +
       PALETTE.map(c => `<button type="button" class="swatch${t.color === c ? " on" : ""}" data-cc="${c}" style="background:${c}" title="${c}"></button>`).join("") + `</div>` +
-    `<hr><button type="button" class="ctx-item" data-act="next">➡ Przenieś na przyszły tydzień</button>` +
-    `<button type="button" class="ctx-item" data-act="edit">✏ Edytuj…</button>` +
-    `<button type="button" class="ctx-item ctx-del" data-act="del">🗑 Usuń zadanie</button>`;
+    `<hr><button type="button" class="ctx-item" data-act="next">${ic("calnext")}<span>Przenieś na przyszły tydzień</span></button>` +
+    `<button type="button" class="ctx-item" data-act="edit">${ic("edit")}<span>Edytuj…</span></button>` +
+    `<button type="button" class="ctx-item ctx-del" data-act="del">${ic("trash")}<span>Usuń zadanie</span></button>`;
   ctx.hidden = false;
   const r = ctx.getBoundingClientRect();
   ctx.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 6)) + "px";
@@ -1159,7 +1178,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["xlsExp", "xlsImp", "xlsSave", "mailOpen", "saveBtn"]) document.getElementById(id).hidden = false;
+  for(const id of ["mgExcel", "mgMail", "saveBtn"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }

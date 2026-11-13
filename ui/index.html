@@ -31,24 +31,36 @@
   <button class="btn" id="ppl" title="Zarządzaj osobami">👥 Osoby</button>
   <button class="btn primary" id="add">+ Zadanie</button>
   <details class="menu" id="moveMenu">
-    <summary class="btn">Przenieś ▾</summary>
+    <summary class="btn"><i data-ic="calnext"></i>Przenieś <span class="caret">▾</span></summary>
     <div class="menu-items">
-      <button type="button" id="mvToday">Zaległe niezakończone → na dziś</button>
-      <button type="button" id="mvNext">Niezakończone → na przyszły tydzień</button>
+      <div class="mgroup">
+        <div class="mhead">Niezakończone zadania</div>
+        <button type="button" id="mvToday"><i data-ic="calcheck"></i><span>Zaległe → na dziś</span></button>
+        <button type="button" id="mvNext"><i data-ic="calnext"></i><span>Zaległe i z tego tygodnia → na przyszły tydzień</span></button>
+      </div>
     </div>
   </details>
   <details class="menu" id="dataMenu">
-    <summary class="btn">Dane ▾</summary>
+    <summary class="btn"><i data-ic="folder"></i>Pliki <span class="caret">▾</span></summary>
     <div class="menu-items">
-      <button type="button" id="xlsImp" hidden>Otwórz plik Excela… (zapamiętywany)</button>
-      <button type="button" id="xlsSave" hidden>Zapisz do Excela (Ctrl+S)</button>
-      <button type="button" id="xlsExp" hidden>Zapisz Excel jako…</button>
-      <button type="button" id="mailOpen" hidden>Utwórz zadanie z maila (.msg / .eml)…</button>
-      <button type="button" id="exp">Eksport JSON</button>
-      <button type="button" id="imp">Import JSON</button>
+      <div class="mgroup" id="mgExcel" hidden>
+        <div class="mhead">Plik Excela</div>
+        <button type="button" id="xlsImp"><i data-ic="folder"></i><span>Otwórz plik Excela…</span><small>zapamiętywany</small></button>
+        <button type="button" id="xlsSave"><i data-ic="save"></i><span>Zapisz do Excela</span><small>Ctrl+S</small></button>
+        <button type="button" id="xlsExp"><i data-ic="saveas"></i><span>Zapisz Excel jako…</span></button>
+      </div>
+      <div class="mgroup">
+        <div class="mhead">Kopia zapasowa (JSON)</div>
+        <button type="button" id="exp"><i data-ic="download"></i><span>Eksport do pliku JSON</span></button>
+        <button type="button" id="imp"><i data-ic="upload"></i><span>Import z pliku JSON</span></button>
+      </div>
+      <div class="mgroup" id="mgMail" hidden>
+        <div class="mhead">E-mail</div>
+        <button type="button" id="mailOpen"><i data-ic="mail"></i><span>Utwórz zadanie z maila…</span><small>.msg / .eml</small></button>
+      </div>
     </div>
   </details>
-  <button class="btn" id="saveBtn" type="button" hidden>💾 Zapisz</button>
+  <button class="btn" id="saveBtn" type="button" hidden><i data-ic="save"></i>Zapisz</button>
   <span id="fileTag" hidden></span>
   <input type="file" id="file" accept=".json" hidden>
   <div id="updatebox" hidden><span id="ver"></span> <button class="btn" id="chk" type="button">Sprawdź aktualizacje</button> <button class="btn primary" id="install" type="button" hidden>Zainstaluj i uruchom ponownie</button> <span id="updStatus" role="status"></span></div>
@@ -96,11 +108,11 @@
       <label class="chk"><input type="checkbox" id="fApplyNext"> Zastosuj tytuł, godziny, osoby, priorytet i notatki do kolejnych zadań serii</label>
     </div>
     <div class="actions">
-      <button class="btn primary" id="save" value="save">Zapisz</button>
-      <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+      <button class="btn primary" id="save" value="save"><i data-ic="check"></i>Zapisz</button>
+      <button class="btn" value="cancel" formnovalidate><i data-ic="close"></i>Anuluj</button>
       <span class="spacer"></span>
-      <button class="btn" id="fNext" type="button" title="Ustaw termin na ten sam dzień w przyszłym tygodniu">➡ Na przyszły tydzień</button>
-      <button class="btn danger" id="del" type="button">Usuń</button>
+      <button class="btn" id="fNext" type="button" title="Ustaw termin na ten sam dzień w przyszłym tygodniu"><i data-ic="calnext"></i>Na przyszły tydzień</button>
+      <button class="btn danger" id="del" type="button"><i data-ic="trash"></i>Usuń</button>
     </div>
   </form>
 </dialog>
