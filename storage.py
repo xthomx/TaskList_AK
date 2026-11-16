@@ -138,6 +138,43 @@ def validate_data(data):
     return {'people': clean_people, 'tasks': clean}
 
 
+def write_atomic(path, raw, swap=None):
+    """Zapis pliku: plik tymczasowy + podmiana (atomowo). Podmiana bywa niemożliwa: ktoś czyta plik albo system plików jej nie
+    obsługuje (np. folder współdzielony maszyny wirtualnej, niektóre dyski sieciowe). Po kilku ponowieniach zapisujemy wtedy
+    w miejscu. Gdy i to się nie uda, wyjątek (PermissionError / OSError) trafia do wywołującego."""
+    path = Path(path)
+    swap = swap or os.replace
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = None
+    try:
+        try:
+            with tempfile.NamedTemporaryFile(mode='wb', dir=path.parent, prefix='.tmp-', suffix='.tmp', delete=False) as f:
+                tmp = Path(f.name)
+                f.write(raw)
+                f.flush()
+                os.fsync(f.fileno())
+            for delay in (0.1, 0.3, 0.6, 1.0, None):
+                try:
+                    swap(tmp, path)
+                    return
+                except OSError:
+                    if delay is None:
+                        raise
+                    time.sleep(delay)
+        except OSError:
+            pass
+        with open(path, 'wb') as f:                          # zapis w miejscu (czytanie przez innych tego nie blokuje)
+            f.write(raw)
+            f.flush()
+            os.fsync(f.fileno())
+    finally:
+        if tmp and tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 class Storage:
     def __init__(self, folder=None):
         self.folder = Path(folder) if folder else data_dir()
@@ -147,18 +184,7 @@ class Storage:
 
     def _atomic_write(self, path, text):
         self.folder.mkdir(parents=True, exist_ok=True)
-        tmp = None
-        try:
-            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=self.folder,
-                                             prefix='.tmp-', delete=False) as f:
-                tmp = Path(f.name)
-                f.write(text)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, path)
-        finally:
-            if tmp and tmp.exists():
-                tmp.unlink()
+        write_atomic(path, text.encode('utf-8'))
 
     def load_data(self):
         """data is None when there is no file yet. A damaged file is set aside, never overwritten."""

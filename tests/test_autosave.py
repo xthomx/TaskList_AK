@@ -57,7 +57,7 @@ class AutosaveTests(unittest.TestCase):
 
     def test_excel_locked_reports_error_and_retries_later(self):
         self.link_excel(D(T('a', 'Stare')))
-        with mock.patch('os.replace', side_effect=PermissionError), mock.patch('main.time.sleep'):
+        with mock.patch.object(Api, '_write_bytes', side_effect=PermissionError('zablokowany')):
             out = self.api.sync_files(D(T('a', 'Zmienione')))
         self.assertIn('Excel', out['errors']['file'])
         self.assertTrue(out['file']['dirty'])

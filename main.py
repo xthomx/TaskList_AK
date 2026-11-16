@@ -10,7 +10,7 @@ import time
 import uuid
 
 from app_version import APP_VERSION
-from storage import Storage, validate_data, fingerprint, log_dir, MAX_BYTES
+from storage import Storage, validate_data, fingerprint, log_dir, write_atomic, MAX_BYTES
 from applog import log as applog
 from updates import check_updates, RELEASES_URL
 import auto_update
@@ -380,51 +380,19 @@ class Api:
 
     @staticmethod
     def _write_text(path, text):
-        return Api._write_bytes(path, text.encode('utf-8'), shared=True)
+        return Api._write_bytes(path, text.encode('utf-8'))
 
     @staticmethod
     def _swap(tmp, path):
         os.replace(tmp, path)
 
     @staticmethod
-    def _write_bytes(path, raw, shared=False):
-        """Zapis atomowy (plik tymczasowy + podmiana). Windows nie pozwala podmienić pliku, który ktoś właśnie czyta, więc
-        podmianę ponawiamy; dla pliku współdzielonego (shared) na końcu zapisujemy w miejscu — czytanie przez inne osoby
-        tego nie blokuje (program czyta plik z udostępnieniem zapisu)."""
-        path = Path(path)
-        tmp = None
+    def _write_bytes(path, raw):
         try:
-            with tempfile.NamedTemporaryFile(mode='wb', dir=path.parent, prefix='.grupowy-', suffix='.tmp', delete=False) as f:
-                tmp = Path(f.name)
-                f.write(raw)
-                f.flush()
-                os.fsync(f.fileno())
-            for delay in (0.2, 0.5, 1.0, 2.0, None):
-                try:
-                    Api._swap(tmp, path)
-                    return raw
-                except PermissionError:
-                    if delay is None:
-                        raise
-                    time.sleep(delay)
+            write_atomic(path, raw, swap=Api._swap)
         except PermissionError as exc:
-            if shared:
-                try:
-                    with open(path, 'wb') as f:
-                        f.write(raw)
-                        f.flush()
-                        os.fsync(f.fileno())
-                    return raw
-                except PermissionError:
-                    pass
             raise PermissionError('Plik jest zablokowany przez inny program lub użytkownika albo brak uprawnień do folderu '
                                   '(zapis zostanie ponowiony automatycznie).') from exc
-        finally:
-            if tmp and tmp.exists():
-                try:
-                    tmp.unlink()
-                except OSError:
-                    pass
         return raw
 
     def save_data(self, data):
@@ -523,19 +491,7 @@ class Api:
             path = self._pick_save(Path(current).name if current else 'zadania.xlsx', 'Excel (*.xlsx)', '.xlsx')
             if not path:
                 return None
-        tmp = None
-        try:
-            with tempfile.NamedTemporaryFile(mode='wb', dir=path.parent, prefix='.zadania-', suffix='.tmp', delete=False) as f:
-                tmp = Path(f.name)
-                f.write(payload)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, path)
-        except PermissionError as exc:
-            raise PermissionError('Nie można zapisać pliku. Zamknij go w Excelu i sprawdź uprawnienia do folderu.') from exc
-        finally:
-            if tmp and tmp.exists():
-                tmp.unlink()
+        self._write_bytes(path, payload)
         self._storage.save_data(clean)
         self._storage.set_prefs(last_xlsx=str(path.resolve()), xlsx_fp=fingerprint(_part(clean, 'local')), xlsx_sig=_sig(payload))
         return self._file_info(clean)

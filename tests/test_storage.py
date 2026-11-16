@@ -181,3 +181,12 @@ class StorageTests(unittest.TestCase):
         self.assertEqual((self.store.get_prefs()['cal'], self.store.get_prefs()['cal_only']), ('group', True))
         with self.assertRaises(ValueError):
             self.store.set_calendar('inny', False)
+
+    def test_save_works_when_filesystem_cannot_replace_files(self):
+        from unittest import mock
+        with mock.patch('os.replace', side_effect=PermissionError(5, 'Odmowa dostępu')), mock.patch('time.sleep'):
+            self.store.save_data(data(task(title='Folder współdzielony')))      # np. folder maszyny wirtualnej
+            self.store.set_view('week')
+        self.assertEqual(self.store.load_data()['data']['tasks'][0]['title'], 'Folder współdzielony')
+        self.assertEqual(self.store.get_prefs()['view'], 'week')
+        self.assertEqual(list(self.store.folder.glob('.tmp-*')), [])
