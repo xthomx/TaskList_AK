@@ -606,3 +606,9 @@ main.nolist .board{height:100%}
 #groupTag[hidden]{display:none}
 #groupTag.dirty{color:var(--p2);font-weight:600}
 #groupTag .gmk{margin-right:4px}
+
+/* miesiąc: gdy zadań w dniu jest więcej, niż mieści komórka, komórka przewija się (nic nie jest ucinane) */
+.cell{overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable}
+.cell::-webkit-scrollbar{width:6px}
+.cell::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.cell:hover::-webkit-scrollbar-thumb{background:var(--muted)}
