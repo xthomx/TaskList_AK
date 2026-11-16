@@ -1,9 +1,11 @@
-"""Local storage of tasks, people and preferences. Data lives outside the program folder."""
+"""Local storage of tasks, people and preferences. Working data and logs live next to the program (folders dane\\ and logi\\)."""
 import datetime
 import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -21,8 +23,45 @@ STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakci
 PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
 
-def data_dir():
+def app_dir():
+    """Katalog, w którym uruchamia się program (obok TaskListAK.exe; w trybie deweloperskim folder projektu)."""
+    return Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
+
+
+def legacy_dir():
+    """Dawna lokalizacja danych (do wersji 1.15): %LOCALAPPDATA%\\TaskListAK."""
     return Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TaskListAK'
+
+
+def _writable(path):
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryFile(dir=path):
+            pass
+        return True
+    except OSError:
+        return False
+
+
+def data_dir():
+    """Dane robocze: folder dane\\ obok programu. Gdy folder programu jest tylko do odczytu (np. Program Files) — dawna lokalizacja.
+    Dane z dawnej lokalizacji są kopiowane przy pierwszym uruchomieniu (oryginały zostają jako kopia)."""
+    folder = app_dir() / 'dane'
+    if not _writable(folder):
+        return legacy_dir()
+    old = legacy_dir()
+    for name in ('tasks.json', 'preferences.json', 'group_base.json'):
+        try:
+            if (old / name).is_file() and not (folder / name).exists():
+                shutil.copy2(old / name, folder / name)
+        except OSError:
+            pass
+    return folder
+
+
+def log_dir():
+    folder = app_dir() / 'logi'
+    return folder if _writable(folder) else legacy_dir()
 
 
 def _is_date(s):
@@ -153,6 +192,7 @@ class Storage:
             data = json.loads(self.prefs_path.read_text(encoding='utf-8'))
             view = data.get('view')
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
+            xs = data.get('xlsx_sig', '')
             gp, gs, gf = data.get('group_path', ''), data.get('group_sig', ''), data.get('group_fp', '')
             layout, theme = data.get('layout'), data.get('theme')
             notified = data.get('notified', [])
@@ -165,14 +205,15 @@ class Storage:
                     'collapsed': [k for k in data.get('collapsed', []) if k in SECTIONS] if isinstance(data.get('collapsed', []), list) else [],
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
                     'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else '',
+                    'xlsx_sig': xs if isinstance(xs, str) and len(xs) <= 64 else '',
                     'group_path': gp if isinstance(gp, str) and len(gp) < 1000 else '',
                     'group_sig': gs if isinstance(gs, str) and len(gs) <= 64 else '',
                     'group_fp': gf if isinstance(gf, str) and len(gf) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'group_path': '', 'group_sig': '', 'group_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'xlsx_sig': '', 'group_path': '', 'group_sig': '', 'group_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'group_path', 'group_sig', 'group_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'xlsx_sig', 'group_path', 'group_sig', 'group_fp'}:
             raise ValueError('Nieznane ustawienie.')
         if 'collapsed' in changes:
             c = changes['collapsed']

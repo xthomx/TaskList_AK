@@ -58,7 +58,7 @@ let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve
 const api = () => window.pywebview && window.pywebview.api;
 const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
-let fileInfo = null, groupInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
+let fileInfo = null, groupInfo = null, saveErr = false, syncErr = {file: "", group: ""}, rev = 0;     // zapamiętany plik Excela: {name, path, dirty}
 function showGroup(){
   const g = groupInfo, tag = document.getElementById("groupTag");
   showFile();
@@ -66,25 +66,20 @@ function showGroup(){
   document.getElementById("grpOpen").hidden = !!g; document.getElementById("grpNew").hidden = !!g;
   if(!DESKTOP || !g){ tag.hidden = true; return; }
   tag.hidden = false; tag.title = g.path;
-  tag.innerHTML = GROUP_ICO + esc(g.name) + (g.dirty ? " ● niezapisane zmiany" : " ✓") +
-    (g.offline ? "<br>⚠ plik niedostępny — pracujesz na kopii" : g.stale ? "<br>⚠ ktoś zmienił plik — odśwież" : "");
-  tag.classList.toggle("dirty", !!(g.dirty || g.stale || g.offline));
+  tag.innerHTML = GROUP_ICO + esc(g.name) + (syncErr.group ? " ⚠ nie zapisano" : g.dirty ? " ● zapisywanie…" : " ✓ zapisano") +
+    (g.offline ? "<br>⚠ plik niedostępny — pracujesz na kopii" : "");
+  tag.title = g.path + (syncErr.group ? "\n" + syncErr.group : "");
+  tag.classList.toggle("dirty", !!(syncErr.group || g.offline));
 }
 function showFile(){
-  const el = document.getElementById("fileTag"), sb = document.getElementById("saveBtn");
-  if(sb){                                           // ikona „Zapisz”: do zapamiętanego pliku Excela (bez pliku: pyta o nazwę)
-    sb.classList.toggle("dirty", !!(fileInfo && fileInfo.dirty));
-    const targets = [fileInfo && `Excel: ${fileInfo.name}`, groupInfo && `plik grupowy: ${groupInfo.name}`].filter(Boolean);
-    const dirty = (fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty);
-    sb.title = targets.length ? `Zapisz (${targets.join(" i ")}) — Ctrl+S${dirty ? " — są niezapisane zmiany" : ""}` : "Zapisz do pliku Excela… (wybierz plik, Ctrl+S)";
-  }
+  const el = document.getElementById("fileTag");
   if(!DESKTOP || !fileInfo){ el.hidden = true; return; }
-  el.hidden = false; el.title = fileInfo.path;
-  el.textContent = "📄 " + fileInfo.name + (fileInfo.dirty ? " ● niezapisane zmiany" : " ✓");
-  el.classList.toggle("dirty", !!fileInfo.dirty);
+  el.hidden = false; el.title = fileInfo.path + (syncErr.file ? "\n" + syncErr.file : "");
+  el.textContent = "📄 " + fileInfo.name + (syncErr.file ? " ⚠ nie zapisano" : fileInfo.dirty ? " ● zapisywanie…" : " ✓ zapisano");
+  el.classList.toggle("dirty", !!syncErr.file);
 }
 
-/* ---- zapis: w aplikacji do pliku w %LOCALAPPDATA%\TaskListAK, w przeglądarce do localStorage ---- */
+/* ---- zapis: w aplikacji do pliku w folderze dane\ obok programu, w przeglądarce do localStorage ---- */
 const currentData = () => ({people, tasks});
 /* ---- status zadania: oczekujące (domyślny) / w trakcie / zrobione + postęp 0–100 co 25 ---- */
 const STATUS = {
@@ -128,6 +123,7 @@ function normalize(d){        // akceptuje stary format (sama lista zadań z wer
   return {people: ppl, tasks: d.tasks.map(fixTask)};
 }
 function save(){
+  rev++; scheduleSync();
   if(!DESKTOP){ try{ localStorage.setItem(KEY, JSON.stringify(currentData())); }catch(e){} return; }
   if(readOnly) return;
   clearTimeout(saveTimer); saveTimer = setTimeout(flush, 150);
@@ -1311,7 +1307,7 @@ gexp.onclick = () => doExport("group"); gimp.onclick = () => importCal("json", "
 gxlsExp.onclick = () => exportXlsxCal("group"); gxlsImp.onclick = () => importCal("xlsx", "group");
 
 /* ---- plik grupowy (JSON na dysku sieciowym): połącz / utwórz / zapisz / odśwież / odłącz ---- */
-function setFromGroup(r){ tasks = r.tasks.map(fixTask); people = r.people; groupInfo = r.group; clearFilters(); render(); showGroup(); }
+function setFromGroup(r, keep){ tasks = r.tasks.map(fixTask); people = r.people; groupInfo = r.group; if(!keep) clearFilters(); render(); showGroup(); }
 async function groupOpen(){
   closeMenu();
   try{
@@ -1346,7 +1342,7 @@ async function groupSync(auto){                      // zapis i odświeżanie to
   try{
     await flush();
     const r = await api().group_sync(currentData());
-    setFromGroup(r); groupWarned = false;
+    setFromGroup(r, true); groupWarned = false;
     const what = reportText(r.report);
     if(auto){ if(what){ note("Zmiany w kalendarzu grupowym — " + what + ".", true); beep(); } }
     else note("Zapisano w pliku grupowym: " + r.group.name + (what ? " · zmiany innych: " + what : ""), true);
@@ -1437,10 +1433,42 @@ async function saveXlsx(asNew){
   }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
 }
 xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
-async function saveCurrent(){                       // Zapisz / Ctrl+S: wszystkie połączone pliki (Excel i plik grupowy)
-  if(!fileInfo && !groupInfo){ await saveXlsx(false); return; }       // nic nie połączone: zapytaj o plik Excela
-  if(fileInfo) await saveXlsx(false);
-  if(groupInfo) await groupSave();
+/* ---- zapis automatyczny: po każdej zmianie (z krótkim opóźnieniem) i co 30 s, gdy coś czeka na zapis ---- */
+let syncTimer = null, syncing = false, syncNote = false;
+function scheduleSync(ms){
+  if(!DESKTOP || !started || !(fileInfo || groupInfo)) return;
+  clearTimeout(syncTimer); syncTimer = setTimeout(autoSync, ms || 1500);
+}
+async function autoSync(){
+  clearTimeout(syncTimer);
+  if(!DESKTOP || !started || readOnly || !(fileInfo || groupInfo)) return null;
+  if(syncing || groupBusy){ scheduleSync(2000); return null; }
+  syncing = true; const my = rev;
+  try{
+    await flush();
+    const r = await api().sync_files(currentData());
+    if(fileInfo) fileInfo = r.file || fileInfo;
+    if(groupInfo) groupInfo = r.group || groupInfo;
+    syncErr = {file: (r.errors && r.errors.file) || "", group: (r.errors && r.errors.group) || ""};
+    const g = r.group_result, what = g ? reportText(g.report) : "";
+    if(what){                                          // przy zapisie scalono zmiany innych osób
+      if(rev === my && !dlg.open && !pdlg.open && !drag){ tasks = g.tasks.map(fixTask); people = g.people; render(); }
+      else scheduleSync(3000);                         // użytkownik właśnie edytuje: pobierz zmiany później
+      note("Zmiany w kalendarzu grupowym — " + what + ".", true); beep(); syncNote = false;
+    }
+    const err = syncErr.file || syncErr.group;
+    if(err){ note(err); syncNote = true; }
+    else if(syncNote){ note(""); syncNote = false; }
+    showFile(); showGroup();
+    return r;
+  }catch(e){ note("Zapis automatyczny nie powiódł się: " + errText(e)); syncNote = true; return null; }
+  finally{ syncing = false; }
+}
+setInterval(() => { if((fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty) || syncErr.file || syncErr.group) autoSync(); }, 30000);
+async function saveCurrent(){                       // Ctrl+S: zapisz teraz (bez połączonych plików: wskaż plik Excela)
+  if(!fileInfo && !groupInfo){ await saveXlsx(false); return; }
+  const r = await autoSync();
+  if(r && !syncErr.file && !syncErr.group) note("Zapisano.", true);
 }
 
 /* ---- kto zmienił zadania grupowe: sprawdzanie pliku co 30 s i po powrocie do okna ---- */
@@ -1457,7 +1485,6 @@ async function checkGroup(){
 }
 setInterval(checkGroup, 30000);
 window.addEventListener("focus", () => setTimeout(checkGroup, 500));
-saveBtn.onclick = async () => { saveBtn.disabled = true; try{ await saveCurrent(); } finally{ saveBtn.disabled = false; } };
 document.addEventListener("keydown", e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveCurrent(); }
 });
@@ -1498,7 +1525,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["mgExcel", "mgGroup", "mgMail", "saveBtn"]) document.getElementById(id).hidden = false;
+  for(const id of ["mgExcel", "mgGroup", "mgMail"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
@@ -1547,7 +1574,7 @@ async function boot(){
       tasks = d.tasks; people = d.people; save();
     }
   }catch(e){ readOnly = true; note("Nie udało się wczytać zadań: " + errText(e)); }
-  render(); initUpdates();
+  render(); initUpdates(); scheduleSync(3000);
 }
 if(DESKTOP){ if(api()) boot(); else window.addEventListener("pywebviewready", boot); } else boot();
 setInterval(() => { if(started && view !== "month" && !dlg.open && !drag) render(); }, 5*60*1000);

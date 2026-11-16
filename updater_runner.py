@@ -92,8 +92,14 @@ def main():
         install(args.staged, target, folder / 'backup')
         subprocess.Popen([str(target / 'TaskListAK.exe')], cwd=target)
     except Exception:
-        log = folder / 'update-error.log'
-        log.write_text(traceback.format_exc(), encoding='utf-8')
+        logs = target / 'logi'
+        try:
+            logs.mkdir(parents=True, exist_ok=True)
+            log = logs / 'update-error.log'
+            log.write_text(traceback.format_exc(), encoding='utf-8')
+        except OSError:
+            log = folder / 'update-error.log'
+            log.write_text(traceback.format_exc(), encoding='utf-8')
         ctypes.windll.user32.MessageBoxW(0, 'Aktualizacja nie powiodła się. Szczegóły: ' + str(log), 'TaskList AK', 16)
         # Keep backup and staging for recovery. Never erase user plan files.
         if exited:

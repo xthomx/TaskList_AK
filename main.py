@@ -9,7 +9,8 @@ import threading
 import uuid
 
 from app_version import APP_VERSION
-from storage import Storage, validate_data, fingerprint, MAX_BYTES
+from storage import Storage, validate_data, fingerprint, log_dir, MAX_BYTES
+from applog import log as applog
 from updates import check_updates, RELEASES_URL
 import auto_update
 
@@ -181,7 +182,7 @@ class Api:
                     loaded = self._read_xlsx(path)
                     data = _replace(data, 'local', loaded) if data else loaded
                     self._storage.save_data(data)
-                    self._storage.set_prefs(xlsx_fp=fingerprint(_part(data, 'local')))
+                    self._storage.set_prefs(xlsx_fp=fingerprint(_part(data, 'local')), xlsx_sig=_sig(Path(path).read_bytes()))
                     result['warning'] = result.get('warning', '')
                 except (OSError, ValueError) as exc:
                     result['warning'] = ('Nie można otworzyć ostatniego pliku Excela (' + name + '): ' + str(exc)
@@ -319,6 +320,41 @@ class Api:
     group_refresh = group_sync
     group_save = group_sync
 
+    def sync_files(self, data):
+        """Zapis automatyczny: wypisz zmiany do połączonych plików (Excel z zadaniami lokalnymi, plik grupowy z zadaniami
+        grupowymi — ze scaleniem). Błędy nie przerywają pracy: wracają w 'errors' i zapis jest ponawiany."""
+        clean = validate_data(data)
+        prefs = self._storage.get_prefs()
+        out = {'errors': {}, 'group_result': None}
+        if prefs['last_xlsx']:
+            local = _part(clean, 'local')
+            try:
+                if fingerprint(local) != prefs['xlsx_fp']:
+                    path = Path(prefs['last_xlsx'])
+                    if path.exists() and prefs['xlsx_sig'] and _sig(path.read_bytes()) != prefs['xlsx_sig']:
+                        out['errors']['file'] = ('Plik Excela został zmieniony poza programem — zapis automatyczny wstrzymany. '
+                                                 'Użyj Pliki → „Otwórz plik Excela…” (wczytaj jego wersję) albo „Zapisz Excel jako…”.')
+                    else:
+                        import xlsx_format
+                        payload = xlsx_format.dumps(local)
+                        self._write_bytes(path, payload)
+                        self._storage.set_prefs(xlsx_fp=fingerprint(local), xlsx_sig=_sig(payload))
+            except (OSError, ValueError) as exc:
+                out['errors']['file'] = 'Zapis do Excela nie powiódł się: ' + str(exc)
+        final = clean
+        if prefs['group_path']:
+            try:
+                if fingerprint(_part(clean, 'group')) != prefs['group_fp']:
+                    out['group_result'] = res = self._sync_group(clean)
+                    final = {'people': res['people'], 'tasks': res['tasks']}
+            except (OSError, ValueError) as exc:
+                out['errors']['group'] = 'Zapis do pliku grupowego nie powiódł się: ' + str(exc)
+        for what, msg in out['errors'].items():
+            applog(what + ': ' + msg)
+        out['file'] = self._file_info(final)
+        out['group'] = self._group_info(final)
+        return out
+
     def group_check(self):
         """Czy ktoś zmienił plik grupowy od naszego ostatniego odczytu/zapisu? Brak dostępu do pliku = tryb offline."""
         prefs = self._storage.get_prefs()
@@ -343,7 +379,11 @@ class Api:
 
     @staticmethod
     def _write_text(path, text):
-        raw = text.encode('utf-8')
+        return Api._write_bytes(path, text.encode('utf-8'))
+
+    @staticmethod
+    def _write_bytes(path, raw):
+        path = Path(path)
         tmp = None
         try:
             with tempfile.NamedTemporaryFile(mode='wb', dir=path.parent, prefix='.grupowy-', suffix='.tmp', delete=False) as f:
@@ -353,7 +393,7 @@ class Api:
                 os.fsync(f.fileno())
             os.replace(tmp, path)
         except PermissionError as exc:
-            raise PermissionError('Nie można zapisać pliku. Sprawdź uprawnienia do folderu.') from exc
+            raise PermissionError('Plik jest otwarty w innym programie (np. w Excelu) lub brak uprawnień do folderu.') from exc
         finally:
             if tmp and tmp.exists():
                 tmp.unlink()
@@ -440,7 +480,7 @@ class Api:
         stored = self._storage.load_data()['data']
         merged = _replace(stored, 'local', data) if stored else data
         self._storage.save_data(merged)
-        self._storage.set_prefs(last_xlsx=str(path), xlsx_fp=fingerprint(_part(merged, 'local')))
+        self._storage.set_prefs(last_xlsx=str(path), xlsx_fp=fingerprint(_part(merged, 'local')), xlsx_sig=_sig(Path(path).read_bytes()))
         return dict(self._file_info(merged), people=merged['people'], tasks=merged['tasks'])
 
     def save_xlsx(self, data, as_new=False):
@@ -469,7 +509,7 @@ class Api:
             if tmp and tmp.exists():
                 tmp.unlink()
         self._storage.save_data(clean)
-        self._storage.set_prefs(last_xlsx=str(path.resolve()), xlsx_fp=fingerprint(_part(clean, 'local')))
+        self._storage.set_prefs(last_xlsx=str(path.resolve()), xlsx_fp=fingerprint(_part(clean, 'local')), xlsx_sig=_sig(payload))
         return self._file_info(clean)
 
     def _pick_save(self, name, label, ext):
@@ -609,7 +649,7 @@ if __name__ == '__main__':
         main()
     except Exception:
         import traceback
-        log = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TaskListAK'
+        log = log_dir()
         log.mkdir(parents=True, exist_ok=True)
         (log / 'blad.log').write_text(traceback.format_exc(), encoding='utf-8')
         if sys.platform == 'win32':

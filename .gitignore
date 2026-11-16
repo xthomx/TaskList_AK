@@ -5,3 +5,5 @@ dist/
 *.spec
 *.tmp
 podglad-*.html
+dane/
+logi/

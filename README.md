@@ -17,7 +17,7 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - **Przenoszenie:** zadanie na przyszły tydzień oraz masowo niezakończone na dziś lub na przyszły tydzień (menu „Przenieś”).
 - **Zadanie z maila:** przeciągnij wiadomość z Outlooka (albo plik `.msg` / `.eml`) na kalendarz — powstaje zadanie z tematem, nadawcą i treścią w notatkach.
 - **Excel z pamięcią pliku:** „Otwórz plik Excela” zapamiętuje plik i wczytuje go automatycznie przy starcie; Ctrl+S zapisuje do niego zmiany (wskaźnik „niezapisane zmiany”). Niezapisanych zmian program nie nadpisuje plikiem. Arkusze „Zadania” i „Osoby”.
-- Kopia robocza zapisuje się automatycznie w `%LOCALAPPDATA%TaskListAK	asks.json` (poza folderem programu); eksport/import JSON.
+- Dane zapisują się automatycznie: kopia robocza w folderze `dane\` obok programu, a połączone pliki (Excel z zadaniami lokalnymi, plik grupowy JSON) po każdej zmianie, bez przycisku „Zapisz”. Logi w `logi\`. Eksport/import Excel i JSON.
 - **Aktualizacje:** sprawdzanie przy starcie i przyciskiem „Sprawdź aktualizacje”; instalacja jednym kliknięciem
   (pobranie, weryfikacja SHA256, podmiana plików z kopią zapasową i wycofaniem, ponowne uruchomienie).
 
