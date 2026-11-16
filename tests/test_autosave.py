@@ -57,13 +57,22 @@ class AutosaveTests(unittest.TestCase):
 
     def test_excel_locked_reports_error_and_retries_later(self):
         self.link_excel(D(T('a', 'Stare')))
-        with mock.patch('os.replace', side_effect=PermissionError):
+        with mock.patch('os.replace', side_effect=PermissionError), mock.patch('main.time.sleep'):
             out = self.api.sync_files(D(T('a', 'Zmienione')))
         self.assertIn('Excel', out['errors']['file'])
         self.assertTrue(out['file']['dirty'])
         out = self.api.sync_files(D(T('a', 'Zmienione')))               # plik znów dostępny
         self.assertEqual(out['errors'], {})
         self.assertEqual([t['title'] for t in xlsx_format.loads(self.xlsx.read_bytes())['tasks']], ['Zmienione'])
+
+    def test_group_file_read_by_someone_else_is_still_written(self):
+        self.link_group(D(T('g', 'Wspólne', 'group')))
+        with mock.patch.object(Api, '_swap', side_effect=PermissionError), mock.patch('main.time.sleep') as sleep:
+            out = self.api.sync_files(D(T('g', 'Wspólne', 'group'), T('m', 'Moje', 'group')))
+        self.assertEqual(out['errors'], {})                         # podmiana zablokowana, zapis w miejscu przeszedł
+        self.assertGreaterEqual(sleep.call_count, 4)                # najpierw ponowienia podmiany
+        self.assertEqual(sorted(t['title'] for t in json.loads(self.gfile.read_text('utf-8'))['tasks']), ['Moje', 'Wspólne'])
+        self.assertFalse(list(self.gfile.parent.glob('.grupowy-*')))   # brak śmieci po pliku tymczasowym
 
     def test_excel_changed_outside_is_not_overwritten(self):
         self.link_excel(D(T('a', 'Stare')))

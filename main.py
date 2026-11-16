@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
 from app_version import APP_VERSION
@@ -379,10 +380,17 @@ class Api:
 
     @staticmethod
     def _write_text(path, text):
-        return Api._write_bytes(path, text.encode('utf-8'))
+        return Api._write_bytes(path, text.encode('utf-8'), shared=True)
 
     @staticmethod
-    def _write_bytes(path, raw):
+    def _swap(tmp, path):
+        os.replace(tmp, path)
+
+    @staticmethod
+    def _write_bytes(path, raw, shared=False):
+        """Zapis atomowy (plik tymczasowy + podmiana). Windows nie pozwala podmienić pliku, który ktoś właśnie czyta, więc
+        podmianę ponawiamy; dla pliku współdzielonego (shared) na końcu zapisujemy w miejscu — czytanie przez inne osoby
+        tego nie blokuje (program czyta plik z udostępnieniem zapisu)."""
         path = Path(path)
         tmp = None
         try:
@@ -391,12 +399,32 @@ class Api:
                 f.write(raw)
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(tmp, path)
+            for delay in (0.2, 0.5, 1.0, 2.0, None):
+                try:
+                    Api._swap(tmp, path)
+                    return raw
+                except PermissionError:
+                    if delay is None:
+                        raise
+                    time.sleep(delay)
         except PermissionError as exc:
-            raise PermissionError('Plik jest otwarty w innym programie (np. w Excelu) lub brak uprawnień do folderu.') from exc
+            if shared:
+                try:
+                    with open(path, 'wb') as f:
+                        f.write(raw)
+                        f.flush()
+                        os.fsync(f.fileno())
+                    return raw
+                except PermissionError:
+                    pass
+            raise PermissionError('Plik jest zablokowany przez inny program lub użytkownika albo brak uprawnień do folderu '
+                                  '(zapis zostanie ponowiony automatycznie).') from exc
         finally:
             if tmp and tmp.exists():
-                tmp.unlink()
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
         return raw
 
     def save_data(self, data):
