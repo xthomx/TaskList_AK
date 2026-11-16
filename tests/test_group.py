@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 import xlsx_format
-from main import Api, GroupChanged, _part, _replace
+from main import Api, _part, _replace
 from storage import Storage
 
 
@@ -55,39 +55,76 @@ class GroupTests(unittest.TestCase):
         self.assertFalse(out['group']['dirty'])
         self.assertEqual(len({t['id'] for t in out['tasks']}), 2)   # kolidujący id został zmieniony
 
-    def test_save_refuses_when_someone_else_changed_file_unless_forced(self):
-        data = D(T('b', 'Wspólne', 'group'))
+    def connect(self, *tasks):
+        data = D(*tasks)
         self.api._pick_save = lambda *a: self.gfile
         self.api.group_create(data)
-        doc = json.loads(self.gfile.read_text('utf-8'))
-        doc['tasks'].append(T('c', 'Dopisane przez kolegę', 'group'))
-        self.gfile.write_text(json.dumps(doc), encoding='utf-8')
-        with self.assertRaises(GroupChanged):
-            self.api.group_save(data)
-        refreshed = self.api.group_refresh(data)
-        self.assertEqual(self.titles(refreshed, 'group'), ['Dopisane przez kolegę', 'Wspólne'])
-        self.api.group_save(refreshed)                              # po odświeżeniu zapis przechodzi
-        self.gfile.write_text(json.dumps(doc), encoding='utf-8')
-        self.api.group_save(refreshed, force=True)
-        self.assertEqual(len(json.loads(self.gfile.read_text('utf-8'))['tasks']), 2)
+        return data
 
-    def test_start_loads_file_when_clean_and_keeps_copy_when_dirty_or_unreachable(self):
+    def edit_file(self, fn):
+        doc = json.loads(self.gfile.read_text('utf-8'))
+        fn(doc)
+        self.gfile.write_text(json.dumps(doc), encoding='utf-8')
+
+    def file_titles(self):
+        return sorted(t['title'] for t in json.loads(self.gfile.read_text('utf-8'))['tasks'])
+
+    def test_save_merges_changes_of_both_sides(self):
+        data = self.connect(T('b', 'Wspólne', 'group'), T('d', 'Do usunięcia', 'group'))
+        self.edit_file(lambda doc: doc['tasks'].append(T('c', 'Dopisane przez kolegę', 'group')))
+        mine = D(T('b', 'Wspólne', 'group'), T('d', 'Do usunięcia', 'group'), T('e', 'Moje nowe', 'group'))
+        out = self.api.group_save(mine)
+        self.assertEqual(self.titles(out, 'group'), ['Do usunięcia', 'Dopisane przez kolegę', 'Moje nowe', 'Wspólne'])
+        self.assertEqual(out['report']['added'], ['Dopisane przez kolegę'])
+        self.assertEqual(self.file_titles(), ['Do usunięcia', 'Dopisane przez kolegę', 'Moje nowe', 'Wspólne'])
+        self.assertFalse(self.api.group_check()['changed'])
+
+    def test_field_level_merge_and_deletions(self):
+        self.connect(T('b', 'Wspólne', 'group'), T('d', 'Usuwane przeze mnie', 'group'), T('f', 'Usuwane przez kolegę', 'group'))
+
+        def theirs(doc):
+            for t in doc['tasks']:
+                if t['id'] == 'b':
+                    t['status'] = 'progress'; t['progress'] = 50       # kolega zmienia status
+            doc['tasks'] = [t for t in doc['tasks'] if t['id'] != 'f']  # i usuwa zadanie f
+        self.edit_file(theirs)
+        mine_b = T('b', 'Wspólne', 'group'); mine_b['start'] = '09:00'; mine_b['end'] = '10:00'   # ja zmieniam godziny
+        out = self.api.group_save(D(mine_b, T('f', 'Usuwane przez kolegę', 'group')))           # ja usuwam d, nie ruszam f
+        by = {t['id']: t for t in out['tasks']}
+        self.assertEqual((by['b']['status'], by['b']['progress'], by['b']['start']), ('progress', 50, '09:00'))
+        self.assertNotIn('d', by)
+        self.assertNotIn('f', by)
+        self.assertEqual(out['report']['removed'], 1)
+        self.assertEqual(self.file_titles(), ['Wspólne'])
+
+    def test_conflict_keeps_my_version_and_is_reported(self):
+        self.connect(T('b', 'Wspólne', 'group'))
+        self.edit_file(lambda doc: doc['tasks'][0].update(title='Tytuł kolegi'))
+        out = self.api.group_save(D(T('b', 'Mój tytuł', 'group')))
+        self.assertEqual(out['tasks'][0]['title'], 'Mój tytuł')
+        self.assertEqual(out['report']['conflicts'], ['Mój tytuł'])
+        self.assertEqual(self.file_titles(), ['Mój tytuł'])
+
+    def test_start_merges_when_clean_or_dirty_and_keeps_copy_when_unreachable(self):
         data = D(T('a', 'Prywatne'), T('b', 'Wspólne', 'group'))
         self.storage.save_data(data)
         self.api._pick_save = lambda *a: self.gfile
         self.api.group_create(data)
-        doc = json.loads(self.gfile.read_text('utf-8'))
-        doc['tasks'].append(T('c', 'Nowe od kolegi', 'group'))
-        self.gfile.write_text(json.dumps(doc), encoding='utf-8')
+        self.edit_file(lambda doc: doc['tasks'].append(T('c', 'Nowe od kolegi', 'group')))
         state = self.api.load_state()
         self.assertEqual(sorted(t['title'] for t in state['tasks'] if t['calendar'] == 'group'), ['Nowe od kolegi', 'Wspólne'])
         self.assertEqual(state['group']['name'], 'grupowy.json')
-        self.api.save_data(D(T('a', 'Prywatne'), T('b', 'Moja zmiana', 'group')))      # niezapisane zmiany grupowe
+        self.edit_file(lambda doc: doc['tasks'].append(T('x', 'Kolejne od kolegi', 'group')))
+        mine = D(T('a', 'Prywatne'), T('b', 'Wspólne', 'group'), T('c', 'Nowe od kolegi', 'group'), T('m', 'Moje niezapisane', 'group'))
+        self.api.save_data(mine)                                    # niezapisane zmiany grupowe
         state = self.api.load_state()
-        self.assertIn('Moja zmiana', [t['title'] for t in state['tasks']])
-        self.assertIn('niezapisane', state['warning'])
+        self.assertEqual(sorted(t['title'] for t in state['tasks'] if t['calendar'] == 'group'),
+                         ['Kolejne od kolegi', 'Moje niezapisane', 'Nowe od kolegi', 'Wspólne'])
+        self.assertIn('Moje niezapisane', self.file_titles())
         self.gfile.unlink()
-        self.assertIn('Moja zmiana', [t['title'] for t in self.api.load_state()['tasks']])
+        state = self.api.load_state()
+        self.assertIn('Moje niezapisane', [t['title'] for t in state['tasks']])
+        self.assertIn('niedostępny', state['warning'])
 
     def test_local_excel_holds_only_local_tasks_and_group_tasks_survive_reload(self):
         data = D(T('a', 'Prywatne', 'local', ['p1']), T('b', 'Wspólne', 'group', ['p2']))

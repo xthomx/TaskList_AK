@@ -62,8 +62,75 @@ def _replace(base, cal, extra):
     return validate_data({'people': people, 'tasks': tasks})
 
 
-class GroupChanged(ValueError):
-    """Plik grupowy zmienił się od ostatniego odczytu."""
+# Scalanie zmian w kalendarzu grupowym: trzy wersje — baza (stan po ostatniej synchronizacji), moja i cudza (aktualny plik).
+# Pole zmienione tylko po jednej stronie wygrywa; zmienione po obu stronach różnie: zostaje moje, a konflikt trafia do raportu.
+FIELD_GROUPS = (('title',), ('date', 'end_date', 'start', 'end'), ('priority',), ('status', 'progress'),
+                ('notes',), ('color',), ('assignees',), ('series',))
+
+
+def _norm(part):
+    """id -> zadanie z osobami zapisanymi nazwiskami (identyfikatory osób bywają różne w różnych programach)."""
+    names = {p['id']: p['name'] for p in part['people']}
+    out = {}
+    for t in part['tasks']:
+        d = {k: t[k] for k in ('title', 'date', 'end_date', 'start', 'end', 'priority', 'status', 'progress', 'notes', 'color', 'series')}
+        d['assignees'] = sorted(names[a] for a in t['assignees'] if a in names)
+        out[t['id']] = d
+    return out
+
+
+def merge_group(base, mine, theirs):
+    """base, mine, theirs: części grupowe {people, tasks} (base może być None). Zwraca (część, raport)."""
+    b, m, t = (_norm(base) if base else None), _norm(mine), _norm(theirs)
+    out, added, changed, conflicts = {}, [], [], []
+    removed = 0
+    for tid in list(m) + [x for x in t if x not in m]:
+        inm, int_, inb = tid in m, tid in t, bool(b) and tid in b
+        if inm and int_:
+            base_t = b[tid] if inb else None
+            merged, bad = dict(m[tid]), False
+            for group in FIELD_GROUPS:
+                mv, tv = [m[tid][k] for k in group], [t[tid][k] for k in group]
+                if mv == tv:
+                    continue
+                bv = [base_t[k] for k in group] if base_t else None
+                if bv is not None and mv == bv:
+                    merged.update({k: t[tid][k] for k in group})
+                elif bv is None or tv == bv:
+                    pass                                     # zostaje moje
+                else:
+                    bad = True                               # obie strony zmieniły różnie: zostaje moje
+            out[tid] = merged
+            if bad:
+                conflicts.append(merged['title'])
+            elif merged != m[tid]:
+                changed.append(merged['title'])
+        elif inm:                                            # tylko u mnie
+            if inb and m[tid] == b[tid]:
+                removed += 1                                 # ktoś usunął, a ja nie ruszałem
+            else:
+                out[tid] = m[tid]
+                if inb:
+                    conflicts.append(m[tid]['title'])        # ja edytowałem, ktoś usunął: zostaje
+        else:                                                # tylko w pliku
+            if inb and t[tid] == b[tid]:
+                continue                                     # usunąłem u siebie, nikt nie ruszał: usuwam
+            out[tid] = t[tid]
+            if inb:
+                conflicts.append(t[tid]['title'])            # usunąłem, ktoś edytował: zostaje jego
+            else:
+                added.append(t[tid]['title'])
+    full = {t['id']: t for t in mine['tasks']}
+    full.update({t['id']: t for t in theirs['tasks'] if t['id'] not in full})
+    pid = {p['name']: p['id'] for p in theirs['people']}
+    pid.update({p['name']: p['id'] for p in mine['people']})
+    used = sorted({n for d in out.values() for n in d['assignees']})
+    people = [{'id': pid[n], 'name': n} for n in used]
+    tasks = []
+    for tid, d in out.items():
+        tasks.append(dict(d, id=tid, calendar='group', assignees=[pid[n] for n in d['assignees']]))
+    tasks.sort(key=lambda x: (x['date'], x['start'], x['title'].lower(), x['id']))
+    return {'people': people, 'tasks': tasks}, {'added': added, 'changed': changed, 'removed': removed, 'conflicts': conflicts}
 
 
 def _sig(raw):
@@ -161,33 +228,63 @@ class Api:
             raise ValueError('To nie jest poprawny plik kalendarza grupowego.') from exc
         return clean, _sig(raw)
 
-    def _load_group(self, data, warning):
-        """Start: gdy kalendarz grupowy nie ma niezapisanych zmian, wczytaj aktualny plik; inaczej zostaw kopię."""
+    # baza scalania: zawartość pliku grupowego po ostatniej synchronizacji
+    @property
+    def _base_path(self):
+        return self._storage.folder / 'group_base.json'
+
+    def _read_base(self):
+        try:
+            doc = json.loads(self._base_path.read_text(encoding='utf-8'))
+            return validate_data({'people': doc['people'], 'tasks': [dict(t, calendar='group') for t in doc['tasks']]})
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def _write_base(self, part):
+        self._storage._atomic_write(self._base_path, json.dumps(part, ensure_ascii=False))
+
+    def _sync_group(self, data):
+        """Scal moje zadania grupowe z aktualnym plikiem, zapisz wynik w pliku (gdy się różni) i w kopii roboczej."""
         prefs = self._storage.get_prefs()
-        path = prefs['group_path']
-        name = Path(path).name
+        path = Path(prefs['group_path'])
+        clean = validate_data(data)
+        mine = _part(clean, 'group')
+        for _ in range(4):
+            theirs, sig = self._read_group(path)
+            merged, report = merge_group(self._read_base(), mine, theirs)
+            if _norm(merged) == _norm(theirs):
+                new_sig = sig                                      # plik już zawiera wynik — bez zapisu
+            else:
+                if _sig(path.read_bytes()) != sig:
+                    continue                                       # ktoś zapisał w międzyczasie: scal jeszcze raz
+                new_sig = _sig(self._write_text(path, json.dumps(merged, ensure_ascii=False, indent=1)))
+            final = _replace(clean, 'group', merged)
+            self._storage.save_data(final)
+            self._write_base(merged)
+            self._storage.set_prefs(group_sig=new_sig, group_fp=fingerprint(_part(final, 'group')))
+            return {'people': final['people'], 'tasks': final['tasks'], 'group': self._group_info(final), 'report': report}
+        raise ValueError('Plik grupowy jest zmieniany przez innych — spróbuj ponownie za chwilę.')
+
+    def _load_group(self, data, warning):
+        """Start: scal kopię roboczą z aktualnym plikiem grupowym; gdy plik niedostępny, zostaje kopia."""
+        name = Path(self._storage.get_prefs()['group_path']).name
         if data is None:
             data = {'people': [], 'tasks': []}
-        if fingerprint(_part(data, 'group')) != prefs['group_fp']:
-            warning = (warning + ' ' if warning else '') + ('Kalendarz grupowy ma niezapisane zmiany — pokazano kopię roboczą. '
-                                                           'Zapisz do pliku grupowego (' + name + ') lub odśwież.')
-            return data, warning
         try:
-            extra, sig = self._read_group(path)
-            data = _replace(data, 'group', extra)
-            self._storage.save_data(data)
-            self._storage.set_prefs(group_sig=sig, group_fp=fingerprint(_part(data, 'group')))
+            out = self._sync_group(data)
+            return {'people': out['people'], 'tasks': out['tasks']}, warning
         except (OSError, ValueError) as exc:
-            warning = (warning + ' ' if warning else '') + ('Plik grupowy niedostępny (' + name + '): ' + str(exc)
-                                                           + ' Pokazano ostatnią kopię kalendarza grupowego.')
-        return data, warning
+            return data, (warning + ' ' if warning else '') + ('Plik grupowy niedostępny (' + name + '): ' + str(exc)
+                                                               + ' Pokazano ostatnią kopię kalendarza grupowego.')
 
     def group_create(self, data):
         clean = validate_data(data)
         path = self._pick_save('zadania-grupowe.json', 'Kalendarz grupowy (*.json)', '.json')
         if not path:
             return None
-        raw = self._write_text(path, json.dumps(_part(clean, 'group'), ensure_ascii=False, indent=1))
+        part = _part(clean, 'group')
+        raw = self._write_text(path, json.dumps(part, ensure_ascii=False, indent=1))
+        self._write_base(part)
         self._storage.set_prefs(group_path=str(path.resolve()), group_sig=_sig(raw), group_fp=fingerprint(_part(clean, 'group')))
         return self._group_info(clean)
 
@@ -209,30 +306,18 @@ class Api:
         self._pending_group = None
         merged = _replace(validate_data(data), 'group', extra)
         self._storage.save_data(merged)
+        self._write_base(_part(merged, 'group'))
         self._storage.set_prefs(group_path=str(path), group_sig=sig, group_fp=fingerprint(_part(merged, 'group')))
         return {'people': merged['people'], 'tasks': merged['tasks'], 'group': self._group_info(merged)}
 
-    def group_refresh(self, data):
-        path = self._storage.get_prefs()['group_path']
-        if not path:
+    def group_sync(self, data):
+        """Odśwież / zapisz / synchronizuj: scal zmiany obu stron (także gdy ktoś inny zmienił plik)."""
+        if not self._storage.get_prefs()['group_path']:
             raise ValueError('Kalendarz grupowy nie jest połączony z plikiem.')
-        extra, sig = self._read_group(path)
-        merged = _replace(validate_data(data), 'group', extra)
-        self._storage.save_data(merged)
-        self._storage.set_prefs(group_sig=sig, group_fp=fingerprint(_part(merged, 'group')))
-        return {'people': merged['people'], 'tasks': merged['tasks'], 'group': self._group_info(merged)}
+        return self._sync_group(data)
 
-    def group_save(self, data, force=False):
-        prefs = self._storage.get_prefs()
-        path = Path(prefs['group_path']) if prefs['group_path'] else None
-        if not path:
-            raise ValueError('Kalendarz grupowy nie jest połączony z plikiem.')
-        clean = validate_data(data)
-        if path.exists() and not force and _sig(path.read_bytes()) != prefs['group_sig']:
-            raise GroupChanged('Plik grupowy został zmieniony przez kogoś innego od ostatniego odczytu.')
-        raw = self._write_text(path, json.dumps(_part(clean, 'group'), ensure_ascii=False, indent=1))
-        self._storage.set_prefs(group_sig=_sig(raw), group_fp=fingerprint(_part(clean, 'group')))
-        return self._group_info(clean)
+    group_refresh = group_sync
+    group_save = group_sync
 
     def group_check(self):
         """Czy ktoś zmienił plik grupowy od naszego ostatniego odczytu/zapisu? Brak dostępu do pliku = tryb offline."""
@@ -250,6 +335,10 @@ class Api:
 
     def group_disconnect(self):
         self._storage.set_prefs(group_path='', group_sig='', group_fp='')
+        try:
+            self._base_path.unlink()
+        except OSError:
+            pass
         return True
 
     @staticmethod

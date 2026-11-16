@@ -1330,29 +1330,32 @@ async function groupNew(){
     groupInfo = g; showGroup(); note("Utworzono plik grupowy: " + g.name + " (zawiera tylko zadania grupowe).", true);
   }catch(e){ note("Nie utworzono pliku grupowego: " + errText(e)); }
 }
-async function groupSave(){
+const quoted = list => list.slice(0, 3).map(x => "„" + x + "”").join(", ") + (list.length > 3 ? "…" : "");
+function reportText(r){                              // raport scalania z Pythona: co zmienili inni
+  if(!r) return "";
+  return [r.added.length ? `dodano ${r.added.length}: ${quoted(r.added)}` : "",
+          r.changed.length ? `zmieniono ${r.changed.length}: ${quoted(r.changed)}` : "",
+          r.removed ? `usunięto ${r.removed}` : "",
+          r.conflicts.length ? `konflikt przy: ${quoted(r.conflicts)} (zostawiono Twoją wersję)` : ""].filter(Boolean).join("; ");
+}
+async function groupSync(auto){                      // zapis i odświeżanie to to samo: scalenie zmian obu stron i zapis wyniku
   closeMenu();
-  if(!groupInfo){ note("Kalendarz grupowy nie jest połączony z plikiem — użyj Pliki → Kalendarz grupowy."); return; }
+  if(!groupInfo){ if(!auto) note("Kalendarz grupowy nie jest połączony z plikiem — użyj Pliki → Kalendarz grupowy."); return; }
+  if(groupBusy) return;
+  groupBusy = true;
   try{
     await flush();
-    let g;
-    try{ g = await api().group_save(currentData(), false); }
-    catch(e){
-      if(!/zmieniony przez kogoś/.test(errText(e))) throw e;
-      if(!confirm("Plik grupowy został zmieniony przez kogoś innego od ostatniego odczytu.\n\nOK — nadpisz plik moimi zadaniami grupowymi.\nAnuluj — nic nie zapisuj (użyj „Odśwież z pliku grupowego”, aby pobrać cudze zmiany).")) return;
-      g = await api().group_save(currentData(), true);
-    }
-    groupInfo = g; groupWarned = false; showGroup(); note("Zapisano w pliku grupowym: " + g.name, true);
-  }catch(e){ note("Zapis do pliku grupowego nie powiódł się: " + errText(e)); }
+    const r = await api().group_sync(currentData());
+    setFromGroup(r); groupWarned = false;
+    const what = reportText(r.report);
+    if(auto){ if(what){ note("Zmiany w kalendarzu grupowym — " + what + ".", true); beep(); } }
+    else note("Zapisano w pliku grupowym: " + r.group.name + (what ? " · zmiany innych: " + what : ""), true);
+  }catch(e){
+    if(auto){ if(groupInfo){ groupInfo.offline = true; showGroup(); } }
+    else note("Synchronizacja z plikiem grupowym nie powiodła się: " + errText(e));
+  }finally{ groupBusy = false; }
 }
-async function groupRefresh(){
-  closeMenu();
-  try{
-    await flush();
-    if(groupInfo && groupInfo.dirty && !confirm("Masz niezapisane zmiany w kalendarzu grupowym. Odświeżenie zastąpi je zadaniami z pliku. Kontynuować?")) return;
-    setFromGroup(await api().group_refresh(currentData())); note("Odświeżono z pliku grupowego.", true);
-  }catch(e){ note("Odświeżenie nie powiodło się: " + errText(e)); }
-}
+const groupSave = () => groupSync(false), groupRefresh = () => groupSync(false);
 async function groupOff(){
   closeMenu();
   if(!confirm("Odłączyć plik grupowy? Zadania grupowe zostaną w programie (jako kopia), ale przestaną być zapisywane do pliku.")) return;
@@ -1441,39 +1444,16 @@ async function saveCurrent(){                       // Zapisz / Ctrl+S: wszystki
 }
 
 /* ---- kto zmienił zadania grupowe: sprawdzanie pliku co 30 s i po powrocie do okna ---- */
-const gKey = (t, pl) => JSON.stringify([t.title, t.date, t.end_date, t.start, t.end, t.priority, t.status, t.progress, t.notes, t.color,
-  (t.assignees || []).map(a => (pl.find(p => p.id === a) || {}).name || "").sort()]);
-const groupSnapshot = () => new Map(tasks.filter(t => calOf(t) === "group").map(t => [t.id, {title: t.title, k: gKey(t, people)}]));
-function describeGroupChanges(before){
-  const after = groupSnapshot(), add = [], chg = [];
-  for(const [id, a] of after){ const b = before.get(id); if(!b) add.push(a.title); else if(b.k !== a.k) chg.push(a.title); }
-  const del = [...before.keys()].filter(id => !after.has(id)).length;
-  const part = (n, label, list) => n ? `${label} ${n}${list.length ? ": „" + list.slice(0, 3).join("”, „") + "”" + (list.length > 3 ? "…" : "") : ""}` : "";
-  const txt = [part(add.length, "dodano", add), part(chg.length, "zmieniono", chg), del ? `usunięto ${del}` : ""].filter(Boolean).join("; ");
-  return txt || "";
-}
 let groupBusy = false, groupWarned = false;
 async function checkGroup(){
   if(!DESKTOP || !groupInfo || !started || groupBusy || readOnly || dlg.open || pdlg.open || drag) return;
-  groupBusy = true;
   try{
     const c = await api().group_check();
     if(!groupInfo) return;
     groupInfo.offline = !!c.offline;
-    if(!c.changed){ groupInfo.stale = false; groupWarned = false; showGroup(); return; }
-    if(!groupInfo.dirty){                                   // nie mamy własnych niezapisanych zmian: pobierz cudze
-      await flush();
-      const before = groupSnapshot();
-      setFromGroup(await api().group_refresh(currentData()));
-      groupWarned = false;
-      const what = describeGroupChanges(before);
-      note("Ktoś z grupy zmienił kalendarz grupowy" + (what ? " — " + what : "") + ".", true); beep();
-    } else {                                                // mamy własne zmiany: nie nadpisuj, tylko ostrzeż (raz)
-      groupInfo.stale = true; showGroup();
-      if(!groupWarned){ groupWarned = true; note("Ktoś z grupy zmienił plik grupowy, a Ty masz niezapisane zmiany grupowe. Odśwież z pliku (Pliki → Kalendarz grupowy) albo zapisz i potwierdź nadpisanie.", true); beep(); }
-    }
+    if(c.changed) await groupSync(true);                 // ktoś zapisał plik: scal jego zmiany z moimi
+    else showGroup();
   }catch(e){ if(groupInfo){ groupInfo.offline = true; showGroup(); } }
-  finally{ groupBusy = false; }
 }
 setInterval(checkGroup, 30000);
 window.addEventListener("focus", () => setTimeout(checkGroup, 500));
