@@ -61,18 +61,22 @@ function note(msg, ok){ const el = document.getElementById("note"); el.textConte
 let fileInfo = null, groupInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
 function showGroup(){
   const g = groupInfo, tag = document.getElementById("groupTag");
+  showFile();
   for(const id of ["grpSave", "grpRefresh", "grpOff"]) document.getElementById(id).hidden = !g;
   document.getElementById("grpOpen").hidden = !!g; document.getElementById("grpNew").hidden = !!g;
   if(!DESKTOP || !g){ tag.hidden = true; return; }
   tag.hidden = false; tag.title = g.path;
-  tag.innerHTML = GROUP_ICO + esc(g.name) + (g.dirty ? " ● niezapisane zmiany" : " ✓");
-  tag.classList.toggle("dirty", !!g.dirty);
+  tag.innerHTML = GROUP_ICO + esc(g.name) + (g.dirty ? " ● niezapisane zmiany" : " ✓") +
+    (g.offline ? "<br>⚠ plik niedostępny — pracujesz na kopii" : g.stale ? "<br>⚠ ktoś zmienił plik — odśwież" : "");
+  tag.classList.toggle("dirty", !!(g.dirty || g.stale || g.offline));
 }
 function showFile(){
   const el = document.getElementById("fileTag"), sb = document.getElementById("saveBtn");
   if(sb){                                           // ikona „Zapisz”: do zapamiętanego pliku Excela (bez pliku: pyta o nazwę)
     sb.classList.toggle("dirty", !!(fileInfo && fileInfo.dirty));
-    sb.title = fileInfo ? `Zapisz do pliku Excela: ${fileInfo.name} (Ctrl+S)${fileInfo.dirty ? " — są niezapisane zmiany" : ""}` : "Zapisz do pliku Excela… (wybierz plik, Ctrl+S)";
+    const targets = [fileInfo && `Excel: ${fileInfo.name}`, groupInfo && `plik grupowy: ${groupInfo.name}`].filter(Boolean);
+    const dirty = (fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty);
+    sb.title = targets.length ? `Zapisz (${targets.join(" i ")}) — Ctrl+S${dirty ? " — są niezapisane zmiany" : ""}` : "Zapisz do pliku Excela… (wybierz plik, Ctrl+S)";
   }
   if(!DESKTOP || !fileInfo){ el.hidden = true; return; }
   el.hidden = false; el.title = fileInfo.path;
@@ -1338,7 +1342,7 @@ async function groupSave(){
       if(!confirm("Plik grupowy został zmieniony przez kogoś innego od ostatniego odczytu.\n\nOK — nadpisz plik moimi zadaniami grupowymi.\nAnuluj — nic nie zapisuj (użyj „Odśwież z pliku grupowego”, aby pobrać cudze zmiany).")) return;
       g = await api().group_save(currentData(), true);
     }
-    groupInfo = g; showGroup(); note("Zapisano w pliku grupowym: " + g.name, true);
+    groupInfo = g; groupWarned = false; showGroup(); note("Zapisano w pliku grupowym: " + g.name, true);
   }catch(e){ note("Zapis do pliku grupowego nie powiódł się: " + errText(e)); }
 }
 async function groupRefresh(){
@@ -1430,7 +1434,49 @@ async function saveXlsx(asNew){
   }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
 }
 xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
-const saveCurrent = () => curCal === "group" && groupInfo ? groupSave() : saveXlsx(false);       // Zapisz / Ctrl+S: plik wybranego kalendarza
+async function saveCurrent(){                       // Zapisz / Ctrl+S: wszystkie połączone pliki (Excel i plik grupowy)
+  if(!fileInfo && !groupInfo){ await saveXlsx(false); return; }       // nic nie połączone: zapytaj o plik Excela
+  if(fileInfo) await saveXlsx(false);
+  if(groupInfo) await groupSave();
+}
+
+/* ---- kto zmienił zadania grupowe: sprawdzanie pliku co 30 s i po powrocie do okna ---- */
+const gKey = (t, pl) => JSON.stringify([t.title, t.date, t.end_date, t.start, t.end, t.priority, t.status, t.progress, t.notes, t.color,
+  (t.assignees || []).map(a => (pl.find(p => p.id === a) || {}).name || "").sort()]);
+const groupSnapshot = () => new Map(tasks.filter(t => calOf(t) === "group").map(t => [t.id, {title: t.title, k: gKey(t, people)}]));
+function describeGroupChanges(before){
+  const after = groupSnapshot(), add = [], chg = [];
+  for(const [id, a] of after){ const b = before.get(id); if(!b) add.push(a.title); else if(b.k !== a.k) chg.push(a.title); }
+  const del = [...before.keys()].filter(id => !after.has(id)).length;
+  const part = (n, label, list) => n ? `${label} ${n}${list.length ? ": „" + list.slice(0, 3).join("”, „") + "”" + (list.length > 3 ? "…" : "") : ""}` : "";
+  const txt = [part(add.length, "dodano", add), part(chg.length, "zmieniono", chg), del ? `usunięto ${del}` : ""].filter(Boolean).join("; ");
+  return txt || "";
+}
+let groupBusy = false, groupWarned = false;
+async function checkGroup(){
+  if(!DESKTOP || !groupInfo || !started || groupBusy || readOnly || dlg.open || pdlg.open || drag) return;
+  groupBusy = true;
+  try{
+    const c = await api().group_check();
+    if(!groupInfo) return;
+    groupInfo.offline = !!c.offline;
+    if(!c.changed){ groupInfo.stale = false; groupWarned = false; showGroup(); return; }
+    if(!groupInfo.dirty){                                   // nie mamy własnych niezapisanych zmian: pobierz cudze
+      await flush();
+      const before = groupSnapshot();
+      setFromGroup(await api().group_refresh(currentData()));
+      groupWarned = false;
+      const what = describeGroupChanges(before);
+      note("Ktoś z grupy zmienił kalendarz grupowy" + (what ? " — " + what : "") + ".", true); beep();
+    } else {                                                // mamy własne zmiany: nie nadpisuj, tylko ostrzeż (raz)
+      groupInfo.stale = true; showGroup();
+      if(!groupWarned){ groupWarned = true; note("Ktoś z grupy zmienił plik grupowy, a Ty masz niezapisane zmiany grupowe. Odśwież z pliku (Pliki → Kalendarz grupowy) albo zapisz i potwierdź nadpisanie.", true); beep(); }
+    }
+  }catch(e){ if(groupInfo){ groupInfo.offline = true; showGroup(); } }
+  finally{ groupBusy = false; }
+}
+setInterval(checkGroup, 30000);
+window.addEventListener("focus", () => setTimeout(checkGroup, 500));
 saveBtn.onclick = async () => { saveBtn.disabled = true; try{ await saveCurrent(); } finally{ saveBtn.disabled = false; } };
 document.addEventListener("keydown", e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveCurrent(); }

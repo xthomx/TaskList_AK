@@ -121,6 +121,21 @@ class GroupTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.api.export_json(data, 'inny')
 
+    def test_group_check_detects_changes_by_others_and_offline(self):
+        data = D(T('b', 'Wspólne', 'group'))
+        self.assertEqual(self.api.group_check(), {'changed': False, 'offline': False})   # brak pliku grupowego
+        self.api._pick_save = lambda *a: self.gfile
+        self.api.group_create(data)
+        self.assertFalse(self.api.group_check()['changed'])
+        doc = json.loads(self.gfile.read_text('utf-8'))
+        doc['tasks'].append(T('c', 'Od kolegi', 'group'))
+        self.gfile.write_text(json.dumps(doc), encoding='utf-8')
+        self.assertTrue(self.api.group_check()['changed'])
+        self.api.group_refresh(data)
+        self.assertFalse(self.api.group_check()['changed'])
+        self.gfile.unlink()
+        self.assertEqual(self.api.group_check(), {'changed': False, 'offline': True})
+
     def test_part_and_replace_helpers(self):
         data = D(T('a', 'L', 'local', ['p1']), T('b', 'G', 'group', ['p2']))
         self.assertEqual([p['id'] for p in _part(data, 'group')['people']], ['p2'])

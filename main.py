@@ -234,6 +234,20 @@ class Api:
         self._storage.set_prefs(group_sig=_sig(raw), group_fp=fingerprint(_part(clean, 'group')))
         return self._group_info(clean)
 
+    def group_check(self):
+        """Czy ktoś zmienił plik grupowy od naszego ostatniego odczytu/zapisu? Brak dostępu do pliku = tryb offline."""
+        prefs = self._storage.get_prefs()
+        if not prefs['group_path']:
+            return {'changed': False, 'offline': False}
+        try:
+            path = Path(prefs['group_path'])
+            if path.stat().st_size > MAX_BYTES:
+                return {'changed': False, 'offline': False}
+            raw = path.read_bytes()
+        except OSError:
+            return {'changed': False, 'offline': True}
+        return {'changed': _sig(raw) != prefs['group_sig'], 'offline': False}
+
     def group_disconnect(self):
         self._storage.set_prefs(group_path='', group_sig='', group_fp='')
         return True
