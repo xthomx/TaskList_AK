@@ -287,12 +287,28 @@ class Api:
         return self._storage.set_notified(keys)
 
     def attention(self):
-        """Przypomnienie: przywróć okno i wyciągnij je na wierzch (błędy platformy ignorujemy)."""
+        """Przypomnienie: wyciągnij okno na wierzch. Tylko wywołania Win32 (bez pól formularza WinForms z innego wątku —
+        ustawianie TopMost / WindowState spoza wątku okna potrafiło zawiesić program). Błędy ignorujemy."""
+        if sys.platform != 'win32':
+            return True
         try:
-            self._window.restore()
-            self._window.show()
-            self._window.on_top = True
-            self._window.on_top = False
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW(None, 'TaskList AK')
+            if not hwnd:
+                return True
+            if user32.IsIconic(hwnd):
+                user32.ShowWindowAsync(hwnd, 9)                 # SW_RESTORE: wraca do poprzedniego stanu (także zmaksymalizowanego)
+
+            class FLASHWINFO(ctypes.Structure):
+                _fields_ = [('cbSize', wintypes.UINT), ('hwnd', wintypes.HWND), ('dwFlags', wintypes.DWORD),
+                            ('uCount', wintypes.UINT), ('dwTimeout', wintypes.DWORD)]
+            info = FLASHWINFO(ctypes.sizeof(FLASHWINFO), hwnd, 0x0000000F, 5, 0)     # FLASHW_ALL | FLASHW_TIMERNOFG
+            user32.FlashWindowEx(ctypes.byref(info))
+            flags = 0x0001 | 0x0002 | 0x0010 | 0x4000                                # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
+            user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, flags)                         # HWND_TOPMOST
+            user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, flags)                         # HWND_NOTOPMOST — okno zostaje na wierzchu stosu
         except Exception:
             pass
         return True
