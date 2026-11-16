@@ -21,6 +21,8 @@ const ICON_PATHS = {
   clock:    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>',
   plus:     '<path d="M12 5v14M5 12h14"/>',
+  refresh:  '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  user:     '<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   users:    '<circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/>',
   tasks:    '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8.5 9l1.5 1.5L13 7.5M8.5 15l1.5 1.5 3-3M15 9.5h2.5M15 15.5h2.5"/>',
   tiles:    '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
@@ -56,7 +58,16 @@ let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve
 const api = () => window.pywebview && window.pywebview.api;
 const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
-let fileInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
+let fileInfo = null, groupInfo = null, saveErr = false;     // zapamiętany plik Excela: {name, path, dirty}
+function showGroup(){
+  const g = groupInfo, tag = document.getElementById("groupTag");
+  for(const id of ["grpSave", "grpRefresh", "grpOff"]) document.getElementById(id).hidden = !g;
+  document.getElementById("grpOpen").hidden = !!g; document.getElementById("grpNew").hidden = !!g;
+  if(!DESKTOP || !g){ tag.hidden = true; return; }
+  tag.hidden = false; tag.title = g.path;
+  tag.innerHTML = GROUP_ICO + esc(g.name) + (g.dirty ? " ● niezapisane zmiany" : " ✓");
+  tag.classList.toggle("dirty", !!g.dirty);
+}
 function showFile(){
   const el = document.getElementById("fileTag"), sb = document.getElementById("saveBtn");
   if(sb){                                           // ikona „Zapisz”: do zapamiętanego pliku Excela (bez pliku: pyta o nazwę)
@@ -100,6 +111,7 @@ function fixTask(t){               // wersje < 1.2 miały tylko pole done
   delete o.done;
   if(!o.end_date || o.end_date < o.date) o.end_date = o.date;       // zadanie wielodniowe: end_date > date
   if(o.end_date > o.date){ o.start = ""; o.end = ""; }
+  o.calendar = o.calendar === "group" ? "group" : "local";          // lokalny (domyślny) albo grupowy
   o.series = typeof o.series === "string" ? o.series : "";
   o.color = /^#[0-9a-fA-F]{6}$/.test(o.color || "") ? o.color.toLowerCase() : "";   // pusty = kolor wg priorytetu
   if(o.status === "done") o.progress = 100; else if(!STEPS.includes(o.progress)) o.progress = 0;
@@ -122,6 +134,7 @@ function flush(){
   const snap = JSON.parse(JSON.stringify(currentData()));
   chain = chain.then(() => api().save_data(snap)).then(res => {
     if(fileInfo && res && typeof res === "object"){ fileInfo.dirty = !!res.dirty; showFile(); }
+    if(groupInfo && res && typeof res === "object"){ groupInfo.dirty = !!res.group_dirty; showGroup(); }
     if(saveErr){ saveErr = false; note(""); }
   }).catch(e => { saveErr = true; note("Zapis nie powiódł się: " + errText(e)); });
   return chain;
@@ -168,7 +181,23 @@ const namesOf = t => (t.assignees || []).map(personName).filter(Boolean);
 const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.name, "pl"));
 // osoby zapisujemy jako „Nazwisko Imię”; na kafelkach skrót: „Nazwisko I.”
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
-const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
+const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && (!calOnly || calOf(t) === curCal) && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
+/* ---- kalendarz: lokalny / grupowy — wybór decyduje, gdzie trafiają nowe zadania; zadania grupowe mają ikonę ---- */
+let curCal = "local", calOnly = false;
+const calOf = t => t.calendar === "group" ? "group" : "local";
+const GROUP_ICO = `<svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Zadanie grupowe"><title>Zadanie grupowe</title>${ICON_PATHS.users}</svg>`;
+const gmk = t => calOf(t) === "group" ? GROUP_ICO : "";
+function saveCal(){
+  if(DESKTOP){ if(api()) api().set_calendar(curCal, calOnly).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_cal", curCal + (calOnly ? "|only" : "")); }catch(e){} }
+}
+function renderCalSwitch(){
+  document.querySelectorAll("#calSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.cal === curCal));
+  document.getElementById("calOnly").checked = calOnly;
+  document.getElementById("calSw").dataset.cal = curCal;
+  const add = document.getElementById("add");
+  if(add) add.title = "Nowe zadanie w kalendarzu: " + (curCal === "group" ? "grupowym" : "lokalnym");
+}
 const visibleTasks = () => tasks.filter(matchesFilter);
 /* ---- zadania wielodniowe i przesuwanie ---- */
 const endOf = t => t.end_date || t.date;
@@ -201,7 +230,7 @@ function render(){
   layoutSeg.hidden = false;
   applyTheme();
   document.querySelectorAll("#layoutSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.l === layout));
-  renderFilters();
+  renderFilters(); renderCalSwitch();
   renderCal();
   renderList();
   saveView(); saveLayout();
@@ -219,7 +248,7 @@ function chipHTML(t, ds){
   const tip = esc(t.title) + (names.length ? " — " + esc(names.join(", ")) : "") + (multi ? ` (${fmtShort(t)})` : "") + (t.series ? " 🔁" : "");
   let pg = t.progress;                                            // postęp rozłożony na wszystkie dni zadania
   if(multi && ds){ const n = daysBetween(t.date, end) + 1, i = daysBetween(t.date, ds); pg = Math.round(Math.min(1, Math.max(0, (t.progress / 100 - i / n) * n)) * 100); }
-  const label = lj ? "&nbsp;" : `${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
+  const label = lj ? "&nbsp;" : `${gmk(t)}${stIcon(t)}${t.series ? '<span class="sti">🔁</span>' : ""}${time}${esc(t.title)}${who}`;
   const handle = ds && ds === end ? `<span class="rzd" data-rzd="${t.id}" title="Przeciągnij, aby zmienić liczbę dni"></span>` : "";
   return `<span class="chip p${t.priority} st-${t.status}${lj ? " lj" : ""}${rj ? " rj" : ""}" style="${colorStyle(t)}--pg:${pg}%" draggable="true" data-id="${t.id}">${label}${xdelBtn(t)}${handle}</span>`;
 }
@@ -246,6 +275,8 @@ function renderFilters(){
   fClear.hidden = !anyFilter();
   secFilter.classList.toggle("active", anyFilter());
 }
+document.querySelectorAll("#calSeg .btn").forEach(b => b.onclick = () => { curCal = b.dataset.cal; saveCal(); render(); });
+document.getElementById("calOnly").onchange = e => { calOnly = e.target.checked; saveCal(); render(); };
 fClear.onclick = () => { clearFilters(); render(); };
 document.addEventListener("click", e => { const d = document.getElementById("fpMenu"); if(d && d.open && !d.contains(e.target)) d.open = false; });
 
@@ -381,7 +412,7 @@ function cardHTML(t, ds, overdue, compact, selectable, dragSlot){      // select
   const pick = selectable ? `<label class="csel" title="Zaznacz zadanie"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></label>` : "";
   return `<article class="card p${t.priority} st-${t.status}${selectable ? " big" : ""}" style="${colorStyle(t)}--pg:${t.progress}%" draggable="${selectable && !dragSlot ? "false" : "true"}" data-id="${esc(t.id)}">` + pick +
     `<button class="ccheck" type="button" data-check="${esc(t.id)}" title="${t.status === "done" ? "Cofnij (oczekujące)" : "Oznacz jako zrobione"}">${t.status === "done" ? "✓" : ""}</button>` +
-    `<div class="cbody"><div class="ctitle">${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
+    `<div class="cbody"><div class="ctitle">${gmk(t)}${esc(t.title)}</div>${note ? `<div class="cnote">${esc(note.slice(0, 120))}</div>` : ""}` +
     (meta.length ? `<div class="cmeta">${meta.join("")}</div>` : "") + `</div>${xdelBtn(t)}</article>`;
 }
 
@@ -467,7 +498,7 @@ function renderBoard(main){
       const add = () => {
         const title = inp.value.trim(); if(!title){ inp.focus(); return; }
         const preset = presetPersons();
-        tasks.push({id: uid(), title, date: ds, end_date: ds, start: "", end: "", priority: 1, status: "pending", progress: 0, notes: "", assignees: preset, series: ""});
+        tasks.push({id: uid(), title, date: ds, end_date: ds, start: "", end: "", priority: 1, status: "pending", progress: 0, notes: "", assignees: preset, series: "", calendar: curCal});
         save(); render();                                    // formularz otworzy się ponownie (boardAdd) — kolejne zadanie
       };
       box.querySelector(".bok").onclick = add;
@@ -501,7 +532,7 @@ function renderTimeGrid(main, isWeek){
       const t = ev.t, top = ev.s/60*HOUR, ht = Math.max(18,(ev.e-ev.s)/60*HOUR - 1);
       const w = 100/ev.n;
       return `<div class="ev p${t.priority} st-${t.status}" draggable="true" data-id="${t.id}" style="${colorStyle(t)}--pg:${t.progress}%;top:${top}px;height:${ht}px;left:calc(${ev.c*w}% + 1px);width:calc(${w}% - 3px)">` +
-             `${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small>${xdelBtn(t)}<span class="rz" data-rz="${t.id}"></span></div>`;
+             `${gmk(t)}${stIcon(t)}${esc(t.title)}<small>${t.start}–${toHM(ev.e)}${namesOf(t).length ? " · " + esc(namesOf(t).join(", ")) : ""}</small>${xdelBtn(t)}<span class="rz" data-rz="${t.id}"></span></div>`;
     }).join("") + (ds===todayS ? `<div class="nowline" style="top:${(new Date().getHours()*60+new Date().getMinutes())/60*HOUR}px"></div>` : "") + `</div>`;
   }
   main.innerHTML = h + `</div></div></div>`;
@@ -581,12 +612,13 @@ function openDialog(id, date, start, pre){          // pre = {title, notes} — 
   editing = id ? byId(id) : null;
   const preset = !editing ? presetPersons() : [];
   const d0 = date || iso(cur);
-  const t = editing || {title: (pre && pre.title) || "", date: d0, end_date: d0, start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: ""};
+  const t = editing || {title: (pre && pre.title) || "", date: d0, end_date: d0, start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: "", calendar: curCal};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
   fTitle.value = t.title; fDate.value = t.date; fDate2.value = isMulti(t) ? endOf(t) : ""; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
   draft = {status: t.status, progress: t.progress}; syncDraft();
   draftColor = t.color || ""; drawColors();
+  draftCal = calOf(t); drawCalSeg();
   pickSel = new Set(t.assignees || []); updatePeopleBtn();
   syncMulti();
   // powtarzanie: dla nowego (lub jeszcze niecyklicznego) zadania wybór reguły, dla wystąpienia serii informacja
@@ -602,7 +634,9 @@ function openDialog(id, date, start, pre){          // pre = {title, notes} — 
   dlg.showModal(); fTitle.focus();
 }
 // wybór koloru zadania w oknie edycji: ↺ = domyślny (wg priorytetu), paleta, własny kolor
-let draftColor = "";
+let draftColor = "", draftCal = "local";
+function drawCalSeg(){ document.querySelectorAll("#fCalSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.fcal === draftCal)); }
+document.querySelectorAll("#fCalSeg .btn").forEach(b => b.onclick = () => { draftCal = b.dataset.fcal; drawCalSeg(); });
 function drawColors(){
   const on = c => (c === draftColor ? " on" : "");
   fColors.innerHTML = `<button type="button" class="swatch def${on("")}" data-c="" title="Domyślny (wg priorytetu)">↺</button>` +
@@ -709,12 +743,12 @@ form.addEventListener("submit", e => {
   t.title = fTitle.value.trim(); t.date = d1; t.end_date = d2; t.priority = +fPrio.value;
   t.start = multi ? "" : fStart.value; t.end = (multi || !fStart.value) ? "" : (fEnd.value || toHM(toMin(fStart.value)+60));
   if(t.end && toMin(t.end) <= toMin(t.start)) t.end = toHM(toMin(t.start)+SNAP);
-  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = [...pickSel]; t.color = draftColor;
+  t.notes = fNotes.value; t.status = draft.status; t.progress = draft.progress; t.assignees = [...pickSel]; t.color = draftColor; t.calendar = draftCal;
   let extra = [];
   if(!t.series && fRec.value !== "none") extra = makeSeries(t, fRec.value, fRecN.value, fRecUntil.value);
   else if(editing && t.series && fApplyNext.checked){        // zmiany do kolejnych zadań serii (bez dat i statusu)
     tasks.filter(x => x.series === t.series && x !== t && x.date > t.date).forEach(x => {
-      x.title = t.title; x.priority = t.priority; x.notes = t.notes; x.assignees = [...t.assignees]; x.color = t.color;
+      x.title = t.title; x.priority = t.priority; x.notes = t.notes; x.assignees = [...t.assignees]; x.color = t.color; x.calendar = t.calendar;
       if(!isMulti(x)){ x.start = t.start; x.end = t.end; }
     });
   }
@@ -798,7 +832,7 @@ function renderList(){
       prev = t.date;
       const when = fmtDate(t.date) + (t.series ? " 🔁" : "");      // lista: tylko początek (zakres wielodniowy widać w kalendarzu)
       h += `<tr class="${cls}" data-id="${esc(t.id)}"${t.color ? ` style="--tc:${t.color}"` : ""}><td class="selcell"><input type="checkbox" data-sel-id="${esc(t.id)}"${sel.has(t.id) ? " checked" : ""}></td><td class="stcell" title="${STATUS[t.status].label}">${STATUS[t.status].icon}</td>` +
-           `<td class="when">${when}</td><td class="tcell"><input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
+           `<td class="when">${when}</td><td class="tcell">${gmk(t)}<input class="tinp" type="text" maxlength="300" value="${esc(t.title)}" data-title="${esc(t.id)}" aria-label="Tytuł zadania — edytuj bezpośrednio"></td><td>${esc(namesOf(t).join(", "))}</td><td><span class="badge p${t.priority}">${["", "Niski", "Średni", "Wysoki"][t.priority]}</span></td>` +
            `<td><span class="pbar"><i style="width:${t.progress}%"></i></span> <small>${t.progress}%</small></td></tr>`;
     }
     h += `</tbody></table></div>`;
@@ -1119,6 +1153,7 @@ function showCtx(id, x, y){
     `<div class="ctx-colors" title="Kolor zadania"><button type="button" class="swatch def${t.color ? "" : " on"}" data-cc="" title="Domyślny (wg priorytetu)">↺</button>` +
       PALETTE.map(c => `<button type="button" class="swatch${t.color === c ? " on" : ""}" data-cc="${c}" style="background:${c}" title="${c}"></button>`).join("") + `</div>` +
     `<hr><button type="button" class="ctx-item" data-act="next">${ic("calnext")}<span>Przenieś na przyszły tydzień</span></button>` +
+    `<button type="button" class="ctx-item" data-act="cal">${ic(calOf(t) === "group" ? "user" : "users")}<span>${calOf(t) === "group" ? "Przenieś do kalendarza lokalnego" : "Przenieś do kalendarza grupowego"}</span></button>` +
     `<button type="button" class="ctx-item" data-act="edit">${ic("edit")}<span>Edytuj…</span></button>` +
     `<button type="button" class="ctx-item ctx-del" data-act="del">${ic("trash")}<span>Usuń zadanie</span></button>`;
   ctx.hidden = false;
@@ -1131,6 +1166,7 @@ function showCtx(id, x, y){
   p.oninput = () => { ctx.querySelector("#ctxPv").textContent = p.value + "%"; };
   p.onchange = () => { applyProgress(t, +p.value); save(); hideCtx(); render(); };
   ctx.querySelector('[data-act="next"]').onclick = () => { moveToDate(t, nextWeekDate(t.date)); save(); hideCtx(); render(); };
+  ctx.querySelector('[data-act="cal"]').onclick = () => { t.calendar = calOf(t) === "group" ? "local" : "group"; save(); hideCtx(); render(); };
   ctx.querySelector('[data-act="edit"]').onclick = () => { hideCtx(); openDialog(t.id); };
   ctx.querySelector('[data-act="del"]').onclick = async () => { hideCtx(); await deleteTask(t); render(); };
 }
@@ -1152,7 +1188,7 @@ function tipHTML(t){
   const when = isMulti(t) ? `${fmtDate(t.date)} – ${fmtDate(endOf(t))}` : fmtDate(t.date) + (t.start ? ` · ${t.start}${t.end ? "–" + t.end : ""}` : "");
   const names = namesOf(t), notes = (t.notes || "").trim();
   const meta = [`📅 ${esc(when)}`, `${STATUS[t.status].icon} ${STATUS[t.status].label}${t.progress ? ` · ${t.progress}%` : ""}`,
-                names.length ? `👥 ${esc(names.join(", "))}` : "", t.series ? "🔁 Zadanie cykliczne" : ""].filter(Boolean);
+                names.length ? `👥 ${esc(names.join(", "))}` : "", t.series ? "🔁 Zadanie cykliczne" : "", calOf(t) === "group" ? GROUP_ICO + " Kalendarz grupowy" : ""].filter(Boolean);
   return `<div class="tip-title">${esc(t.title)}</div><div class="tip-meta">${meta.join("<br>")}</div>` +
          (notes ? `<div class="tip-notes">${esc(notes.length > 700 ? notes.slice(0, 700) + "…" : notes)}</div>` : `<div class="tip-none">Brak opisu</div>`);
 }
@@ -1222,11 +1258,12 @@ document.addEventListener("keydown", e => {
 /* ================= eksport / import ================= */
 const closeMenu = () => { dataMenu.open = false; };
 document.addEventListener("click", e => { if(!e.target.closest("#dataMenu")) closeMenu(); });
-async function doExport(){            // kopia zapasowa JSON
+const CAL_NAME = {local: "lokalnego", group: "grupowego"};
+async function doExport(cal){            // kopia zapasowa JSON (w aplikacji: jeden kalendarz)
   closeMenu();
   try{
     if(DESKTOP){
-      const name = await api().export_json(currentData());
+      const name = await api().export_json(currentData(), cal || "local");
       if(name) note("Wyeksportowano: " + name, true);
       return;
     }
@@ -1234,6 +1271,25 @@ async function doExport(){            // kopia zapasowa JSON
     a.href = URL.createObjectURL(new Blob([JSON.stringify(currentData(), null, 2)], {type:"application/json"}));
     a.download = `tasklist-${iso(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href);
   }catch(e){ note("Eksport nie powiódł się: " + errText(e)); }
+}
+function applyImported(r, cal){          // wynik import_json / import_xlsx: zastępuje zadania wskazanego kalendarza
+  const d = normalize({people: r.people, tasks: r.tasks});
+  const mine = tasks.filter(t => calOf(t) === cal).length;
+  if(!confirm(`Zaimportować ${r.count} zadań z „${r.name}” do kalendarza ${CAL_NAME[cal]}? Obecne zadania tego kalendarza (${mine}) zostaną zastąpione.`)) return;
+  tasks = d.tasks; people = d.people; clearFilters(); save(); render(); note("Zaimportowano: " + r.name, true);
+}
+async function importCal(kind, cal){
+  closeMenu();
+  try{
+    await flush();
+    const r = kind === "xlsx" ? await api().import_xlsx(currentData(), cal) : await api().import_json(currentData(), cal);
+    if(r) applyImported(r, cal);
+  }catch(e){ note("Import nie powiódł się: " + errText(e)); }
+}
+async function exportXlsxCal(cal){
+  closeMenu();
+  try{ await flush(); const n = await api().export_xlsx(currentData(), cal); if(n) note("Wyeksportowano: " + n, true); }
+  catch(e){ note("Eksport nie powiódł się: " + errText(e)); }
 }
 function applyImport(raw){
   const d = normalize(raw);
@@ -1244,10 +1300,62 @@ function applyImport(raw){
 async function doImport(){
   closeMenu();
   if(!DESKTOP){ file.click(); return; }
-  try{ const data = await api().import_json(); if(data) applyImport(data); }
-  catch(e){ note("Import nie powiódł się: " + errText(e)); }
+  importCal("json", "local");
 }
-exp.onclick = doExport; imp.onclick = doImport;
+exp.onclick = () => doExport("local"); imp.onclick = doImport;
+gexp.onclick = () => doExport("group"); gimp.onclick = () => importCal("json", "group");
+gxlsExp.onclick = () => exportXlsxCal("group"); gxlsImp.onclick = () => importCal("xlsx", "group");
+
+/* ---- plik grupowy (JSON na dysku sieciowym): połącz / utwórz / zapisz / odśwież / odłącz ---- */
+function setFromGroup(r){ tasks = r.tasks.map(fixTask); people = r.people; groupInfo = r.group; clearFilters(); render(); showGroup(); }
+async function groupOpen(){
+  closeMenu();
+  try{
+    await flush();
+    const r = await api().group_open(); if(!r) return;
+    const mine = tasks.filter(t => calOf(t) === "group").length;
+    if(!confirm(`Połączyć kalendarz grupowy z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania grupowe w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania lokalne nie są zmieniane.`)) return;
+    setFromGroup(await api().group_accept(r.token, currentData())); note("Połączono z plikiem grupowym: " + r.name, true);
+  }catch(e){ note("Nie połączono z plikiem grupowym: " + errText(e)); }
+}
+async function groupNew(){
+  closeMenu();
+  try{
+    await flush();
+    const g = await api().group_create(currentData()); if(!g) return;
+    groupInfo = g; showGroup(); note("Utworzono plik grupowy: " + g.name + " (zawiera tylko zadania grupowe).", true);
+  }catch(e){ note("Nie utworzono pliku grupowego: " + errText(e)); }
+}
+async function groupSave(){
+  closeMenu();
+  if(!groupInfo){ note("Kalendarz grupowy nie jest połączony z plikiem — użyj Pliki → Kalendarz grupowy."); return; }
+  try{
+    await flush();
+    let g;
+    try{ g = await api().group_save(currentData(), false); }
+    catch(e){
+      if(!/zmieniony przez kogoś/.test(errText(e))) throw e;
+      if(!confirm("Plik grupowy został zmieniony przez kogoś innego od ostatniego odczytu.\n\nOK — nadpisz plik moimi zadaniami grupowymi.\nAnuluj — nic nie zapisuj (użyj „Odśwież z pliku grupowego”, aby pobrać cudze zmiany).")) return;
+      g = await api().group_save(currentData(), true);
+    }
+    groupInfo = g; showGroup(); note("Zapisano w pliku grupowym: " + g.name, true);
+  }catch(e){ note("Zapis do pliku grupowego nie powiódł się: " + errText(e)); }
+}
+async function groupRefresh(){
+  closeMenu();
+  try{
+    await flush();
+    if(groupInfo && groupInfo.dirty && !confirm("Masz niezapisane zmiany w kalendarzu grupowym. Odświeżenie zastąpi je zadaniami z pliku. Kontynuować?")) return;
+    setFromGroup(await api().group_refresh(currentData())); note("Odświeżono z pliku grupowego.", true);
+  }catch(e){ note("Odświeżenie nie powiodło się: " + errText(e)); }
+}
+async function groupOff(){
+  closeMenu();
+  if(!confirm("Odłączyć plik grupowy? Zadania grupowe zostaną w programie (jako kopia), ale przestaną być zapisywane do pliku.")) return;
+  try{ await api().group_disconnect(); groupInfo = null; showGroup(); note("Odłączono plik grupowy.", true); }
+  catch(e){ note("Nie udało się odłączyć: " + errText(e)); }
+}
+grpOpen.onclick = groupOpen; grpNew.onclick = groupNew; grpSave.onclick = groupSave; grpRefresh.onclick = groupRefresh; grpOff.onclick = groupOff;
 
 /* ================= zadanie z maila: przeciągnij wiadomość z Outlooka (lub .msg/.eml) na kalendarz ================= */
 function ext(e){                    // czy przeciągany jest obiekt z zewnątrz (plik / tekst), a nie zadanie z kalendarza
@@ -1304,10 +1412,12 @@ async function openXlsx(){
     const r = await api().open_xlsx(); if(!r) return;
     const d = normalize(r.data);
     const warn = fileInfo && fileInfo.dirty ? `\n\nUwaga: plik ${fileInfo.name} ma niezapisane zmiany, które zostaną utracone.` : "";
-    if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne dane zostaną zastąpione. Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
+    if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne zadania kalendarza lokalnego zostaną zastąpione (kalendarz grupowy nie jest zmieniany). Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
     await flush();                                  // nie pozwól, by starszy zapis nadpisał nowy plik
-    fileInfo = await api().accept_xlsx(r.token);
-    tasks = d.tasks; people = d.people; clearFilters();
+    const acc = await api().accept_xlsx(r.token);
+    fileInfo = {name: acc.name, path: acc.path, dirty: acc.dirty};
+    const nd = normalize({people: acc.people, tasks: acc.tasks});
+    tasks = nd.tasks; people = nd.people; clearFilters();
     render(); showFile(); note("Otwarto: " + r.name, true);
   }catch(e){ note("Nie otwarto pliku: " + errText(e)); }
 }
@@ -1320,9 +1430,10 @@ async function saveXlsx(asNew){
   }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
 }
 xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
-saveBtn.onclick = async () => { saveBtn.disabled = true; try{ await saveXlsx(false); } finally{ saveBtn.disabled = false; } };
+const saveCurrent = () => curCal === "group" && groupInfo ? groupSave() : saveXlsx(false);       // Zapisz / Ctrl+S: plik wybranego kalendarza
+saveBtn.onclick = async () => { saveBtn.disabled = true; try{ await saveCurrent(); } finally{ saveBtn.disabled = false; } };
 document.addEventListener("keydown", e => {
-  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveXlsx(false); }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveCurrent(); }
 });
 file.onchange = async () => {
   try{ applyImport(JSON.parse(await file.files[0].text())); }
@@ -1361,7 +1472,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["mgExcel", "mgMail", "saveBtn"]) document.getElementById(id).hidden = false;
+  for(const id of ["mgExcel", "mgGroup", "mgMail", "saveBtn"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
@@ -1387,12 +1498,14 @@ async function boot(){
       dayMode = (r.prefs && r.prefs.day_mode) === "sections" ? "sections" : "hours";                  // domyślnie godziny
       collapsedSecs = new Set((r.prefs && r.prefs.collapsed) || []); applyCollapsed();
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
+      curCal = (r.prefs && r.prefs.cal) === "group" ? "group" : "local"; calOnly = !!(r.prefs && r.prefs.cal_only);
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
       tasks = d.tasks; people = d.people;
       if(r.tasks === null && !readOnly) save();
       note(r.warning || "");
       fileInfo = r.file || null; showFile();
+      groupInfo = r.group || null; showGroup();
     } else {
       let d = null;
       try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}
@@ -1401,6 +1514,7 @@ async function boot(){
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
+      try{ const c = localStorage.getItem(KEY + "_cal") || ""; curCal = c.startsWith("group") ? "group" : "local"; calOnly = c.endsWith("|only"); }catch(e){}
       try{ dayMode = localStorage.getItem(KEY + "_daymode") === "sections" ? "sections" : "hours"; }catch(e){}
       try{ collapsedSecs = new Set(JSON.parse(localStorage.getItem(KEY + "_collapsed") || "[]")); }catch(e){} applyCollapsed();
       if(!d || !d.tasks.length) d = seed();

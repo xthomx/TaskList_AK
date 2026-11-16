@@ -16,6 +16,7 @@ LAYOUTS = ('board', 'grid')                  # tydzień/dzień: kafelki (domyśl
 THEMES = ('light', 'dark')                    # brak wyboru = motyw systemowy
 DAY_MODES = ('sections', 'hours')            # podsumowanie dnia: sekcje albo siatka godzin
 SECTIONS = ('filters', 'config')              # sekcje panelu, które można zwijać
+CALENDARS = ('local', 'group')               # kalendarz zadania: lokalny (Mój) albo grupowy (Wspólny)
 STATUSES = ('pending', 'progress', 'done')   # oczekujące (domyślny), w trakcie, zrobione
 PROGRESS_STEPS = (0, 25, 50, 75, 100)
 
@@ -76,6 +77,7 @@ def validate_data(data):
         color = t.get('color', '')                                # własny kolor zadania (#rrggbb); pusty = wg priorytetu
         if isinstance(color, str) and color:
             color = color.lower()
+        calendar = t.get('calendar') or 'local'
         status = t.get('status') or ('done' if t.get('done') else 'pending')   # 'done' pochodzi z wersji < 1.2
         progress = t.get('progress', 100 if status == 'done' else 0)
         if status == 'done':
@@ -85,11 +87,11 @@ def validate_data(data):
                 or not isinstance(t.get('notes', ''), str)
                 or not isinstance(assignees, list) or any(a not in pids for a in assignees)
                 or not _is_date(end_date) or end_date < t['date']
-                or not isinstance(series, str) or len(series) > 64
+                or not isinstance(series, str) or len(series) > 64 or calendar not in CALENDARS
                 or not isinstance(color, str) or not (color == '' or _is_color(color))):
             raise ValueError('Nieprawidłowe dane zadania: ' + str(title)[:40])
         clean.append({'id': t['id'], 'title': title.strip()[:300], 'date': t['date'],
-                      'end_date': end_date, 'series': series, 'color': color,
+                      'end_date': end_date, 'series': series, 'color': color, 'calendar': calendar,
                       'start': start if end_date == t['date'] else '', 'end': end if (start and end_date == t['date']) else '',
                       'priority': t['priority'],
                       'status': status, 'progress': progress, 'notes': t.get('notes', '')[:5000],
@@ -151,27 +153,36 @@ class Storage:
             data = json.loads(self.prefs_path.read_text(encoding='utf-8'))
             view = data.get('view')
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
+            gp, gs, gf = data.get('group_path', ''), data.get('group_sig', ''), data.get('group_fp', '')
             layout, theme = data.get('layout'), data.get('theme')
             notified = data.get('notified', [])
             notified = [k for k in notified if isinstance(k, str) and len(k) < 120][:300] if isinstance(notified, list) else []
             return {'view': view if view in VIEWS else 'month', 'layout': layout if layout in LAYOUTS else 'board', 'theme': theme if theme in THEMES else '',
                     'reminders': data.get('reminders') is not False, 'notified': notified,
                     'show_list': data.get('show_list') is not False,
+                    'cal': data.get('cal') if data.get('cal') in CALENDARS else 'local', 'cal_only': data.get('cal_only') is True,
                     'day_mode': data.get('day_mode') if data.get('day_mode') in DAY_MODES else 'hours',
                     'collapsed': [k for k in data.get('collapsed', []) if k in SECTIONS] if isinstance(data.get('collapsed', []), list) else [],
                     'last_xlsx': path if isinstance(path, str) and len(path) < 1000 else '',
-                    'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else ''}
+                    'xlsx_fp': fp if isinstance(fp, str) and len(fp) <= 64 else '',
+                    'group_path': gp if isinstance(gp, str) and len(gp) < 1000 else '',
+                    'group_sig': gs if isinstance(gs, str) and len(gs) <= 64 else '',
+                    'group_fp': gf if isinstance(gf, str) and len(gf) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'group_path': '', 'group_sig': '', 'group_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'group_path', 'group_sig', 'group_fp'}:
             raise ValueError('Nieznane ustawienie.')
         if 'collapsed' in changes:
             c = changes['collapsed']
             if not isinstance(c, list) or any(k not in SECTIONS for k in c):
                 raise ValueError('Nieprawidłowa lista zwiniętych sekcji.')
             changes['collapsed'] = list(dict.fromkeys(c))
+        if 'cal' in changes and changes['cal'] not in CALENDARS:
+            raise ValueError('Nieprawidłowy kalendarz.')
+        if 'cal_only' in changes and not isinstance(changes['cal_only'], bool):
+            raise ValueError('Nieprawidłowe ustawienie kalendarza.')
         if 'day_mode' in changes and changes['day_mode'] not in DAY_MODES:
             raise ValueError('Nieprawidłowy tryb dnia.')
         if 'show_list' in changes and not isinstance(changes['show_list'], bool):
@@ -200,6 +211,10 @@ class Storage:
 
     def set_day_mode(self, mode):
         self.set_prefs(day_mode=mode)
+        return True
+
+    def set_calendar(self, cal, only):
+        self.set_prefs(cal=cal, cal_only=bool(only))
         return True
 
     def set_show_list(self, visible):
@@ -232,7 +247,7 @@ def fingerprint(data):
     clean = validate_data(data)
     names = {p['id']: p['name'] for p in clean['people']}
     tasks = sorted(json.dumps([t['title'], t['date'], t['end_date'], t['start'], t['end'], t['priority'], t['status'],
-                               t['progress'], t['notes'], t['color'], sorted(names[a] for a in t['assignees'])],
+                               t['progress'], t['notes'], t['color'], t['calendar'], sorted(names[a] for a in t['assignees'])],
                               ensure_ascii=False) for t in clean['tasks'])
     people = sorted(p['name'] for p in clean['people'])
     return hashlib.sha256(json.dumps([people, tasks], ensure_ascii=False).encode('utf-8')).hexdigest()

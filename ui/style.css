@@ -581,3 +581,28 @@ main.nolist .board{height:100%}
 .sidesec.collapsed>.sechead{margin-bottom:-4px}
 .sidesec.collapsed>.sechead::after{transform:rotate(-45deg);margin-top:0}
 #side .sidesec.collapsed>:not(.sechead){display:none !important}
+
+/* ---- kalendarz lokalny / grupowy ---- */
+:root{--grp:#7c5cd6}
+:root[data-theme="dark"]{--grp:#a48cf2}
+.calsw{display:flex;align-items:center;gap:10px}
+.calseg .btn .ic{width:15px;height:15px;margin-right:4px}
+.calseg .btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.calseg .btn[data-cal="group"].active,.calseg .btn[data-fcal="group"].active{background:var(--grp);border-color:var(--grp)}
+.calonly{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted,#667);cursor:pointer;user-select:none}
+.gmk{flex:none;vertical-align:-2px;margin-right:4px;padding:1px;border-radius:4px;background:var(--grp);color:#fff;box-sizing:content-box}
+.chip .gmk,.ev .gmk{width:11px;height:11px;margin-right:3px}
+.tcell{position:relative}
+.tcell .gmk{position:absolute;left:6px;top:50%;transform:translateY(-50%);margin:0}
+.tcell .gmk + .tinp{padding-left:28px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--grp:#a48cf2}}
+
+.mhead{display:flex;align-items:center;gap:6px}
+.mhead .ic{width:14px;height:14px}
+.mgroup.grp .mhead{color:var(--grp)}
+.msub{display:flex;flex-direction:column}
+.msub[hidden]{display:none}
+#groupTag{display:block;font-size:12px;color:var(--muted);padding:0 10px;overflow-wrap:anywhere}
+#groupTag[hidden]{display:none}
+#groupTag.dirty{color:var(--p2);font-weight:600}
+#groupTag .gmk{margin-right:4px}

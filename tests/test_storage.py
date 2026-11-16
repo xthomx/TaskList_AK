@@ -168,3 +168,16 @@ class StorageTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.store.set_collapsed(bad)
         self.assertEqual(self.store.get_prefs()['collapsed'], ['filters', 'config'])
+
+    def test_calendar_field_and_preference(self):
+        self.assertEqual(validate_data(data(task()))['tasks'][0]['calendar'], 'local')
+        self.assertEqual(validate_data(data(task(calendar='group')))['tasks'][0]['calendar'], 'group')
+        with self.assertRaises(ValueError):
+            validate_data(data(task(calendar='cudzy')))
+        from storage import fingerprint
+        self.assertNotEqual(fingerprint(data(task())), fingerprint(data(task(calendar='group'))))
+        self.assertEqual((self.store.get_prefs()['cal'], self.store.get_prefs()['cal_only']), ('local', False))
+        self.store.set_calendar('group', True)
+        self.assertEqual((self.store.get_prefs()['cal'], self.store.get_prefs()['cal_only']), ('group', True))
+        with self.assertRaises(ValueError):
+            self.store.set_calendar('inny', False)

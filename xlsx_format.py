@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from storage import validate_data, MAX_TASKS, MAX_PEOPLE
 
 TASK_SHEET, PEOPLE_SHEET = 'Zadania', 'Osoby'
-HEADERS = ['Tytuł', 'Data', 'Data do', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki', 'Seria', 'Kolor']
+HEADERS = ['Tytuł', 'Data', 'Data do', 'Od', 'Do', 'Priorytet', 'Status', 'Postęp (%)', 'Osoby', 'Notatki', 'Seria', 'Kolor', 'Kalendarz']
 PRIORITY = {1: 'Niski', 2: 'Średni', 3: 'Wysoki'}
 PRIORITY_BACK = {'niski': 1, 'sredni': 2, 'średni': 2, 'wysoki': 3, '1': 1, '2': 2, '3': 3,
                  'low': 1, 'medium': 2, 'high': 3}
@@ -25,7 +25,7 @@ def _status(value):
     return 'done' if s in DONE_WORDS else 'progress' if s in PROGRESS_WORDS else 'pending'
 
 
-WIDTHS = [40, 12, 12, 8, 8, 11, 13, 11, 30, 50, 14, 10]
+WIDTHS = [40, 12, 12, 8, 8, 11, 13, 11, 30, 50, 14, 10, 12]
 
 
 
@@ -41,7 +41,8 @@ def dumps(data):
         ws.append([t['title'], dt.date.fromisoformat(t['date']),
                    dt.date.fromisoformat(t['end_date']) if t['end_date'] != t['date'] else None, t['start'], t['end'],
                    PRIORITY[t['priority']], STATUS_LABEL[t['status']], t['progress'],
-                   '; '.join(names[a] for a in t['assignees']), t['notes'], t['series'] or None, t['color'] or None])
+                   '; '.join(names[a] for a in t['assignees']), t['notes'], t['series'] or None, t['color'] or None,
+                   'Grupowy' if t['calendar'] == 'group' else 'Lokalny'])
         for column in (2, 3):
             ws.cell(row=ws.max_row, column=column).number_format = 'yyyy-mm-dd'
     people = wb.create_sheet(PEOPLE_SHEET)
@@ -150,6 +151,7 @@ def loads(raw):
     c_date2 = col('data do', 'do dnia', 'koniec')
     c_series = col('seria')
     c_color = col('kolor')
+    c_cal = col('kalendarz')
     c_prog = col('postęp (%)', 'postęp', 'postep', 'postęp %')
     if c_date is None:
         raise ValueError('Brak kolumny „Data”.')
@@ -196,6 +198,7 @@ def loads(raw):
                           'status': status, 'progress': progress,
                           'series': _text(get(row, c_series))[:64],
                           'color': _color(_text(get(row, c_color))),
+                          'calendar': 'group' if _text(get(row, c_cal)).lower().startswith(('grup', 'wsp')) else 'local',
                           'notes': _text(get(row, c_notes)), 'assignees': [person(x[:100]) for x in names]})
         except ValueError as exc:
             raise ValueError('Wiersz %d: %s' % (n, exc)) from exc
