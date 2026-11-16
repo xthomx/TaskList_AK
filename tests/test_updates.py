@@ -7,6 +7,11 @@ from updates import check_updates, release_result, version_tuple, ASSET_NAME
 from app_version import APP_VERSION
 
 class UpdateTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch('updates.check_without_api', return_value=None)     # testy nie łączą się z prawdziwym GitHubem
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def release(self, version='v1.1.0', assets=True):
         return {'tag_name': version, 'assets': [{'name': ASSET_NAME, 'state': 'uploaded'}] if assets else []}
 
@@ -35,3 +40,17 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(request.call_args.kwargs['timeout'],10)
         with patch('updates.urlopen', return_value=io.BytesIO(b'invalid')):
             self.assertEqual(check_updates()['status'],'error')
+
+
+class FallbackTests(unittest.TestCase):
+    def test_rate_limited_api_falls_back_to_release_page(self):
+        from unittest import mock
+        import updates
+        limited = {'status': 'error', 'rate_limited': True, 'message': 'GitHub ograniczył liczbę zapytań. Spróbuj później.'}
+        found = {'status': 'available', 'current': '1.0.0', 'latest': 'v9.9.9'}
+        with mock.patch.object(updates, '_check_api', return_value=limited), \
+             mock.patch.object(updates, 'check_without_api', return_value=found):
+            self.assertEqual(updates.check_updates(), found)
+        with mock.patch.object(updates, '_check_api', return_value=limited), \
+             mock.patch.object(updates, 'check_without_api', return_value=None):
+            self.assertEqual(updates.check_updates(), limited)      # bez zapasu zostaje komunikat o limicie
