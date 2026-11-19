@@ -5,26 +5,24 @@ Zbudowany tak jak [HarmonogramAK](https://github.com/xthomx/HarmonogramAK): apli
 lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualizacje z GitHub Releases**.
 
 ## Funkcje
-- Widoki Miesiąc / Tydzień / Dzień (klawisze `m`, `w`, `d`; strzałki ←/→ zmieniają okres).
-- Przeciąganie zadań myszą: na inny dzień (miesiąc) lub dzień i godzinę, krok 15 min (tydzień/dzień); pasek „cały dzień”.
-- Zmiana długości zadania dolną krawędzią kafelka. Priorytety, status „wykonane”, notatki.
-- **Osoby** (zapis „Nazwisko Imię”): zadania można przypisać do jednej lub kilku osób, filtry (osoby, priorytet, postęp) w nagłówku.
-- **Lista zadań** pod kalendarzem, posortowana w kolejności wykonania.
-- **Panel boczny** z poleceniami (widoki, zadania, osoby, wygląd, pliki, aktualizacje); górna belka tylko do nawigacji po okresie. Numery tygodni w kalendarzu, przycisk pokaż / ukryj listę zadań.
-- **Widok kafelkowy:** miesiąc jako kalendarz z kartami w komórkach dni, tydzień i dzień jako kolumny (kolumna „Zaległe”, karty, szybkie dodawanie, przeciąganie) oraz klasyczna siatka godzinowa — przełącznik w nagłówku.
-- **Zadania wielodniowe** (rozciągane myszą lub polem „Do dnia”) i **cykliczne** (seria zadań).
-- **Status i postęp:** oczekujące / w trakcie / zrobione (prawy przycisk myszy, 3 ikony) oraz suwak postępu 0–100% co 25; „zrobione” = 100%.
-- **Przenoszenie:** zadanie na przyszły tydzień oraz masowo niezakończone na dziś lub na przyszły tydzień (menu „Przenieś”).
-- **Zadanie z maila:** przeciągnij wiadomość z Outlooka (albo plik `.msg` / `.eml`) na kalendarz — powstaje zadanie z tematem, nadawcą i treścią w notatkach.
-- **Excel z pamięcią pliku:** „Otwórz plik Excela” zapamiętuje plik i wczytuje go automatycznie przy starcie; Ctrl+S zapisuje do niego zmiany (wskaźnik „niezapisane zmiany”). Niezapisanych zmian program nie nadpisuje plikiem. Arkusze „Zadania” i „Osoby”.
-- Dane zapisują się automatycznie: kopia robocza w folderze `dane\` obok programu, a połączone pliki (Excel z zadaniami lokalnymi, plik grupowy JSON) po każdej zmianie, bez przycisku „Zapisz”. Logi w `logi\`. Eksport/import Excel i JSON.
-- **Aktualizacje:** sprawdzanie przy starcie i przyciskiem „Sprawdź aktualizacje”; instalacja jednym kliknięciem
-  (pobranie, weryfikacja SHA256, podmiana plików z kopią zapasową i wycofaniem, ponowne uruchomienie).
+- **Widoki:** Miesiąc / Tydzień oraz podsumowanie dnia „Zadania na dziś” (podział godzinowy z przypisywaniem zadań do godzin albo sekcje). Klawisze `m`, `w`, `d`, strzałki ←/→; kółko myszy przewija daty (w miesiącu co tydzień); numery tygodni (ISO).
+- **Przeciąganie zadań** na inny dzień lub godzinę (krok 15 min), zmiana czasu trwania dolną krawędzią, zadania **wielodniowe** (uchwyt na końcu) i **cykliczne** (seria). Dzień z wieloma zadaniami przewija się w komórce.
+- **Układy:** Kafelki (karty, także w miesiącu) lub Siatka (godzinowa); motyw jasny / ciemny; pokaż / ukryj listę zadań pod kalendarzem.
+- **Zadania:** priorytety (wysoki pulsuje), status oczekujące / w trakcie / zrobione, postęp 0–100% co 25 (zrobione = 100%), własny kolor, notatki, dymek z opisem po najechaniu, menu prawego przycisku (status, postęp, kolor, przeniesienie, edycja, usunięcie).
+- **Osoby** („Nazwisko Imię”) i **filtry** w panelu: osoby (wielokrotny wybór), priorytet, postęp.
+- **Przenoszenie:** zaległe → na dziś, zaznaczone → przyszły tydzień, pojedyncze zadanie na przyszły tydzień.
+- **Przypomnienia** o zadaniach z godziną: okienko, sygnał dźwiękowy, miganie na pasku zadań, odłożenie o 10 min.
+- **Zadanie z maila:** przeciągnij wiadomość z Outlooka (albo plik `.msg` / `.eml`) na kalendarz.
+- **Kalendarz lokalny i grupowy:** przyciski Lokalny / Grupowy na górnej belce wybierają, gdzie trafiają nowe zadania; zadania grupowe mają ikonę osób. Plik grupowy (JSON, np. na dysku sieciowym) zawiera tylko zadania grupowe; zmiany kilku osób **scalają się automatycznie** (porównanie trzech wersji, raport zmian i konfliktów), program sprawdza plik co 30 s i działa na kopii, gdy sieć jest niedostępna.
+- **Zapis automatyczny:** kopia robocza w `dane\` obok programu, a połączone pliki (Excel z zadaniami lokalnymi, plik grupowy) zapisują się po każdej zmianie; Ctrl+S zapisuje natychmiast. Zapis działa też na folderach bez podmiany plików (np. folder współdzielony VMware). Logi w `logi\`.
+- **Excel i JSON:** otwieranie zapamiętywanego pliku Excela, eksport i import osobno dla każdego kalendarza.
+- **Jak używać:** wbudowana strona pomocy z opisem wszystkich funkcji i rysunkami (przycisk w lewym dolnym rogu panelu).
+- **Aktualizacje:** sprawdzanie przy starcie i przyciskiem; instalacja jednym kliknięciem (pobranie, weryfikacja SHA256, podmiana plików z kopią zapasową i wycofaniem, ponowne uruchomienie). Gdy GitHub ogranicza zapytania, działa zapasowy sposób sprawdzania.
 
 ## Uruchomienie
 - Gotowa wersja: pobierz `TaskListAK-Windows-x64.zip` z [Releases](https://github.com/xthomx/TaskList_AK/releases), rozpakuj cały folder i uruchom `TaskListAK.exe` (wymagany WebView2 Runtime).
 - Ze źródeł: `URUCHOM.bat`. Własny EXE: `ZBUDUJ_EXE.bat`. Szczegóły w `INSTRUKCJA.txt`.
-- Interfejs działa też bez Pythona: otwórz `ui/index.html` w przeglądarce (dane w localStorage, bez aktualizacji).
+- Interfejs działa też bez Pythona: otwórz `ui/index.html` w przeglądarce (dane w localStorage, bez aktualizacji i bez strony „Jak używać”).
 
 ## Wydawanie nowej wersji
 1. Zwiększ `APP_VERSION` w `app_version.py` (np. `1.0.1`).
