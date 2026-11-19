@@ -1390,12 +1390,37 @@ const toB64 = f => new Promise((ok, fail) => {
   fr.onerror = () => fail(new Error("Nie udało się odczytać przeciągniętego pliku."));
   fr.readAsDataURL(f);
 });
-function mailToDialog(mail, date, start, dropped){
+/* termin z Outlooka upuszczony na inny dzień, niż ma w kalendarzu: pytamy, którą datę ustawić (Esc / Anuluj = nie twórz zadania) */
+function askAppointmentDate(mail, dropped){
+  return new Promise(res => {
+    const when = mail.start ? ` o ${mail.start}${mail.end ? "–" + mail.end : ""}` : " (cały dzień)", dlgEl = document.getElementById("datedlg");
+    const outlook = `Data z Outlooka: ${fmtDate(mail.date)}`, drop = `Dzień upuszczenia: ${fmtDate(dropped)}`;
+    document.getElementById("dateText").textContent = mail.recurring
+      ? `Termin cykliczny „${mail.subject}”${when}. Outlook przekazuje serię z datą pierwszego wystąpienia (${fmtDate(mail.date)}), a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`
+      : `Termin „${mail.subject}”${when} jest w Outlooku w dniu ${fmtDate(mail.date)}, a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`;
+    const first = document.getElementById("datePrimary"), second = document.getElementById("dateSecond");
+    const pair = mail.recurring ? [["drop", drop], ["outlook", outlook]] : [["outlook", outlook], ["drop", drop]];      // pierwszy przycisk = zalecany
+    first.textContent = pair[0][1]; second.textContent = pair[1][1];
+    let choice = null;
+    const done = c => { choice = c; dlgEl.close(); };
+    first.onclick = () => done(pair[0][0]); second.onclick = () => done(pair[1][0]); document.getElementById("dateNo").onclick = () => done(null);
+    dlgEl.addEventListener("close", () => res(choice), {once: true});
+    dlgEl.showModal();
+  });
+}
+async function mailToDialog(mail, date, start, dropped){
   if(mail.kind === "appointment"){                      // termin z kalendarza Outlooka: zachowaj jego dzień i godziny
     if(mail.items && mail.items.length > 1){ addAppointments(mail.items); return; }
-    const d = mail.recurring && dropped ? dropped : mail.date;      // termin cykliczny: element ma datę pierwszego wystąpienia, więc bierzemy dzień, na który upuszczono
-    openDialog(null, d, null, {title: mail.subject, notes: mail.notes, date: d, end_date: mail.recurring && dropped ? d : mail.end_date, start: mail.start, end: mail.end});
-    note("Termin z Outlooka — ustawiono dzień i godziny z kalendarza." + (mail.recurring ? " To termin cykliczny: sprawdź datę." : "") + " Zapisz zadanie.", true);
+    let d = mail.date, usedDrop = false;
+    if(dropped && dropped !== mail.date){
+      const choice = await askAppointmentDate(mail, dropped);
+      if(!choice){ note("Anulowano tworzenie zadania z terminu.", true); return; }
+      if(choice === "drop"){ d = dropped; usedDrop = true; }
+    }
+    const span = daysBetween(mail.date, mail.end_date || mail.date);
+    openDialog(null, d, null, {title: mail.subject, notes: mail.notes, date: d, end_date: iso(addDays(parse(d), span)), start: mail.start, end: mail.end});
+    note("Termin z Outlooka — " + (usedDrop ? "ustawiono dzień upuszczenia i godziny z kalendarza." : "ustawiono dzień i godziny z kalendarza.") +
+      (mail.recurring && !usedDrop ? " To termin cykliczny: data to pierwsze wystąpienie serii — sprawdź ją." : "") + " Zapisz zadanie.", true);
     return;
   }
   openDialog(null, date || iso(new Date()), start, {title: mail.subject, notes: mail.notes});
@@ -1407,7 +1432,7 @@ function addAppointments(items){                        // plik .ics z wieloma t
     status: "pending", progress: 0, notes: m.notes || "", assignees: [], series: "", color: "", calendar: curCal});
   save(); render(); note(`Dodano ${items.length} zadań z kalendarza.`, true);
 }
-async function handleMailDrop(dt, date, start){
+async function handleMailDrop(dt, date, start, onCell){      // onCell === false: upuszczono poza dniem kalendarza
   if(dlg.open || pdlg.open) return;
   try{
     const f = [...(dt.files || [])].find(x => /\.(msg|eml|ics)$/i.test(x.name));
@@ -1415,7 +1440,7 @@ async function handleMailDrop(dt, date, start){
       if(!DESKTOP) throw new Error("Wczytywanie plików .msg i .eml działa w aplikacji okienkowej (TaskListAK.exe).");
       if(f.size > 25 * 1024 * 1024) throw new Error("Wiadomość jest zbyt duża (limit 25 MB).");
       note("Wczytywanie wiadomości…", true);
-      mailToDialog(await api().parse_mail(f.name, await toB64(f)), date, start, date);
+      await mailToDialog(await api().parse_mail(f.name, await toB64(f)), date, start, onCell === false ? null : date);
       return;
     }
     if(dt.files && dt.files.length) throw new Error("Przeciągnij wiadomość lub termin z Outlooka albo plik .msg / .eml / .ics.");
@@ -1436,7 +1461,7 @@ mailOpen.onclick = openMailFile;
 document.addEventListener("dragover", e => { if(ext(e)){ e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
 document.addEventListener("drop", e => {
   if(e.defaultPrevented || !ext(e)) return;
-  e.preventDefault(); handleMailDrop(e.dataTransfer, iso(new Date()));
+  e.preventDefault(); handleMailDrop(e.dataTransfer, iso(new Date()), undefined, false);
 });
 
 /* ---- plik Excela: otwarcie (zapamiętywane i wczytywane przy starcie), zapis, zapis jako ---- */

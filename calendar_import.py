@@ -13,6 +13,7 @@ APPT_GUID = uuid.UUID('00062002-0000-0000-c000-000000000046')       # PSETID_App
 PS_MAPI = uuid.UUID('00020328-0000-0000-c000-000000000046')
 PS_PUBLIC_STRINGS = uuid.UUID('00020329-0000-0000-c000-000000000046')
 LID_LOCATION, LID_START, LID_END, LID_ALLDAY, LID_RECURRING = 0x8208, 0x820D, 0x820E, 0x8215, 0x8223
+LID_RECUR_BLOB, LID_RECUR_TYPE = 0x8216, 0x8231          # wzorzec cyklu (dane binarne) i typ cyklu
 UTC = dt.timezone.utc
 
 
@@ -53,7 +54,7 @@ def _result(subject, t, location, organizer, attendees, recurring, body):
         if value:
             head.append(f'{label}: {value}')
     if recurring:
-        head.append('Termin cykliczny — data to wystąpienie z przeciągniętego elementu; sprawdź, czy się zgadza.')
+        head.append('Termin cykliczny — Outlook przekazuje serię z datą pierwszego wystąpienia; data zadania to dzień, na który upuszczono termin. Sprawdź, czy się zgadza.')
     text = '\n'.join(head) + (('\n\n' + _clean(body)) if _clean(body) else '')
     if len(text) > MAX_NOTES:
         text = text[:MAX_NOTES - 1].rstrip() + '…'
@@ -127,8 +128,19 @@ def parse_appointment_ole(ole):
         location = _stream_text(ole, '%04X' % pl)
     organizer = _stream_text(ole, '0C1A')
     attendees = _stream_text(ole, '0E04').replace(';', ',')
+    pb, pt = ids.get((APPT_GUID, LID_RECUR_BLOB)), ids.get((APPT_GUID, LID_RECUR_TYPE))
+    has_blob = bool(pb) and ole.exists('__substg1.0_%04X0102' % pb)
+    has_type = pt in fixed and struct.unpack_from('<i', fixed[pt][1])[0] > 0
+    recurring = flag(LID_RECURRING) or has_blob or has_type                 # seria: element zawiera datę pierwszego wystąpienia
+    try:
+        from applog import log
+        log('termin z Outlooka: klasa=%s start=%s koniec=%s cały_dzień=%s cykliczny=%s (flaga=%s, wzorzec=%s, typ=%s)' % (
+            _stream_text(ole, '001A'), start.isoformat(timespec='minutes'), end.isoformat(timespec='minutes') if end else '-',
+            all_day, recurring, flag(LID_RECURRING), has_blob, has_type))
+    except Exception:
+        pass
     return _result(_stream_text(ole, '0037'), timing(start, end, all_day), location, organizer, attendees,
-                   flag(LID_RECURRING), _body(ole))
+                   recurring, _body(ole))
 
 
 # ---------------------------------------------------------------- .ics

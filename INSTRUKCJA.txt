@@ -70,3 +70,5 @@ PUBLIKOWANIE NOWEJ WERSJI (dla autora)
 - Jak używać (od 1.17.0): przycisk „Jak używać” w lewym dolnym rogu panelu otwiera stronę pomocy z opisem wszystkich funkcji, spisem treści i rysunkami (makiety wyglądające jak w programie). „Wróć do kalendarza” lub Esc zamyka stronę.
 
 - Termin z kalendarza Outlooka (od 1.18.0): przeciągnij termin z kalendarza Outlooka (lub plik .msg / .ics) na okno programu — zadanie powstanie dokładnie w dniu i o godzinach z Outlooka (całodniowe i wielodniowe jako zadania całodniowe; termin cykliczny: godziny z terminu, dzień z miejsca upuszczenia). Plik .ics z wieloma terminami dodaje je wszystkie po potwierdzeniu. Pliki ▾ → „Zadanie z maila lub terminu…” robi to samo z wyboru pliku. Program nie łączy się z Outlookiem.
+
+- Pytanie o datę terminu (od 1.18.1): gdy termin z Outlooka upuścisz na inny dzień, niż ma w kalendarzu Outlooka, program pyta, którą datę ustawić (z Outlooka czy dzień upuszczenia; dla terminów cyklicznych zalecany jest dzień upuszczenia). Anuluj nie tworzy zadania. Upuszczenie poza dniem kalendarza używa daty z Outlooka. Diagnostyka odczytu terminu trafia do logi\program.log.
