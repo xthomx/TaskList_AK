@@ -12,7 +12,7 @@
   <a href="#h-przenies">9. Przenoszenie zadań</a>
   <a href="#h-powt">10. Wielodniowe i cykliczne</a>
   <a href="#h-przyp">11. Przypomnienia</a>
-  <a href="#h-mail">12. Zadanie z maila</a>
+  <a href="#h-mail">12. Zadanie z maila lub terminu</a>
   <a href="#h-kal">13. Kalendarz lokalny i grupowy</a>
   <a href="#h-pliki">14. Pliki i zapis automatyczny</a>
   <a href="#h-scal">15. Praca w grupie</a>
@@ -179,7 +179,7 @@
 <ul><li><b>Otwórz</b> – edycja zadania; <b>Zrobione</b> – oznacza zadanie jako zrobione; <b>Za 10 min</b> – odkłada przypomnienie.</li>
 <li>Włącz lub wyłącz przypomnienia przyciskiem z ikoną dzwonka w sekcji Konfiguracja. Wybór jest zapamiętywany, a przypomnienie o danym zadaniu pojawia się tylko raz.</li></ul></section>
 
-<section id="h-mail"><h2>12. Zadanie z maila</h2>
+<section id="h-mail"><h2>12. Zadanie z maila lub terminu z kalendarza Outlooka</h2>
 <p>Przeciągnij wiadomość z <b>Outlooka</b> (lub plik <b>.msg / .eml</b>) na dzień w kalendarzu — w tygodniu także na wybraną godzinę — albo w dowolne miejsce okna (wtedy zadanie trafi na dziś). Otworzy się okno zadania z tematem maila jako tytułem oraz nadawcą, odbiorcami, datą, załącznikami i początkiem treści w notatkach.</p>
 <figure class="hfig"><svg viewBox="0 0 680 170" class="hsvg" role="img" aria-label="Przeciąganie maila z Outlooka">
 <rect x="10" y="10" width="230" height="150" rx="8" class="s-panel s-ln"/><rect x="10" y="10" width="230" height="22" rx="8" class="s-acc"/><text x="22" y="26" class="s-wh">Outlook</text>
@@ -189,7 +189,15 @@
 <rect x="400" y="10" width="270" height="150" rx="8" class="s-panel s-ln"/><path d="M400 40h270M490 40v120M580 40v120M400 80h270M400 120h270" class="s-ln"/><text x="412" y="30" class="s-tx">TaskList AK</text>
 <rect x="494" y="84" width="82" height="18" rx="4" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/><text x="500" y="97" class="s-tx" style="font-size:11px">Oferta dla klienta…</text>
 </svg><figcaption>Przeciągnięcie maila na dzień tworzy zadanie. Wiadomość jest czytana lokalnie — nic nie jest wysyłane.</figcaption></figure>
-<p>Alternatywa: <b>Pliki → Utwórz zadanie z maila…</b> (wybór pliku .msg lub .eml). Ustaw termin i osoby, a potem zapisz.</p></section>
+<h3>Termin z kalendarza Outlooka</h3>
+<p>Przeciągnij <b>termin (spotkanie)</b> z kalendarza Outlooka tak samo jak maila. Zadanie powstaje <b>dokładnie w dniu i o godzinach, jakie termin miał w Outlooku</b> (czas przeliczany na czas komputera); upuszczenie na inny dzień nie zmienia daty. Okno zadania wypełnia się tematem, a w notatkach są: termin, miejsce, organizator, uczestnicy i opis.</p>
+<ul>
+<li><b>Termin całodniowy lub wielodniowy</b> staje się zadaniem całodniowym (wielodniowym, jeśli trwa kilka dni).</li>
+<li><b>Termin cykliczny</b> — przeciągnięty element zawiera tylko pierwsze wystąpienie, więc program bierze godziny z terminu, a dzień z miejsca, na które go upuścisz; w notatce pojawia się ostrzeżenie.</li>
+<li><b>Plik .ics</b> (Outlook: Plik → Zapisz kalendarz / Zapisz jako iCalendar): wybierz go w <b>Pliki → Zadanie z maila lub terminu…</b> albo przeciągnij na okno. Jeśli zawiera wiele terminów, program po potwierdzeniu doda wszystkie jako zadania do wybranego kalendarza (lokalnego lub grupowego).</li>
+<li>Terminy są czytane lokalnie z przeciągniętego pliku — program nie łączy się z Outlookiem ani z serwerem i niczego tam nie zmienia.</li>
+</ul>
+<p>Alternatywa dla maila: <b>Pliki → Zadanie z maila lub terminu…</b> (wybór pliku .msg, .eml lub .ics). Ustaw osoby i priorytet, a potem zapisz.</p></section>
 
 <section id="h-kal"><h2>13. Kalendarz lokalny i grupowy</h2>
 <p>Program ma dwa kalendarze widoczne razem:</p>

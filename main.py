@@ -529,7 +529,7 @@ class Api:
 
     def open_mail(self):
         import mail_import
-        path = self._pick_open('Wiadomości (*.msg;*.eml)', limit=mail_import.MAX_MAIL_BYTES)
+        path = self._pick_open('Wiadomości i terminy (*.msg;*.eml;*.ics)', limit=mail_import.MAX_MAIL_BYTES)
         return mail_import.parse_mail(path.name, path.read_bytes()) if path else None
 
     @staticmethod

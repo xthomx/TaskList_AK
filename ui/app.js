@@ -613,7 +613,9 @@ function openDialog(id, date, start, pre){          // pre = {title, notes} — 
   editing = id ? byId(id) : null;
   const preset = !editing ? presetPersons() : [];
   const d0 = date || iso(cur);
-  const t = editing || {title: (pre && pre.title) || "", date: d0, end_date: d0, start: start || "", end: start ? toHM(toMin(start)+60) : "", priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: "", calendar: curCal};
+  const pd = (pre && pre.date) || d0, hasTime = pre && pre.date;       // termin z Outlooka: dokładnie jego dzień i godziny
+  const ps = hasTime ? (pre.start || "") : (start || "");
+  const t = editing || {title: (pre && pre.title) || "", date: pd, end_date: (pre && pre.end_date) || pd, start: ps, end: hasTime ? (pre.end || (ps ? toHM(toMin(ps)+60) : "")) : (start ? toHM(toMin(start)+60) : ""), priority:1, status:"pending", progress:0, notes: (pre && pre.notes) || "", assignees: preset, series: "", calendar: curCal};
   document.getElementById("dlgTitle").textContent = editing ? "Edytuj zadanie" : "Nowe zadanie";
   fTitle.value = t.title; fDate.value = t.date; fDate2.value = isMulti(t) ? endOf(t) : ""; fPrio.value = t.priority;
   fStart.value = t.start; fEnd.value = t.end; fNotes.value = t.notes || "";
@@ -1388,22 +1390,35 @@ const toB64 = f => new Promise((ok, fail) => {
   fr.onerror = () => fail(new Error("Nie udało się odczytać przeciągniętego pliku."));
   fr.readAsDataURL(f);
 });
-function mailToDialog(mail, date, start){
+function mailToDialog(mail, date, start, dropped){
+  if(mail.kind === "appointment"){                      // termin z kalendarza Outlooka: zachowaj jego dzień i godziny
+    if(mail.items && mail.items.length > 1){ addAppointments(mail.items); return; }
+    const d = mail.recurring && dropped ? dropped : mail.date;      // termin cykliczny: element ma datę pierwszego wystąpienia, więc bierzemy dzień, na który upuszczono
+    openDialog(null, d, null, {title: mail.subject, notes: mail.notes, date: d, end_date: mail.recurring && dropped ? d : mail.end_date, start: mail.start, end: mail.end});
+    note("Termin z Outlooka — ustawiono dzień i godziny z kalendarza." + (mail.recurring ? " To termin cykliczny: sprawdź datę." : "") + " Zapisz zadanie.", true);
+    return;
+  }
   openDialog(null, date || iso(new Date()), start, {title: mail.subject, notes: mail.notes});
   note("Zadanie z wiadomości — ustaw termin, osoby i zapisz.", true);
+}
+function addAppointments(items){                        // plik .ics z wieloma terminami: dodaj wszystkie po potwierdzeniu
+  if(!confirm(`W pliku jest ${items.length} terminów. Dodać je jako zadania w dniach i godzinach z kalendarza (do kalendarza: ${curCal === "group" ? "grupowego" : "lokalnego"})?`)) return;
+  for(const m of items) tasks.push({id: uid(), title: m.subject, date: m.date, end_date: m.end_date || m.date, start: m.start || "", end: m.end || "", priority: 1,
+    status: "pending", progress: 0, notes: m.notes || "", assignees: [], series: "", color: "", calendar: curCal});
+  save(); render(); note(`Dodano ${items.length} zadań z kalendarza.`, true);
 }
 async function handleMailDrop(dt, date, start){
   if(dlg.open || pdlg.open) return;
   try{
-    const f = [...(dt.files || [])].find(x => /\.(msg|eml)$/i.test(x.name));
+    const f = [...(dt.files || [])].find(x => /\.(msg|eml|ics)$/i.test(x.name));
     if(f){
       if(!DESKTOP) throw new Error("Wczytywanie plików .msg i .eml działa w aplikacji okienkowej (TaskListAK.exe).");
       if(f.size > 25 * 1024 * 1024) throw new Error("Wiadomość jest zbyt duża (limit 25 MB).");
       note("Wczytywanie wiadomości…", true);
-      mailToDialog(await api().parse_mail(f.name, await toB64(f)), date, start);
+      mailToDialog(await api().parse_mail(f.name, await toB64(f)), date, start, date);
       return;
     }
-    if(dt.files && dt.files.length) throw new Error("Przeciągnij wiadomość z Outlooka lub plik .msg / .eml.");
+    if(dt.files && dt.files.length) throw new Error("Przeciągnij wiadomość lub termin z Outlooka albo plik .msg / .eml / .ics.");
     // brak pliku (np. Outlook w przeglądarce): użyj przeciągniętego tekstu — pierwsza linia jako tytuł
     const text = (dt.getData("text/plain") || dt.getData("Text") || dt.getData("text/uri-list") || "").trim();
     if(!text) throw new Error("Z przeciągniętego elementu nie udało się odczytać wiadomości. Zapisz mail jako .msg lub .eml i przeciągnij plik albo użyj Dane → Utwórz zadanie z maila.");

@@ -170,7 +170,8 @@ def parse_msg(raw):
     except Exception as exc:
         raise ValueError('To nie jest poprawny plik wiadomości Outlooka (.msg).') from exc
     try:
-        return parse_ole(ole)
+        import calendar_import
+        return calendar_import.parse_appointment_ole(ole) or parse_ole(ole)      # termin z kalendarza albo zwykła wiadomość
     finally:
         ole.close()
 
@@ -184,4 +185,7 @@ def parse_mail(name, raw):
         return parse_msg(raw)
     if lower.endswith('.eml'):
         return parse_eml(raw)
-    raise ValueError('Obsługiwane są pliki .msg (Outlook) i .eml.')
+    if lower.endswith('.ics'):
+        import calendar_import
+        return calendar_import.parse_ics(raw)
+    raise ValueError('Obsługiwane są pliki .msg (Outlook), .eml i .ics (kalendarz).')
