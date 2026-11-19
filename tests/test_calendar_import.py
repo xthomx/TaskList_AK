@@ -98,3 +98,61 @@ class IcsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def minutes(d):
+    return int((dt.datetime(d.year, d.month, d.day) - calendar_import.EPOCH).total_seconds() // 60)
+
+
+def blob(freq, ptype, period, specific, end_type, count, start, end=dt.date(2099, 1, 1), deleted=(), first_dow=1):
+    out = struct.pack('<HHHHH', 0x3004, 0x3004, freq, ptype, 0) + struct.pack('<III', 0, period, 0)
+    out += b''.join(struct.pack('<I', x) for x in specific)
+    out += struct.pack('<IIII', end_type, count, first_dow, len(deleted)) + b''.join(struct.pack('<I', minutes(x)) for x in deleted)
+    return out + struct.pack('<III', 0, minutes(start), minutes(end))
+
+
+class RecurrenceTests(unittest.TestCase):
+    D = dt.date
+
+    def test_weekly_on_selected_days_with_deleted_instance(self):
+        rec = calendar_import.Recurrence(blob(0x200B, 1, 1, [(1 << 2) | (1 << 4)], 0x2023, 0, self.D(2026, 11, 3), deleted=[self.D(2026, 11, 10)]))
+        self.assertTrue(rec.occurs(self.D(2026, 11, 3)))              # wtorek
+        self.assertTrue(rec.occurs(self.D(2026, 11, 5)))              # czwartek
+        self.assertFalse(rec.occurs(self.D(2026, 11, 4)))
+        self.assertFalse(rec.occurs(self.D(2026, 11, 10)))            # usunięte wystąpienie
+        self.assertTrue(rec.occurs(self.D(2026, 11, 17)))
+        self.assertFalse(rec.occurs(self.D(2026, 10, 27)))            # przed początkiem serii
+        self.assertEqual(rec.around(self.D(2026, 11, 12), back=2, forward=6), ['2026-11-12', '2026-11-17'])
+
+    def test_every_second_week_and_daily_with_count(self):
+        rec = calendar_import.Recurrence(blob(0x200B, 1, 2, [1 << 2], 0x2023, 0, self.D(2026, 11, 3)))
+        self.assertTrue(rec.occurs(self.D(2026, 11, 17)))
+        self.assertFalse(rec.occurs(self.D(2026, 11, 10)))
+        daily = calendar_import.Recurrence(blob(0x200A, 0, 1440, [], 0x2022, 3, self.D(2026, 11, 3)))
+        self.assertEqual([daily.occurs(self.D(2026, 11, x)) for x in (3, 4, 5, 6)], [True, True, True, False])
+
+    def test_monthly_day_nth_weekday_and_end_date(self):
+        day15 = calendar_import.Recurrence(blob(0x200C, 2, 1, [31], 0x2023, 0, self.D(2026, 1, 31)))
+        self.assertTrue(day15.occurs(self.D(2026, 2, 28)))            # krótszy miesiąc: ostatni dzień
+        second_monday = calendar_import.Recurrence(blob(0x200C, 3, 1, [1 << 1, 2], 0x2023, 0, self.D(2026, 10, 12)))
+        self.assertTrue(second_monday.occurs(self.D(2026, 11, 9)))
+        self.assertFalse(second_monday.occurs(self.D(2026, 11, 16)))
+        ended = calendar_import.Recurrence(blob(0x200A, 0, 1440, [], 0x2021, 0, self.D(2026, 11, 3), end=self.D(2026, 11, 5)))
+        self.assertTrue(ended.occurs(self.D(2026, 11, 5)))
+        self.assertFalse(ended.occurs(self.D(2026, 11, 6)))
+
+    def test_appointment_includes_occurrences_and_ignores_mismatching_pattern(self):
+        start = dt.datetime(2026, 11, 3, 9, 0, tzinfo=UTC)
+        ole = appointment(start, start + dt.timedelta(hours=1))
+        local_start = start.astimezone().date()
+        ole.streams['__properties_version1.0'] += bool_entry(0x8004, True)                  # PidLidRecurring (przykładowy numer: dopisujemy do mapy)
+        ole.streams['__nameid_version1.0/__substg1.0_00030102'] += struct.pack('<IHH', 0x8223, 6, 4) + struct.pack('<IHH', 0x8216, 6, 5)
+        ole.streams['__substg1.0_80050102'] = blob(0x200B, 1, 1, [1 << 2], 0x2023, 0, local_start)
+        result = calendar_import.parse_appointment_ole(ole)
+        self.assertTrue(result['recurring'])
+        dates = calendar_import.recurrence_dates(ole, calendar_import._named_ids(ole), start.astimezone(), center=local_start)
+        self.assertIn(local_start.isoformat(), dates)
+        self.assertIn((local_start + dt.timedelta(days=7)).isoformat(), dates)
+        self.assertNotIn((local_start + dt.timedelta(days=1)).isoformat(), dates)
+        ole.streams['__substg1.0_80050102'] = blob(0x200B, 1, 1, [1 << 2], 0x2023, 0, local_start + dt.timedelta(days=30))
+        self.assertEqual(calendar_import.parse_appointment_ole(ole)['occurrences'], [])    # wzorzec nie pasuje: nie ufamy mu

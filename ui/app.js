@@ -1391,36 +1391,51 @@ const toB64 = f => new Promise((ok, fail) => {
   fr.readAsDataURL(f);
 });
 /* termin z Outlooka upuszczony na inny dzień, niż ma w kalendarzu: pytamy, którą datę ustawić (Esc / Anuluj = nie twórz zadania) */
-function askAppointmentDate(mail, dropped){
+function askChoice(text, options){                       // options: [{key, label}] — pierwszy przycisk jest zalecany; zwraca key albo null
   return new Promise(res => {
-    const when = mail.start ? ` o ${mail.start}${mail.end ? "–" + mail.end : ""}` : " (cały dzień)", dlgEl = document.getElementById("datedlg");
-    const outlook = `Data z Outlooka: ${fmtDate(mail.date)}`, drop = `Dzień upuszczenia: ${fmtDate(dropped)}`;
-    document.getElementById("dateText").textContent = mail.recurring
-      ? `Termin cykliczny „${mail.subject}”${when}. Outlook przekazuje serię z datą pierwszego wystąpienia (${fmtDate(mail.date)}), a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`
-      : `Termin „${mail.subject}”${when} jest w Outlooku w dniu ${fmtDate(mail.date)}, a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`;
-    const first = document.getElementById("datePrimary"), second = document.getElementById("dateSecond");
-    const pair = mail.recurring ? [["drop", drop], ["outlook", outlook]] : [["outlook", outlook], ["drop", drop]];      // pierwszy przycisk = zalecany
-    first.textContent = pair[0][1]; second.textContent = pair[1][1];
+    const dlgEl = document.getElementById("datedlg"), first = document.getElementById("datePrimary"), second = document.getElementById("dateSecond");
+    document.getElementById("dateText").textContent = text;
+    first.textContent = options[0].label; second.textContent = options[1].label;
     let choice = null;
     const done = c => { choice = c; dlgEl.close(); };
-    first.onclick = () => done(pair[0][0]); second.onclick = () => done(pair[1][0]); document.getElementById("dateNo").onclick = () => done(null);
+    first.onclick = () => done(options[0].key); second.onclick = () => done(options[1].key); document.getElementById("dateNo").onclick = () => done(null);
     dlgEl.addEventListener("close", () => res(choice), {once: true});
     dlgEl.showModal();
   });
 }
+const apptWhen = m => m.start ? ` o ${m.start}${m.end ? "–" + m.end : ""}` : " (cały dzień)";
 async function mailToDialog(mail, date, start, dropped){
   if(mail.kind === "appointment"){                      // termin z kalendarza Outlooka: zachowaj jego dzień i godziny
     if(mail.items && mail.items.length > 1){ addAppointments(mail.items); return; }
-    let d = mail.date, usedDrop = false;
-    if(dropped && dropped !== mail.date){
-      const choice = await askAppointmentDate(mail, dropped);
+    const occ = mail.recurring && mail.occurrences && mail.occurrences.length ? mail.occurrences : null;      // dni wystąpień serii (jeśli program odczytał cykl)
+    const nearest = ref => occ.reduce((b, x) => Math.abs(daysBetween(ref, x)) < Math.abs(daysBetween(ref, b)) ? x : b, occ[0]);
+    let d = mail.date, how = "";
+    if(occ){
+      if(dropped){
+        if(occ.includes(dropped)){ d = dropped; how = "wystąpienie serii w dniu upuszczenia"; }                // trafiłeś w dzień, w którym termin faktycznie występuje
+        else {
+          const near = nearest(dropped);
+          const choice = await askChoice(`Termin cykliczny „${mail.subject}”${apptWhen(mail)} nie występuje w dniu ${fmtDate(dropped)}. Najbliższe wystąpienie serii to ${fmtDate(near)}. Którą datę ustawić w zadaniu?`,
+            [{key: "near", label: `Najbliższe wystąpienie: ${fmtDate(near)}`}, {key: "drop", label: `Dzień upuszczenia: ${fmtDate(dropped)}`}]);
+          if(!choice){ note("Anulowano tworzenie zadania z terminu.", true); return; }
+          d = choice === "drop" ? dropped : near; how = choice === "drop" ? "dzień upuszczenia" : "najbliższe wystąpienie serii";
+        }
+      } else {
+        const today = iso(new Date()); d = occ.find(x => x >= today) || nearest(today); how = "najbliższe nadchodzące wystąpienie serii";    // upuszczono poza dniem: bierzemy nadchodzące wystąpienie
+      }
+    } else if(dropped && dropped !== mail.date){
+      const outlook = `Data z Outlooka: ${fmtDate(mail.date)}`, drop = `Dzień upuszczenia: ${fmtDate(dropped)}`;
+      const choice = await askChoice(mail.recurring
+        ? `Termin cykliczny „${mail.subject}”${apptWhen(mail)}. Outlook przekazuje serię z datą pierwszego wystąpienia (${fmtDate(mail.date)}), a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`
+        : `Termin „${mail.subject}”${apptWhen(mail)} jest w Outlooku w dniu ${fmtDate(mail.date)}, a upuściłeś go na ${fmtDate(dropped)}. Którą datę ustawić w zadaniu?`,
+        mail.recurring ? [{key: "drop", label: drop}, {key: "outlook", label: outlook}] : [{key: "outlook", label: outlook}, {key: "drop", label: drop}]);
       if(!choice){ note("Anulowano tworzenie zadania z terminu.", true); return; }
-      if(choice === "drop"){ d = dropped; usedDrop = true; }
+      if(choice === "drop"){ d = dropped; how = "dzień upuszczenia"; }
     }
     const span = daysBetween(mail.date, mail.end_date || mail.date);
     openDialog(null, d, null, {title: mail.subject, notes: mail.notes, date: d, end_date: iso(addDays(parse(d), span)), start: mail.start, end: mail.end});
-    note("Termin z Outlooka — " + (usedDrop ? "ustawiono dzień upuszczenia i godziny z kalendarza." : "ustawiono dzień i godziny z kalendarza.") +
-      (mail.recurring && !usedDrop ? " To termin cykliczny: data to pierwsze wystąpienie serii — sprawdź ją." : "") + " Zapisz zadanie.", true);
+    note("Termin z Outlooka — ustawiono godziny z kalendarza i datę: " + (how || "z Outlooka") + "." +
+      (mail.recurring && !occ && d === mail.date ? " To termin cykliczny: data to pierwsze wystąpienie serii — sprawdź ją." : "") + " Zapisz zadanie.", true);
     return;
   }
   openDialog(null, date || iso(new Date()), start, {title: mail.subject, notes: mail.notes});

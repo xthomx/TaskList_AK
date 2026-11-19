@@ -139,8 +139,11 @@ def parse_appointment_ole(ole):
             all_day, recurring, flag(LID_RECURRING), has_blob, has_type))
     except Exception:
         pass
-    return _result(_stream_text(ole, '0037'), timing(start, end, all_day), location, organizer, attendees,
-                   recurring, _body(ole))
+    result = _result(_stream_text(ole, '0037'), timing(start, end, all_day), location, organizer, attendees,
+                      recurring, _body(ole))
+    if recurring:
+        result['occurrences'] = recurrence_dates(ole, ids, start)             # dni wystąpień serii (dla wyboru właściwego dnia)
+    return result
 
 
 # ---------------------------------------------------------------- .ics
@@ -237,3 +240,110 @@ def parse_ics(raw):
     if len(out) > 1:
         first['items'] = out
     return first
+
+
+# ---------------------------------------------------------------- wzorzec cyklu (PidLidAppointmentRecur, MS-OXOCAL 2.2.1.44)
+EPOCH = dt.datetime(1601, 1, 1)
+END_DATE, END_COUNT = 0x00002021, 0x00002022
+
+
+def _days_in_month(y, m):
+    nxt = dt.date(y + (m == 12), m % 12 + 1, 1)
+    return (nxt - dt.date(y, m, 1)).days
+
+
+class Recurrence:
+    """Wzorzec powtarzania z Outlooka: pozwala sprawdzić, czy termin występuje w danym dniu (dni, tygodnie, miesiące, lata)."""
+
+    def __init__(self, blob):
+        u16 = lambda o: struct.unpack_from('<H', blob, o)[0]
+        u32 = lambda o: struct.unpack_from('<I', blob, o)[0]
+        freq, self.ptype = u16(4), u16(6)
+        self.period = max(1, u32(14))
+        off = 22
+        self.mask = self.day = self.nth = 0
+        if self.ptype == 1:
+            self.mask = u32(off); off += 4
+        elif self.ptype in (2, 4, 0x0A, 0x0C):
+            self.day = u32(off); off += 4
+        elif self.ptype in (3, 0x0B):
+            self.mask, self.nth = u32(off), u32(off + 4); off += 8
+        elif self.ptype != 0:
+            raise ValueError('nieznany typ cyklu')
+        self.end_type, self.count, self.first_dow = u32(off), u32(off + 4), u32(off + 8)
+        off += 12
+        deleted = u32(off); off += 4
+        self.deleted = {self._date(u32(off + 4 * i)) for i in range(deleted)}
+        off += 4 * deleted
+        modified = u32(off); off += 4 + 4 * modified
+        self.start, self.end = self._date(u32(off)), self._date(u32(off + 4))
+        self.freq = freq
+        if freq == 0x200D and self.ptype in (2, 3, 4):
+            self.period = max(12, self.period) if self.period < 12 else self.period     # co rok = wielokrotność 12 miesięcy
+
+    @staticmethod
+    def _date(minutes):
+        return (EPOCH + dt.timedelta(minutes=minutes)).date()
+
+    def _matches(self, d):
+        if d < self.start or d in self.deleted:
+            return False
+        if self.ptype == 0:                                           # co N dni
+            return (d - self.start).days % max(1, self.period // 1440) == 0
+        if self.ptype == 1:                                           # co N tygodni w wybrane dni
+            def week_start(x):
+                return x - dt.timedelta(days=(x.weekday() + 1 - self.first_dow) % 7)      # weekday(): pn=0; maska: nd=bit0
+            if not self.mask & (1 << ((d.weekday() + 1) % 7)):
+                return False
+            return ((week_start(d) - week_start(self.start)).days // 7) % self.period == 0
+        months = (d.year - self.start.year) * 12 + d.month - self.start.month
+        if months < 0 or months % self.period:
+            return False
+        dim = _days_in_month(d.year, d.month)
+        if self.ptype in (2, 0x0A):                                   # dzień miesiąca (krótszy miesiąc: ostatni dzień)
+            return d.day == min(self.day or self.start.day, dim)
+        if self.ptype in (4, 0x0C):                                   # ostatni dzień miesiąca
+            return d.day == dim
+        days = [dt.date(d.year, d.month, x) for x in range(1, dim + 1) if self.mask & (1 << ((dt.date(d.year, d.month, x).weekday() + 1) % 7))]
+        if not days:
+            return False
+        return d == (days[-1] if self.nth >= 5 else days[self.nth - 1] if self.nth <= len(days) else None)
+
+    def occurs(self, d):
+        if not self._matches(d):
+            return False
+        if self.end_type == END_DATE:
+            return d <= self.end
+        if self.end_type == END_COUNT:                                # po N wystąpieniach: policz od początku
+            n, x = 0, self.start
+            while x <= d:
+                if self._matches(x):
+                    n += 1
+                    if x == d:
+                        return n <= self.count
+                x += dt.timedelta(days=1)
+            return False
+        return True
+
+    def around(self, center, back=370, forward=370, cap=400):
+        out, d = [], center - dt.timedelta(days=back)
+        while d <= center + dt.timedelta(days=forward) and len(out) < cap:
+            if self.occurs(d):
+                out.append(d.isoformat())
+            d += dt.timedelta(days=1)
+        return out
+
+
+def recurrence_dates(ole, ids, start, center=None):
+    """Daty wystąpień serii w pobliżu dziś; pusta lista, gdy wzorca nie da się odczytać lub nie zgadza się z terminem."""
+    pid = ids.get((APPT_GUID, LID_RECUR_BLOB))
+    name = '__substg1.0_%04X0102' % pid if pid else ''
+    if not name or not ole.exists(name):
+        return []
+    try:
+        rec = Recurrence(ole.openstream(name).read())
+        if abs((rec.start - start.date()).days) > 1:                 # wzorzec nie pasuje do daty początku terminu: nie ufamy mu
+            return []
+        return rec.around(center or dt.date.today())
+    except (ValueError, struct.error, OverflowError):
+        return []
