@@ -22,6 +22,7 @@ const ICON_PATHS = {
   move:     '<path d="M5 12h14m0 0l-5-5m5 5l-5 5"/>',
   plus:     '<path d="M12 5v14M5 12h14"/>',
   refresh:  '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  help:     '<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.5 2.1c-.8.5-1.2 1-1.2 2M12 16.9v.1"/>',
   user:     '<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   users:    '<circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/>',
   tasks:    '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8.5 9l1.5 1.5L13 7.5M8.5 15l1.5 1.5 3-3M15 9.5h2.5M15 15.5h2.5"/>',
@@ -1248,8 +1249,23 @@ document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => { monthT
 todayBtn.onclick = () => { view = "day"; layout = "board"; cur = startOfToday(); render(); };      // skrót: dzisiejsze podsumowanie w widoku Dzień
 document.querySelectorAll("#layoutSeg .btn").forEach(b => b.onclick = () => { layout = b.dataset.l; render(); });
 document.querySelectorAll("#themeSeg .btn").forEach(b => b.onclick = () => { theme = b.dataset.t; applyTheme(); saveTheme(); });
+/* ================= strona „Jak używać” ================= */
+const helpPage = document.getElementById("helpPage"), helpBtn = document.getElementById("helpBtn");
+const helping = () => document.body.classList.contains("helping");
+function openHelp(){ if(!helpPage) return; document.body.classList.add("helping"); helpPage.hidden = false; helpBtn.classList.add("active"); hideTip(); const b = document.getElementById("helpBody"); if(b) b.scrollTop = 0; }
+function closeHelp(){ if(!helpPage) return; document.body.classList.remove("helping"); helpPage.hidden = true; helpBtn.classList.remove("active"); }
+if(helpPage){
+  helpBtn.hidden = false;
+  helpBtn.onclick = () => helping() ? closeHelp() : openHelp();
+  document.getElementById("helpClose").onclick = closeHelp;
+  helpPage.querySelectorAll('.hnav a[href^="#"]').forEach(a => a.onclick = e => {
+    e.preventDefault(); const t = document.getElementById(a.getAttribute("href").slice(1)); if(t) t.scrollIntoView({behavior: "smooth", block: "start"});
+  });
+  document.getElementById("side").addEventListener("click", e => { const b = e.target.closest("button, summary"); if(b && b !== helpBtn && helping()) closeHelp(); }, true);
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && helping() && !dlg.open) closeHelp(); });
+}
 document.addEventListener("keydown", e => {
-  if(dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if(helping() || dlg.open || pdlg.open || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if(e.key === "ArrowLeft") shift(-1); else if(e.key === "ArrowRight") shift(1);
   else if(e.key === "m") { monthTop = null; view="month"; render(); } else if(e.key === "w") { view="week"; render(); } else if(e.key === "d") { view="day"; render(); }
 });

@@ -612,6 +612,9 @@ def build_html():
     html = (root / 'index.html').read_text(encoding='utf-8')
     html = html.replace('<link rel="stylesheet" href="style.css">',
                         '<style>' + (root / 'style.css').read_text(encoding='utf-8') + '</style>')
+    help_file = root / 'help.html'
+    if help_file.is_file():
+        html = html.replace('<!--HELP-->', help_file.read_text(encoding='utf-8'))
     html = html.replace('<script src="app.js"></script>',
                         '<script>window.__DESKTOP__=true;</script><script>' + (root / 'app.js').read_text(encoding='utf-8') + '</script>')
     return html

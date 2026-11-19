@@ -1,0 +1,293 @@
+<div id="helpPage" hidden>
+<nav class="hnav" aria-label="Spis treści">
+  <div class="hnav-title">Jak używać</div>
+  <a href="#h-start">1. Ekran programu</a>
+  <a href="#h-nowe">2. Dodawanie zadań</a>
+  <a href="#h-widoki">3. Widoki i nawigacja</a>
+  <a href="#h-dnd">4. Przeciąganie zadań</a>
+  <a href="#h-status">5. Status, postęp, menu</a>
+  <a href="#h-wyglad">6. Priorytety i kolory</a>
+  <a href="#h-filtry">7. Osoby i filtry</a>
+  <a href="#h-dzis">8. Zadania na dziś</a>
+  <a href="#h-przenies">9. Przenoszenie zadań</a>
+  <a href="#h-powt">10. Wielodniowe i cykliczne</a>
+  <a href="#h-przyp">11. Przypomnienia</a>
+  <a href="#h-mail">12. Zadanie z maila</a>
+  <a href="#h-kal">13. Kalendarz lokalny i grupowy</a>
+  <a href="#h-pliki">14. Pliki i zapis automatyczny</a>
+  <a href="#h-scal">15. Praca w grupie</a>
+  <a href="#h-eksport">16. Eksport i import</a>
+  <a href="#h-konf">17. Konfiguracja i wygląd</a>
+  <a href="#h-aktual">18. Aktualizacje</a>
+  <a href="#h-skroty">19. Skróty klawiszowe</a>
+  <a href="#h-problemy">20. Rozwiązywanie problemów</a>
+</nav>
+<div class="hbody" id="helpBody">
+<div class="htop"><h1>Jak używać TaskList AK</h1><button class="btn" type="button" id="helpClose"><i data-ic="close"></i>Wróć do kalendarza</button></div>
+<p class="hlead">TaskList AK to program do planowania zadań na kalendarzu. Zadania możesz przeciągać, przypisywać osobom, powtarzać, współdzielić z zespołem i przypominać o nich. Poniżej znajdziesz opis wszystkich funkcji. Rysunki to uproszczone makiety — wyglądają jak w programie, ale nie są klikalne.</p>
+
+<section id="h-start"><h2>1. Ekran programu</h2>
+<p>Okno składa się z czterech części:</p>
+<figure class="hfig"><svg viewBox="0 0 680 330" class="hsvg" role="img" aria-label="Układ okna programu">
+<rect x="4" y="4" width="672" height="322" rx="10" class="s-panel s-ln"/>
+<rect x="4" y="4" width="150" height="322" rx="10" class="s-bg s-ln"/>
+<rect x="16" y="16" width="126" height="26" rx="8" class="s-acc"/><text x="79" y="34" text-anchor="middle" class="s-wh">Nowe zadanie</text>
+<rect x="16" y="52" width="126" height="48" rx="8" class="s-panel s-ln"/><text x="26" y="72" class="s-tx">Przestrzeń robocza</text><rect x="26" y="80" width="50" height="14" rx="5" class="s-acc"/><rect x="80" y="80" width="50" height="14" rx="5" class="s-panel s-ln"/>
+<rect x="16" y="108" width="126" height="40" rx="8" class="s-panel s-ln"/><text x="26" y="132" class="s-tx">Przenieś zadania</text>
+<rect x="16" y="156" width="126" height="58" rx="8" class="s-panel s-ln"/><text x="26" y="176" class="s-tx">Filtry</text><rect x="26" y="186" width="106" height="14" rx="5" class="s-bg s-ln"/>
+<rect x="16" y="222" width="126" height="46" rx="8" class="s-panel s-ln"/><text x="26" y="242" class="s-tx">Konfiguracja</text>
+<rect x="16" y="274" width="126" height="40" rx="8" class="s-panel s-ln"/><text x="26" y="294" class="s-tx">Pliki</text>
+<rect x="154" y="4" width="522" height="38" class="s-panel s-ln"/><text x="168" y="28" class="s-tx">‹  Dziś  ›    Listopad 2026</text>
+<rect x="540" y="12" width="120" height="22" rx="6" class="s-bg s-ln"/><text x="600" y="27" text-anchor="middle" class="s-tx">Lokalny | Grupowy</text>
+<g class="s-ln"><path d="M154 80h522M154 118h522M154 156h522M154 194h522M154 232h522M240 42v190M326 42v190M412 42v190M498 42v190M584 42v190"/></g>
+<rect x="162" y="86" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p3) 25%,var(--panel))"/><rect x="334" y="124" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p1) 25%,var(--panel))"/><rect x="420" y="162" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p2) 25%,var(--panel))"/>
+<rect x="154" y="238" width="522" height="88" class="s-panel s-ln"/><text x="168" y="258" class="s-tx">Lista zadań (posortowana wg terminu)</text><path d="M168 272h480M168 290h480M168 308h480" class="s-ln"/>
+<circle cx="79" cy="20" r="0"/>
+<g class="s-no"><circle cx="150" cy="60" r="11"/><text x="150" y="64" text-anchor="middle">1</text>
+<circle cx="520" cy="23" r="11"/><text x="520" y="27" text-anchor="middle">2</text>
+<circle cx="440" cy="110" r="11"/><text x="440" y="114" text-anchor="middle">3</text>
+<circle cx="660" cy="250" r="11"/><text x="660" y="254" text-anchor="middle">4</text></g>
+</svg><figcaption>Układ okna: 1 – panel boczny, 2 – belka nawigacji z wyborem kalendarza, 3 – kalendarz, 4 – lista zadań.</figcaption></figure>
+<ul>
+<li><b class="hn">1</b> <b>Panel boczny</b> — przycisk „Nowe zadanie”, Przestrzeń robocza (Zadania na dziś, Miesiąc / Tydzień), Przenieś zadania, Filtry, Konfiguracja, Pliki oraz na dole wersja programu, aktualizacje i komunikaty. Sekcje Filtry i Konfiguracja można zwinąć klikając ich nagłówek.</li>
+<li><b class="hn">2</b> <b>Górna belka</b> — przyciski ‹ Dziś › do poruszania się po datach, tytuł okresu oraz przełącznik kalendarza <b>Lokalny / Grupowy</b>.</li>
+<li><b class="hn">3</b> <b>Kalendarz</b> — zawsze widoczny; gdy zadań jest dużo, przewija się tylko jego część z zadaniami.</li>
+<li><b class="hn">4</b> <b>Lista zadań</b> pod kalendarzem (miesiąc, tydzień) — zadania w kolejności wykonania; tytuł możesz edytować wprost w komórce. Przycisk „Ukryj / Pokaż listę zadań” w Konfiguracji daje kalendarzowi całe okno.</li>
+</ul></section>
+
+<section id="h-nowe"><h2>2. Dodawanie i edycja zadań</h2>
+<p>Zadanie dodasz na trzy sposoby: przyciskiem <b>Nowe zadanie</b> w panelu, <b>dwukliknięciem</b> w dzień (w tygodniu także w godzinę) albo <b>przeciągnięciem maila</b> z Outlooka (rozdział 12). Kliknięcie istniejącego zadania otwiera je do edycji.</p>
+<figure class="hfig"><div class="hdlg">
+<h3>Nowe zadanie</h3>
+<label>Tytuł</label><input type="text" value="Spotkanie z klientem" disabled>
+<label>Kalendarz</label><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div>
+<div class="hrow"><div><label>Data</label><input type="text" value="2026-11-18" disabled></div><div><label>Do dnia (wielodniowe)</label><input type="text" value="" disabled></div><div><label>Priorytet</label><input type="text" value="Wysoki" disabled></div></div>
+<div class="hrow"><div><label>Od (puste = cały dzień)</label><input type="text" value="10:00" disabled></div><div><label>Do</label><input type="text" value="11:00" disabled></div><div><label>Status</label><input type="text" value="⚪ Oczekujące" disabled></div></div>
+<label>Kolor zadania (domyślnie wg priorytetu)</label><div class="hsw"><span class="swatch def">↺</span><span class="swatch" style="background:#d9453d"></span><span class="swatch" style="background:#e8833a"></span><span class="swatch on" style="background:#2e9e5b"></span><span class="swatch" style="background:#3b6cf6"></span><span class="swatch" style="background:#a855c7"></span></div>
+<label>Notatki</label><textarea rows="2" disabled>Omówić ofertę i harmonogram prac.</textarea>
+<label>Osoby</label><div class="btn peoplebtn">👥 Kowalski Jan, Nowak Anna</div>
+<label>Powtarzanie</label><input type="text" value="Co tydzień · 10 wystąpień" disabled>
+<div class="hact"><span class="btn primary"><i data-ic="check"></i>Zapisz</span><span class="btn"><i data-ic="close"></i>Anuluj</span><span class="spacer"></span><span class="btn"><i data-ic="calnext"></i>Na przyszły tydzień</span><span class="btn danger"><i data-ic="trash"></i>Usuń</span></div>
+</div><figcaption>Okno zadania. Wymagany jest tylko tytuł i data.</figcaption></figure>
+<ul>
+<li><b>Godziny</b> — puste „Od” oznacza zadanie całodniowe. Gdy podasz „Od” bez „Do”, zadanie trwa godzinę.</li>
+<li><b>Notatki</b> — duże pole na opis; pierwsza linia pokazuje się na kafelku, całość w dymku po najechaniu myszą.</li>
+<li><b>Osoby</b> — przycisk otwiera okno wyboru z wyszukiwarką i możliwością dodania nowej osoby (format „Nazwisko Imię”).</li>
+<li><b>Na przyszły tydzień</b> ustawia ten sam dzień tygodnia za 7 dni. <b>Usuń</b> kasuje zadanie (dla zadań cyklicznych program zapyta, czy usunąć tylko to, czy także kolejne).</li>
+<li>Tytuł zadania możesz też zmienić bez otwierania okna — wpisz go w komórce <b>listy zadań</b> pod kalendarzem i zatwierdź Enter (Esc cofa zmianę).</li>
+</ul></section>
+
+<section id="h-widoki"><h2>3. Widoki i nawigacja</h2>
+<h3>Miesiąc</h3>
+<p>Klasyczny kalendarz z numerami tygodni (ISO) w pierwszej kolumnie. Zadania są chipami (układ <b>Siatka</b>) albo kartami (układ <b>Kafelki</b>). Dzień z większą liczbą zadań przewija się wewnątrz komórki — nic nie jest ucinane.</p>
+<figure class="hfig"><div class="hmonth"><div class="hd">Pn</div><div class="hd">Wt</div><div class="hd">Śr</div><div class="hd">Cz</div><div class="hd">Pt</div><div class="hd wkd">So</div><div class="hd wkd">Nd</div><div class=""><span class="hdn">10</span></div><div class=""><span class="hdn">11</span></div><div class="today"><span class="hdn now">12</span><span class="chip p2 st-pending">Przegląd budżetu <span class=who>· Kowalski J.</span></span><span class="chip p1 st-pending">Telefon do dostawcy</span></div><div class=""><span class="hdn">13</span><span class="chip p3 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>09:00 Zebranie zespołu</span></div><div class=""><span class="hdn">14</span><span class="chip p2 st-progress"><span class="sti">🔄</span>Raport</span></div><div class=""><span class="hdn">15</span><span class="chip p2 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>Wyjazd szkoleniowy</span></div><div class=""><span class="hdn">16</span></div><div class=""><span class="hdn">17</span></div><div class=""><span class="hdn">18</span><span class="chip p3 st-pending">Termin raportu</span></div><div class=""><span class="hdn">19</span><span class="chip p1 st-done"><span class="sti">✅</span>Szkolenie BHP</span></div><div class=""><span class="hdn">20</span></div><div class=""><span class="hdn">21</span></div><div class=""><span class="hdn">22</span></div><div class=""><span class="hdn">23</span></div></div><figcaption>Widok miesiąca. Dzisiejszy dzień jest podświetlony; zadania grupowe mają fioletową ikonę osób, zrobione są wyszarzone, a wysoki priorytet pulsuje.</figcaption></figure>
+<h3>Tydzień</h3>
+<p>W układzie <b>Kafelki</b> tydzień to kolumny z kartami zadań (jak w aplikacjach typu „Nadchodzące”). W układzie <b>Siatka</b> to godzinowa tabela, w której zadania z godzinami są paskami o wysokości zależnej od czasu trwania.</p>
+<figure class="hfig"><div class="hweek"><div class="hhours"><span></span><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span></div><div class="hcol"><div class="hd">Pn 16</div><div class="hbody2"><div class="ev p3" style="top:80px;height:38px;left:2px;right:2px;--pg:0%">Spotkanie z klientem<small>10:00–11:00</small></div><div class="ev p1" style="top:300.0px;height:38.0px;left:2px;right:2px;--pg:0%">Przygotowanie prezentacji<small>15:30–16:30</small></div></div></div><div class="hcol"><div class="hd">Wt 17</div><div class="hbody2"><div class="ev p2" style="top:20.0px;height:38.0px;left:2px;right:2px;--pg:0%">Odprawa zespołu<small>08:30–09:30</small></div></div></div><div class="hcol"><div class="hd">Śr 18</div><div class="hbody2"><div class="ev p2" style="top:120px;height:78px;left:2px;right:2px;--pg:0%">Szkolenie BHP<small>11:00–13:00</small></div></div></div><div class="hcol"><div class="hd">Cz 19</div><div class="hbody2"><div class="ev p1" style="top:60.0px;height:28.0px;left:2px;right:2px;--pg:0%">Telefon do dostawcy<small>09:30–10:15</small></div></div></div><div class="hcol"><div class="hd">Pt 20</div><div class="hbody2"></div></div></div><figcaption>Tydzień w układzie Siatka: zadania z godzinami jako paski na osi czasu.</figcaption></figure>
+<h3>Zadania na dziś (dzień)</h3>
+<p>Przycisk <b>Zadania na dziś</b> pokazuje podsumowanie wybranego dnia — zadania, które zaczynają się lub trwają tego dnia (szczegóły w rozdziale 8). Inny dzień otworzysz klikając jego numer w kalendarzu.</p>
+<h3>Poruszanie się po datach</h3>
+<ul>
+<li>Przyciski <b>‹ Dziś ›</b> — poprzedni okres, dziś, następny okres.</li>
+<li><b>Kółko myszy</b> nad kalendarzem: w miesiącu przesuwa widok <b>co tydzień</b> (płynnie), w tygodniu zmienia tydzień. Gdy komórka lub kolumna ma własne przewijanie, kółko przewija najpierw ją.</li>
+<li><b>Klik w numer tygodnia</b> (kolumna „Tydz.”) otwiera ten tydzień; <b>klik w numer dnia</b> otwiera podsumowanie tego dnia; klik w nagłówek dnia w tygodniu — też.</li>
+<li>Klawisze: <kbd>←</kbd> <kbd>→</kbd> zmieniają okres, <kbd>m</kbd> miesiąc, <kbd>w</kbd> tydzień, <kbd>d</kbd> dzień.</li>
+</ul>
+<figure class="hfig"><div class="hbar"><span class="btn">‹</span><span class="btn">Dziś</span><span class="btn">›</span><span class="htitle">Listopad 2026</span><span class="spacer"></span><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div><span class="calonly"><input type="checkbox" disabled> tylko ten</span></div><figcaption>Górna belka z nawigacją i przełącznikiem kalendarza.</figcaption></figure>
+</section>
+
+<section id="h-dnd"><h2>4. Przeciąganie zadań</h2>
+<p>Zadania przesuwasz myszą — chwyć kafelek lub pasek i upuść w nowym miejscu.</p>
+<figure class="hfig"><svg viewBox="0 0 680 190" class="hsvg" role="img" aria-label="Przeciąganie zadań">
+<text x="10" y="18" class="s-tx" style="font-weight:700">Miesiąc / tydzień: przeniesienie na inny dzień</text>
+<rect x="10" y="26" width="120" height="50" class="s-panel s-ln"/><rect x="130" y="26" width="120" height="50" class="s-panel s-ln"/><rect x="250" y="26" width="120" height="50" class="s-panel s-ln"/>
+<rect x="18" y="38" width="100" height="18" rx="4" style="fill:color-mix(in srgb,var(--p2) 30%,var(--panel));stroke:var(--p2)"/><text x="26" y="51" class="s-tx">Raport</text>
+<path d="M118 47C150 20 240 20 266 44" class="s-arrow"/><rect x="258" y="38" width="100" height="18" rx="4" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/>
+<text x="400" y="52" class="s-tx">Upuszczony dzień podświetla się; data zadania zmienia się.</text>
+<text x="10" y="110" class="s-tx" style="font-weight:700">Zadanie wielodniowe: rozciągnij uchwyt na prawym końcu</text>
+<rect x="10" y="118" width="80" height="50" class="s-panel s-ln"/><rect x="90" y="118" width="80" height="50" class="s-panel s-ln"/><rect x="170" y="118" width="80" height="50" class="s-panel s-ln"/><rect x="250" y="118" width="80" height="50" class="s-panel s-ln"/>
+<rect x="14" y="132" width="156" height="18" rx="4" style="fill:color-mix(in srgb,var(--p1) 30%,var(--panel));stroke:var(--p1)"/><text x="22" y="145" class="s-tx">Wyjazd</text><rect x="164" y="136" width="5" height="10" rx="2" class="s-acc"/>
+<path d="M172 141H326" class="s-arrow"/>
+<text x="350" y="146" class="s-tx">Uchwyt zmienia liczbę dni zadania.</text>
+</svg><figcaption>Przeciąganie w miesiącu i rozciąganie zadania wielodniowego.</figcaption></figure>
+<ul>
+<li><b>Miesiąc, tydzień (kafelki)</b> — upuszczenie na innym dniu zmienia datę; zadania wielodniowe przesuwają się w całości.</li>
+<li><b>Tydzień (siatka) i podsumowanie dnia w trybie Godziny</b> — upuszczenie w kolumnie dnia na wybranej godzinie zmienia datę <b>i</b> godzinę (krok 15 min). Dolna krawędź paska to uchwyt zmiany czasu trwania, np. rozciągnięcia zadania na dwie godziny.</li>
+<li>W widoku tygodnia obszar upuszczenia obejmuje całą wolną przestrzeń kolumny od końca poprzedniego zadania, nie tylko mały fragment.</li>
+<li>Upuszczenie pliku <b>.msg / .eml</b> lub maila z Outlooka na dzień tworzy zadanie (rozdział 12).</li>
+</ul></section>
+
+<section id="h-status"><h2>5. Status, postęp i menu prawego przycisku</h2>
+<p>Kliknij zadanie <b>prawym przyciskiem myszy</b>, aby otworzyć menu podręczne.</p>
+<figure class="hfig"><div class="hctx">
+<div class="ctx-icons"><span><i>⚪</i><small>Oczekujące</small></span><span class="on"><i>🔄</i><small>W trakcie</small></span><span><i>✅</i><small>Zrobione</small></span></div>
+<div class="hcp"><label>Postęp: <b>50%</b></label><div class="hrange"><i style="width:50%"></i></div><div class="hticks"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div></div>
+<div class="hsw"><span class="swatch def on">↺</span><span class="swatch" style="background:#d9453d"></span><span class="swatch" style="background:#e0a100"></span><span class="swatch" style="background:#2e9e5b"></span><span class="swatch" style="background:#3b6cf6"></span><span class="swatch" style="background:#a855c7"></span></div>
+<hr><div class="hci"><i data-ic="calnext"></i>Przenieś na przyszły tydzień</div><div class="hci"><i data-ic="users"></i>Przenieś do kalendarza grupowego</div><div class="hci"><i data-ic="edit"></i>Edytuj…</div><div class="hci del"><i data-ic="trash"></i>Usuń zadanie</div></div><figcaption>Menu prawego przycisku myszy.</figcaption></figure>
+<ul>
+<li><b>Status</b> — trzy ikony: ⚪ oczekujące (domyślne), 🔄 w trakcie, ✅ zrobione.</li>
+<li><b>Postęp</b> — suwak ze stanami 0, 25, 50, 75, 100%. Wybór <b>100% ustawia „zrobione”</b>, a ustawienie „zrobione” ustawia 100%; „oczekujące” zeruje postęp.</li>
+<li>Na kartach jest też okrągły <b>przycisk zaznaczenia</b> — jedno kliknięcie oznacza zadanie jako zrobione (i cofa).</li>
+<li>Ikona <b>kosza</b> w prawym dolnym rogu zadania usuwa je po potwierdzeniu.</li>
+</ul></section>
+
+<section id="h-wyglad"><h2>6. Priorytety, kolory i dymek z opisem</h2>
+<p>Domyślny kolor zadania zależy od priorytetu: <b>niski</b> – zielony, <b>średni</b> – żółty, <b>wysoki</b> – czerwony. Zadania o wysokim priorytecie delikatnie <b>pulsują</b>, dopóki nie są zrobione. Własny kolor wybierzesz w oknie zadania lub w menu prawego przycisku; przycisk ↺ wraca do koloru wg priorytetu.</p>
+<figure class="hfig"><div class="hflex"><span class="chip p1 st-pending">Niski priorytet</span><span class="chip p2 st-pending">Średni priorytet</span><span class="chip p3 st-pending">Wysoki — pulsuje</span><span class="chip p1 st-pending" style="--tc:#a855c7;">Własny kolor</span><span class="chip p2 st-progress"><span class="sti">🔄</span>W trakcie 50%</span><span class="chip p1 st-done"><span class="sti">✅</span>Zrobione</span></div><figcaption>Wygląd zadań: priorytety, własny kolor, status „w trakcie” (pogrubione z paskiem postępu) i „zrobione” (wyszarzone).</figcaption></figure>
+<p><b>Dymek:</b> po najechaniu myszą na zadanie pojawia się okienko z terminem, statusem, osobami i pełną notatką.</p>
+<figure class="hfig"><div class="htip"><div class="tip-title">Spotkanie z klientem</div><div class="tip-meta">📅 śr, 18.11.2026 · 10:00–11:00<br>🔄 W trakcie · 50%<br>👥 Kowalski Jan, Nowak Anna</div><div class="tip-notes">Omówić ofertę i harmonogram prac.</div></div><figcaption>Dymek z opisem zadania.</figcaption></figure>
+</section>
+
+<section id="h-filtry"><h2>7. Osoby i filtry</h2>
+<p>Osoby wpisujesz w formie <b>Nazwisko Imię</b> (przycisk <b>Osoby</b> w Konfiguracji; zmiana nazwy działa od razu we wszystkich zadaniach, a usunięcie osoby zdejmuje ją z zadań). Zadania na kafelkach pokazują skrót „Nazwisko I.”.</p>
+<p>Sekcja <b>Filtry</b> ogranicza to, co widać w kalendarzu, kafelkach i liście:</p>
+<figure class="hfig"><div class="hfilt"><div class="sechead"><i data-ic="filter"></i><span>Filtry (3)</span></div>
+<span class="sidelabel">Osoby (wielokrotny wybór)</span>
+<div class="fplist"><label class="fp-item"><input type="checkbox" checked disabled><span>Kowalski Jan</span></label><label class="fp-item"><input type="checkbox" checked disabled><span>Nowak Anna</span></label><label class="fp-item"><input type="checkbox" disabled><span>Nieprzypisane</span></label></div>
+<span class="sidelabel">Priorytet</span><div class="hflex"><span class="chipf p1">Niski</span><span class="chipf p2">Średni</span><span class="chipf p3 on">Wysoki</span></div>
+<span class="sidelabel">Postęp</span><div class="hflex"><span class="chipf on">0%</span><span class="chipf">25%</span><span class="chipf">50%</span><span class="chipf">75%</span><span class="chipf">100%</span></div></div><figcaption>Panel filtrów.</figcaption></figure>
+<ul>
+<li>W obrębie jednego filtra wybory <b>sumują się</b> (lub); różne filtry łączą się (i).</li>
+<li>„Nieprzypisane” pokazuje zadania bez osób.</li>
+<li>Liczba aktywnych filtrów widoczna jest w nagłówku także przy zwiniętej sekcji; <b>Wyczyść</b> zdejmuje wszystkie.</li>
+<li>Gdy filtrujesz dokładnie jedną osobę, nowe zadanie dostaje ją automatycznie.</li>
+</ul></section>
+
+<section id="h-dzis"><h2>8. Zadania na dziś</h2>
+<p>Przycisk <b>Zadania na dziś</b> otwiera podsumowanie dnia. Są dwa tryby (domyślnie godzinowy):</p>
+<ul><li><b>Godziny</b> — oś czasu z podziałem np. 7–17, zadania „przed” i „po” oraz sekcja <b>Cały dzień</b>. Zadania z godzinami wstawiają się w odpowiednie miejsce; zadanie bez godziny przeciągasz na wybraną godzinę, co ustawia czas. Dolna krawędź zmienia czas trwania.</li>
+<li><b>Sekcje</b> — karty podzielone na „Zaległe”, „Cały dzień”, „Dziś” itd.</li></ul>
+<figure class="hfig"><div class="hcards"><article class="card p2 st-pending big" style="--pg:0%"><button class="ccheck" type="button"></button><div class="cbody"><div class="ctitle">Przegląd budżetu</div><div class=cmeta><span>📅 dzień 1/1</span><span>👥 Kowalski J.</span><span class="badge p2">Średni</span></div></div></article><article class="card p3 st-pending big" style="--pg:0%"><button class="ccheck" type="button"></button><div class="cbody"><div class="ctitle"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>Zebranie zespołu</div><div class=cmeta><span>🕒 09:00–10:00</span><span>👥 Nowak A.</span><span class="badge p3">Wysoki</span></div></div></article><article class="card p1 st-progress big" style="--pg:50%"><button class="ccheck" type="button"></button><div class="cbody"><div class="ctitle">Raport tygodniowy</div><div class=cmeta><span>🔄 50%</span><span class="badge p1">Niski</span></div></div></article></div><figcaption>Kafelki zadań w podsumowaniu dnia. Pole z lewej służy do zaznaczania zadań, okrągły przycisk — do oznaczenia jako zrobione.</figcaption></figure>
+<p>Zadania, które <b>zaczynają się lub trwają</b> w danym dniu, trafiają do podsumowania. Pole zaznaczania na kafelku służy do przenoszenia kilku zadań naraz (rozdział 9).</p></section>
+
+<section id="h-przenies"><h2>9. Przenoszenie zadań</h2>
+<figure class="hfig"><div class="hmv"><div class="mvgroup"><button class="mvbtn" type="button"><span class="mvico today"><i data-ic="calcheck"></i></span><span class="mvtxt"><b>Zaległe → na dziś</b><small>3 zadania do przeniesienia</small></span></button><button class="mvbtn" type="button"><span class="mvico week"><i data-ic="calnext"></i></span><span class="mvtxt"><b>Zaznaczone → przyszły tydzień</b><small>Zaznaczono: 2 zadania</small></span></button></div></div><figcaption>Sekcja „Przenieś zadania”.</figcaption></figure>
+<ul>
+<li><b>Zaległe → na dziś</b> — wszystkie niezakończone zadania z przeszłości przenoszą się na dzisiaj (licznik pokazuje ile).</li>
+<li><b>Zaznaczone → przyszły tydzień</b> — zaznacz zadania polem na kafelku lub w liście (lub „zaznacz wszystkie” w nagłówku listy), a potem kliknij przycisk. Każde zadanie przesunie się o 7 dni.</li>
+<li>Pojedyncze zadanie: przycisk „Na przyszły tydzień” w oknie zadania albo pozycja w menu prawego przycisku.</li>
+</ul></section>
+
+<section id="h-powt"><h2>10. Zadania wielodniowe i cykliczne</h2>
+<p><b>Wielodniowe:</b> w oknie zadania wpisz „Do dnia”. W miesiącu zadanie jest ciągłym paskiem przez kolejne dni (z zachowaniem wyrównania), a uchwyt na końcu pozwala zmienić liczbę dni. Zadanie wielodniowe jest całodniowe. Na liście pokazuje się tylko jego początek.</p>
+<figure class="hfig"><div class="hspan"><span class="chip rj p2 st-pending">Wyjazd szkoleniowy</span><span class="chip lj rj p2 st-pending">&nbsp;</span><span class="chip lj p2 st-pending">&nbsp;</span></div><figcaption>Zadanie trwające trzy dni.</figcaption></figure>
+<p><b>Cykliczne:</b> w oknie nowego zadania wybierz <b>Powtarzanie</b>: codziennie, dni robocze, co tydzień, co 2 tygodnie, co miesiąc lub co rok, oraz liczbę wystąpień albo datę końcową. Program tworzy serię zadań oznaczonych ikoną 🔁. Przy edycji jednego zadania serii możesz zaznaczyć <i>Zastosuj do kolejnych zadań serii</i> (tytuł, godziny, osoby, priorytet, notatki), a przy usuwaniu wybrać „tylko to” lub „to i kolejne”.</p></section>
+
+<section id="h-przyp"><h2>11. Przypomnienia</h2>
+<p>Gdy aktualna godzina trafi w czas zadania z godziną (od rozpoczęcia do końca, a bez godziny końca — przez 15 minut), program pokazuje okienko, odtwarza krótki sygnał i miga na pasku zadań.</p>
+<figure class="hfig"><div class="remcard p3" style="max-width:340px"><div class="rem-head"><i data-ic="bell"></i><b>Przypomnienie</b></div><div class="rem-title">Spotkanie z klientem</div><div class="rem-meta">🕒 10:00–11:00 · śr, 18.11.2026<br>👥 Kowalski Jan</div><div class="rem-note">Omówić ofertę i harmonogram prac.</div><div class="rem-actions"><span class="btn primary"><i data-ic="edit"></i>Otwórz</span><span class="btn"><i data-ic="check"></i>Zrobione</span><span class="btn"><i data-ic="clock"></i>Za 10 min</span></div></div><figcaption>Okienko przypomnienia.</figcaption></figure>
+<ul><li><b>Otwórz</b> – edycja zadania; <b>Zrobione</b> – oznacza zadanie jako zrobione; <b>Za 10 min</b> – odkłada przypomnienie.</li>
+<li>Włącz lub wyłącz przypomnienia przyciskiem z ikoną dzwonka w sekcji Konfiguracja. Wybór jest zapamiętywany, a przypomnienie o danym zadaniu pojawia się tylko raz.</li></ul></section>
+
+<section id="h-mail"><h2>12. Zadanie z maila</h2>
+<p>Przeciągnij wiadomość z <b>Outlooka</b> (lub plik <b>.msg / .eml</b>) na dzień w kalendarzu — w tygodniu także na wybraną godzinę — albo w dowolne miejsce okna (wtedy zadanie trafi na dziś). Otworzy się okno zadania z tematem maila jako tytułem oraz nadawcą, odbiorcami, datą, załącznikami i początkiem treści w notatkach.</p>
+<figure class="hfig"><svg viewBox="0 0 680 170" class="hsvg" role="img" aria-label="Przeciąganie maila z Outlooka">
+<rect x="10" y="10" width="230" height="150" rx="8" class="s-panel s-ln"/><rect x="10" y="10" width="230" height="22" rx="8" class="s-acc"/><text x="22" y="26" class="s-wh">Outlook</text>
+<rect x="20" y="42" width="210" height="28" rx="4" style="fill:color-mix(in srgb,var(--accent) 22%,var(--panel));stroke:var(--accent)"/><text x="28" y="60" class="s-tx">✉ Oferta dla klienta – termin…</text>
+<rect x="20" y="76" width="210" height="22" rx="4" class="s-bg s-ln"/><rect x="20" y="104" width="210" height="22" rx="4" class="s-bg s-ln"/>
+<path d="M150 56C300 10 330 20 410 60" class="s-arrow"/>
+<rect x="400" y="10" width="270" height="150" rx="8" class="s-panel s-ln"/><path d="M400 40h270M490 40v120M580 40v120M400 80h270M400 120h270" class="s-ln"/><text x="412" y="30" class="s-tx">TaskList AK</text>
+<rect x="494" y="84" width="82" height="18" rx="4" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/><text x="500" y="97" class="s-tx" style="font-size:11px">Oferta dla klienta…</text>
+</svg><figcaption>Przeciągnięcie maila na dzień tworzy zadanie. Wiadomość jest czytana lokalnie — nic nie jest wysyłane.</figcaption></figure>
+<p>Alternatywa: <b>Pliki → Utwórz zadanie z maila…</b> (wybór pliku .msg lub .eml). Ustaw termin i osoby, a potem zapisz.</p></section>
+
+<section id="h-kal"><h2>13. Kalendarz lokalny i grupowy</h2>
+<p>Program ma dwa kalendarze widoczne razem:</p>
+<ul>
+<li><b>Lokalny</b> — Twoje prywatne zadania, zapisane tylko na tym komputerze (i w Twoim pliku Excela).</li>
+<li><b>Grupowy</b> — zadania wspólne dla zespołu, zapisywane w pliku na dysku sieciowym, który widzą wszyscy.</li>
+</ul>
+<p>Przyciski <b>Lokalny / Grupowy</b> na górnej belce wybierają, <b>dokąd trafiają nowe zadania</b>. Pole <b>tylko ten</b> ukrywa zadania drugiego kalendarza. Zadania grupowe mają małą <b>fioletową ikonę osób</b>; lokalne są bez ikony. Kalendarz zadania zmienisz w oknie zadania lub w menu prawego przycisku („Przenieś do kalendarza…”).</p>
+<figure class="hfig"><div class="hflex"><span class="chip p2 st-pending">Przegląd budżetu (lokalne)</span><span class="chip p3 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>09:00 Zebranie zespołu (grupowe)</span><span class="chip p1 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>Szkolenie BHP (grupowe)</span></div><div class="hbar" style="margin-top:10px"><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div><span class="calonly"><input type="checkbox" disabled> tylko ten</span></div><figcaption>Zadania z ikoną osób należą do kalendarza grupowego.</figcaption></figure>
+</section>
+
+<section id="h-pliki"><h2>14. Pliki i zapis automatyczny</h2>
+<p><b>Nie musisz niczego zapisywać ręcznie.</b> Każda zmiana zapisuje się sama. Program korzysta z trzech rodzajów plików:</p>
+<figure class="hfig"><svg viewBox="0 0 680 250" class="hsvg" role="img" aria-label="Pliki programu">
+<rect x="250" y="95" width="180" height="60" rx="10" class="s-acc"/><text x="340" y="121" text-anchor="middle" class="s-wh" style="font-weight:700;font-size:14px">TaskList AK</text><text x="340" y="140" text-anchor="middle" class="s-wh">twoje zadania</text>
+<rect x="10" y="20" width="200" height="62" rx="8" class="s-panel s-ln"/><text x="20" y="40" class="s-tx" style="font-weight:700">dane\tasks.json</text><text x="20" y="58" class="s-tx">kopia robocza (zawsze),</text><text x="20" y="72" class="s-tx">obok programu</text>
+<rect x="10" y="168" width="200" height="62" rx="8" class="s-panel s-ln"/><text x="20" y="188" class="s-tx" style="font-weight:700">Plik Excela (.xlsx)</text><text x="20" y="206" class="s-tx">zadania lokalne,</text><text x="20" y="220" class="s-tx">opcjonalny, w wybranym miejscu</text>
+<rect x="470" y="95" width="200" height="62" rx="8" class="s-panel s-ln" style="stroke:var(--grp)"/><text x="480" y="115" class="s-tx" style="font-weight:700">Plik grupowy (.json)</text><text x="480" y="133" class="s-tx">zadania grupowe,</text><text x="480" y="147" class="s-tx">na dysku sieciowym</text>
+<path d="M210 52C240 52 250 80 270 95" class="s-arrow"/><path d="M210 198C240 198 250 170 270 155" class="s-arrow"/><path d="M430 126H468M468 126l-8-5M468 126l-8 5" class="s-arrow"/><path d="M468 136H432M432 136l8-5M432 136l8 5" class="s-arrow"/>
+<g><circle cx="540" cy="205" r="12" class="s-panel s-ln"/><circle cx="575" cy="205" r="12" class="s-panel s-ln"/><circle cx="610" cy="205" r="12" class="s-panel s-ln"/><text x="540" y="240" text-anchor="middle" class="s-tx" style="font-size:11px">Ty i koledzy</text></g>
+<path d="M560 160v28" class="s-arrow"/>
+</svg><figcaption>Skąd i dokąd zapisują się dane.</figcaption></figure>
+<h3>Menu „Pliki”</h3>
+<ul>
+<li><b>Kalendarz lokalny</b> — <i>Otwórz plik Excela…</i> wskazuje plik, który program zapamięta i będzie wczytywał przy starcie oraz automatycznie zapisywał; <i>Zapisz do Excela</i>, <i>Zapisz Excel jako…</i>; eksport/import JSON.</li>
+<li><b>Kalendarz grupowy</b> — <i>Utwórz plik grupowy…</i> (pierwsza osoba) i <i>Połącz z plikiem grupowym…</i> (pozostałe). Potem: <i>Zapisz do pliku grupowego</i>, <i>Odśwież z pliku grupowego</i>, <i>Odłącz</i>; eksport/import do Excela i JSON.</li>
+<li>Obok nazw plików w panelu: <b>✓ zapisano</b>, <b>● zapisywanie…</b> albo <b>⚠ nie zapisano</b> (dymek podaje powód; zapis jest ponawiany co 30 s).</li>
+<li><b>Ctrl+S</b> zapisuje wszystko natychmiast. Gdy żaden plik nie jest połączony, Ctrl+S pyta o plik Excela.</li>
+</ul>
+<h3>Gdzie są dane</h3>
+<p>Dane robocze (<code>dane\</code>) i dzienniki (<code>logi\</code>) leżą w folderze, z którego uruchamiasz program. Przy pierwszym uruchomieniu dawne dane z <code>%LOCALAPPDATA%\TaskListAK</code> są kopiowane. Jeśli folder programu jest tylko do odczytu, program używa dawnej lokalizacji. Folder <code>dane\</code> warto objąć kopią zapasową; aktualizacje programu go nie ruszają.</p>
+<p>Jeśli plik Excela zmieniono poza programem, automatyczny zapis jest wstrzymany (żeby nie nadpisać cudzych zmian) — wybierz „Otwórz plik Excela…” albo „Zapisz Excel jako…”.</p></section>
+
+<section id="h-scal"><h2>15. Praca w grupie i scalanie zmian</h2>
+<p>Gdy plik grupowy jest połączony, program sprawdza co 30 sekund (i po powrocie do okna), czy ktoś go zmienił. Zmiany kilku osób łączą się <b>automatycznie</b>: program porównuje trzy wersje — stan po ostatniej synchronizacji, Twoją i aktualny plik — i zapisuje wynik.</p>
+<figure class="hfig"><svg viewBox="0 0 680 120" class="hsvg" role="img" aria-label="Scalanie zmian">
+<rect x="10" y="10" width="140" height="44" rx="8" class="s-panel s-ln"/><text x="80" y="36" text-anchor="middle" class="s-tx">Baza (ostatnia synch.)</text>
+<rect x="10" y="66" width="140" height="44" rx="8" class="s-panel s-ln"/><text x="80" y="92" text-anchor="middle" class="s-tx">Twoja wersja</text>
+<rect x="190" y="38" width="140" height="44" rx="8" class="s-panel s-ln"/><text x="260" y="64" text-anchor="middle" class="s-tx">Plik (zmiany kolegów)</text>
+<path d="M150 32L188 52M150 88L188 68" class="s-arrow"/>
+<rect x="380" y="38" width="120" height="44" rx="8" class="s-acc"/><text x="440" y="64" text-anchor="middle" class="s-wh" style="font-weight:700">Scalenie</text>
+<path d="M330 60H378" class="s-arrow"/><path d="M500 60H538" class="s-arrow"/>
+<rect x="540" y="38" width="130" height="44" rx="8" class="s-panel s-ln" style="stroke:var(--grp)"/><text x="605" y="64" text-anchor="middle" class="s-tx">Plik + Twój widok</text>
+</svg><figcaption>Scalanie trzech wersji.</figcaption></figure>
+<table class="htab"><thead><tr><th>Sytuacja</th><th>Wynik</th></tr></thead><tbody>
+<tr><td>Ktoś dodał zadanie, Ty dodałeś inne</td><td>Zostają oba</td></tr>
+<tr><td>Ktoś zmienił status, Ty godziny tego samego zadania</td><td>Obie zmiany się łączą</td></tr>
+<tr><td>Ktoś usunął zadanie, którego nie ruszałeś</td><td>Zadanie znika</td></tr>
+<tr><td>Obie strony zmieniły ten sam element (np. tytuł) na różne wartości</td><td>Zostaje Twoja wersja, program zgłasza konflikt</td></tr>
+<tr><td>Ktoś usunął zadanie, które Ty edytowałeś</td><td>Zadanie zostaje</td></tr>
+</tbody></table>
+<p>Po scaleniu pojawia się komunikat z sygnałem, np. „dodano 1: „…”; zmieniono 1; usunięto 1”. Gdy plik jest niedostępny (brak sieci), widać „⚠ plik niedostępny — pracujesz na kopii”, a zmiany zapiszą się po powrocie dostępu. Program nie zapisuje, <i>kto</i> dokonał zmiany.</p></section>
+
+<section id="h-eksport"><h2>16. Eksport i import</h2>
+<ul>
+<li><b>Excel</b> — arkusze „Zadania” (Tytuł, Data, Data do, Od, Do, Priorytet, Status, Postęp (%), Osoby, Notatki, Seria, Kolor, Kalendarz) i „Osoby”. Kolumny możesz edytować w Excelu; przy wczytaniu program zrozumie polskie nazwy statusów i priorytetów.</li>
+<li><b>JSON</b> — kopia zapasowa jednego kalendarza (lokalnego lub grupowego).</li>
+<li><b>Import</b> zastępuje zadania wskazanego kalendarza (po potwierdzeniu); drugi kalendarz zostaje bez zmian. Osoby łączą się po nazwie.</li>
+<li>Do pliku grupowego i jego eksportu trafiają <b>tylko zadania grupowe</b> i osoby z nich — zadania lokalne są prywatne.</li>
+</ul></section>
+
+<section id="h-konf"><h2>17. Konfiguracja i wygląd</h2>
+<figure class="hfig"><div class="hcfg"><div class="sechead"><i data-ic="sliders"></i><span>Konfiguracja</span></div>
+<span class="btn snav"><i data-ic="users"></i>Osoby</span>
+<span class="sidelabel">Układ</span><div class="seg"><span class="btn active"><i data-ic="tiles"></i>Kafelki</span><span class="btn"><i data-ic="rows"></i>Siatka</span></div>
+<span class="sidelabel">Motyw</span><div class="seg"><span class="btn active"><i data-ic="sun"></i>Jasny</span><span class="btn"><i data-ic="moon"></i>Ciemny</span></div>
+<span class="btn snav"><i data-ic="list"></i>Ukryj listę zadań</span><span class="btn snav"><i data-ic="bell"></i>Przypomnienia: włączone</span></div><figcaption>Sekcja Konfiguracja.</figcaption></figure>
+<ul>
+<li><b>Układ</b> — <i>Kafelki</i> (karty zadań, także w miesiącu) albo <i>Siatka</i> (klasyczna tabela godzin i chipy).</li>
+<li><b>Motyw</b> — jasny albo ciemny; bez wyboru obowiązuje motyw systemu Windows.</li>
+<li><b>Ukryj / Pokaż listę zadań</b> pod kalendarzem w miesiącu i tygodniu.</li>
+<li>Wszystkie ustawienia są zapamiętywane. Sekcje <b>Filtry</b> i <b>Konfiguracja</b> zwijasz kliknięciem w nagłówek.</li>
+</ul></section>
+
+<section id="h-aktual"><h2>18. Aktualizacje</h2>
+<p>Na dole panelu bocznego widać numer wersji i przycisk <b>Sprawdź aktualizacje</b>. Gdy pojawi się nowa wersja, kliknij <b>Zainstaluj i uruchom ponownie</b> — program pobierze i zweryfikuje paczkę (suma SHA256), zainstaluje ją, a w razie błędu przywróci poprzednią wersję. Twoje dane (<code>dane\</code>) pozostają nietknięte. Przy wyczerpaniu limitu zapytań GitHuba program korzysta z zapasowego sposobu sprawdzania.</p></section>
+
+<section id="h-skroty"><h2>19. Skróty klawiszowe</h2>
+<table class="htab"><tbody>
+<tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>poprzedni / następny okres</td></tr>
+<tr><td><kbd>m</kbd> <kbd>w</kbd> <kbd>d</kbd></td><td>widok miesiąca / tygodnia / dnia</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>zapisz teraz (wszystkie połączone pliki)</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zamyka menu, okno lub tę stronę</td></tr>
+<tr><td><kbd>Enter</kbd> w liście</td><td>zatwierdza zmianę tytułu</td></tr>
+<tr><td>dwuklik w dzień</td><td>nowe zadanie w tym dniu (w tygodniu: o tej godzinie)</td></tr>
+<tr><td>prawy przycisk na zadaniu</td><td>menu: status, postęp, kolor, przeniesienie, edycja, usunięcie</td></tr>
+<tr><td>kółko myszy nad kalendarzem</td><td>przewijanie dat</td></tr>
+</tbody></table></section>
+
+<section id="h-problemy"><h2>20. Rozwiązywanie problemów</h2>
+<table class="htab"><thead><tr><th>Objaw</th><th>Co zrobić</th></tr></thead><tbody>
+<tr><td>„⚠ nie zapisano” przy pliku Excela</td><td>Plik jest otwarty w Excelu albo brak uprawnień — zamknij go. Program ponawia zapis co 30 s.</td></tr>
+<tr><td>„Plik Excela został zmieniony poza programem”</td><td>Automatyczny zapis jest wstrzymany. Użyj „Otwórz plik Excela…” (wczytaj jego wersję) albo „Zapisz Excel jako…”.</td></tr>
+<tr><td>„⚠ plik niedostępny — pracujesz na kopii”</td><td>Brak dostępu do dysku sieciowego z plikiem grupowym. Pracuj dalej; po powrocie dostępu zmiany scalą się same.</td></tr>
+<tr><td>Błąd o zablokowanym pliku grupowym</td><td>Ktoś akurat go czyta lub zapisuje. Program ponawia próbę automatycznie.</td></tr>
+<tr><td>Nie widać aktualizacji</td><td>GitHub może ograniczać zapytania ze wspólnej sieci. Spróbuj za godzinę albo pobierz paczkę ze strony wydań i rozpakuj do folderu programu (folder <code>dane\</code> zostaw).</td></tr>
+<tr><td>Program się nie uruchamia</td><td>Sprawdź instalację Microsoft Edge WebView2 Runtime. Szczegóły błędu są w <code>logi\blad.log</code>.</td></tr>
+<tr><td>Uszkodzony plik z zadaniami</td><td>Program odkłada go jako <code>tasks.uszkodzony-….json</code> w folderze <code>dane\</code> i startuje z pustymi danymi — odtwórz zadania z pliku Excela, pliku grupowego lub kopii JSON.</td></tr>
+</tbody></table>
+<p class="hfoot">Pytania i uwagi: strona projektu na GitHubie — github.com/xthomx/TaskList_AK.</p></section>
+</div></div>
