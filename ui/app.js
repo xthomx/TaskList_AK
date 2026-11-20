@@ -886,7 +886,7 @@ function selBarHTML(){
 
 function moveSelected(kind){
   const rows = [...sel].map(byId).filter(Boolean); if(!rows.length) return;
-  if(kind === "nextweek"){                              // ten sam dzień tygodnia w przyszłym tygodniu (zachowuje odstępy i długość zadań)
+  if(kind === "nextweek"){                              // poniedziałek przyszłego tygodnia (zachowuje długość zadań)
     rows.forEach(t => moveToDate(t, nextWeekDate(t.date)));
     sel.clear(); save(); render();
     note(`Przeniesiono na przyszły tydzień: ${rows.length} ${zadWord(rows.length)}.`, true);
@@ -1106,10 +1106,10 @@ function renderDaySummary(main){          // podsumowanie wybranego dnia (domyś
 
 /* ================= przenoszenie na przyszły tydzień / na dziś ================= */
 const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
-// +7 dni, a gdy wypada to jeszcze w tym tygodniu (zadanie zaległe) – ten sam dzień tygodnia w przyszłym tygodniu
+// „Na przyszły tydzień” = poniedziałek tygodnia następującego po tygodniu zadania (zaległe i z tego tygodnia: najbliższy poniedziałek)
 function nextWeekDate(ds){
-  const orig = parse(ds), moved = addDays(orig, 7), nextMon = addDays(mondayOf(startOfToday()), 7);
-  return iso(moved < nextMon ? addDays(nextMon, (orig.getDay() + 6) % 7) : moved);
+  const nextMon = addDays(mondayOf(startOfToday()), 7), following = addDays(mondayOf(parse(ds)), 7);
+  return iso(following < nextMon ? nextMon : following);
 }
 const unfinished = () => visibleTasks().filter(t => t.status !== "done");
 function bulkMove(kind){

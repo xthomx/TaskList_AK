@@ -74,3 +74,5 @@ PUBLIKOWANIE NOWEJ WERSJI (dla autora)
 - Pytanie o datę terminu (od 1.18.1): gdy termin z Outlooka upuścisz na inny dzień, niż ma w kalendarzu Outlooka, program pyta, którą datę ustawić (z Outlooka czy dzień upuszczenia; dla terminów cyklicznych zalecany jest dzień upuszczenia). Anuluj nie tworzy zadania. Upuszczenie poza dniem kalendarza używa daty z Outlooka. Diagnostyka odczytu terminu trafia do logi\program.log.
 
 - Terminy cykliczne z Outlooka (od 1.19.0): program odczytuje wzorzec powtarzania i dobiera właściwe wystąpienie serii — upuszczenie na dzień wystąpienia ustawia ten dzień, na inny dzień daje pytanie z najbliższym wystąpieniem, a poza kalendarzem wybiera najbliższe nadchodzące. Gdy wzorca nie da się odczytać, działa pytanie o datę z 1.18.1.
+
+- Zmiana (od 1.19.1): „Na przyszły tydzień” (prawy przycisk, okno zadania, „Zaznaczone → przyszły tydzień”) przenosi zadanie na PONIEDZIAŁEK przyszłego tygodnia (a nie na ten sam dzień tygodnia). Dla zadania z dalszego tygodnia jest to poniedziałek tygodnia następującego po jego tygodniu; zadania wielodniowe zachowują liczbę dni.
