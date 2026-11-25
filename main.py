@@ -420,6 +420,9 @@ class Api:
     def set_show_list(self, visible):
         return self._storage.set_show_list(visible)
 
+    def set_show_done(self, visible):
+        return self._storage.set_show_done(visible)
+
     def set_reminders(self, enabled):
         return self._storage.set_reminders(enabled)
 

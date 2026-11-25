@@ -187,9 +187,9 @@ const namesOf = t => (t.assignees || []).map(personName).filter(Boolean);
 const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.name, "pl"));
 // osoby zapisujemy jako „Nazwisko Imię”; na kafelkach skrót: „Nazwisko I.”
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
-const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && (!calOnly || calOf(t) === curCal) && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
+const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && (!calOnly || calOf(t) === curCal) && (showDone || t.status !== "done") && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
 /* ---- kalendarz: lokalny / grupowy — wybór decyduje, gdzie trafiają nowe zadania; zadania grupowe mają ikonę ---- */
-let curCal = "local", calOnly = false;
+let curCal = "local", calOnly = false, showDone = true;      // showDone: pokaż / ukryj zadania zakończone (zapamiętywane)
 const calOf = t => t.calendar === "group" ? "group" : "local";
 const GROUP_ICO = `<svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Zadanie grupowe"><title>Zadanie grupowe</title>${ICON_PATHS.users}</svg>`;
 const gmk = t => calOf(t) === "group" ? GROUP_ICO : "";
@@ -200,6 +200,7 @@ function saveCal(){
 function renderCalSwitch(){
   document.querySelectorAll("#calSeg .btn").forEach(b => b.classList.toggle("active", b.dataset.cal === curCal));
   document.getElementById("calOnly").checked = calOnly;
+  document.getElementById("showDone").checked = showDone;
   document.getElementById("calSw").dataset.cal = curCal;
   const add = document.getElementById("add");
   if(add) add.title = "Nowe zadanie w kalendarzu: " + (curCal === "group" ? "grupowym" : "lokalnym");
@@ -283,6 +284,12 @@ function renderFilters(){
 }
 document.querySelectorAll("#calSeg .btn").forEach(b => b.onclick = () => { curCal = b.dataset.cal; saveCal(); render(); });
 document.getElementById("calOnly").onchange = e => { calOnly = e.target.checked; saveCal(); render(); };
+document.getElementById("showDone").onchange = e => {
+  showDone = e.target.checked;
+  if(DESKTOP){ if(api()) api().set_show_done(showDone).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_done", showDone ? "1" : "0"); }catch(err){} }
+  render();
+};
 fClear.onclick = () => { clearFilters(); render(); };
 document.addEventListener("click", e => { const d = document.getElementById("fpMenu"); if(d && d.open && !d.contains(e.target)) d.open = false; });
 
@@ -1630,6 +1637,7 @@ async function boot(){
       collapsedSecs = new Set((r.prefs && r.prefs.collapsed) || []); applyCollapsed();
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       curCal = (r.prefs && r.prefs.cal) === "group" ? "group" : "local"; calOnly = !!(r.prefs && r.prefs.cal_only);
+      showDone = !(r.prefs && r.prefs.show_done === false);
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
       tasks = d.tasks; people = d.people;
@@ -1646,6 +1654,7 @@ async function boot(){
       try{ theme = localStorage.getItem(KEY + "_theme") || ""; }catch(e){} applyTheme();
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
+      try{ showDone = localStorage.getItem(KEY + "_done") !== "0"; }catch(e){}
       try{ const c = localStorage.getItem(KEY + "_cal") || ""; curCal = c.startsWith("group") ? "group" : "local"; calOnly = c.endsWith("|only"); }catch(e){}
       try{ dayMode = localStorage.getItem(KEY + "_daymode") === "sections" ? "sections" : "hours"; }catch(e){}
       try{ collapsedSecs = new Set(JSON.parse(localStorage.getItem(KEY + "_collapsed") || "[]")); }catch(e){} applyCollapsed();
