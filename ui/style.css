@@ -709,3 +709,12 @@ path.s-ln,g.s-ln path{fill:none}
 .hfilt .sechead,.hcfg .sechead{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .hfilt .sechead .ic,.hcfg .sechead .ic{width:15px;height:15px}
 .hfilt .chipf{display:inline-block}
+
+/* okno „Pliki” (popup) z dokładnymi lokalizacjami plików */
+.fdlg{width:min(620px,94vw);max-height:90vh;overflow:auto}
+.fdlg .fdbody{position:static;min-width:0;width:100%;box-shadow:none;border:0;padding:0;background:transparent}
+.floc{display:flex;flex-direction:column;gap:2px;padding:2px 11px 8px}
+.floc span{font-size:11px;color:var(--muted)}
+.floc code{display:block;font:12px/1.4 Consolas,"Cascadia Mono",monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:4px;overflow-wrap:anywhere;word-break:break-all;user-select:text}
+.floc code.none{color:var(--muted);font-style:italic}
+.fdlg .actions{display:flex;margin-top:12px}

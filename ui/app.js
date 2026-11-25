@@ -59,9 +59,11 @@ let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve
 const api = () => window.pywebview && window.pywebview.api;
 const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
-let fileInfo = null, groupInfo = null, saveErr = false, syncErr = {file: "", group: ""}, rev = 0;     // zapamiętany plik Excela: {name, path, dirty}
+let dataPath = "", fileInfo = null, groupInfo = null, saveErr = false, syncErr = {file: "", group: ""}, rev = 0;     // zapamiętany plik Excela: {name, path, dirty}
 function showGroup(){
   const g = groupInfo, tag = document.getElementById("groupTag");
+  const lg = document.getElementById("locGroup");
+  if(lg){ lg.textContent = g ? g.path : "nie połączono"; lg.classList.toggle("none", !g); }
   showFile();
   for(const id of ["grpSave", "grpRefresh", "grpOff"]) document.getElementById(id).hidden = !g;
   document.getElementById("grpOpen").hidden = !!g; document.getElementById("grpNew").hidden = !!g;
@@ -73,6 +75,9 @@ function showGroup(){
   tag.classList.toggle("dirty", !!(syncErr.group || g.offline));
 }
 function showFile(){
+  const ld = document.getElementById("locData"), lx = document.getElementById("locXls");
+  if(ld) ld.textContent = DESKTOP ? (dataPath || "—") : "pamięć przeglądarki (localStorage)";
+  if(lx){ lx.textContent = fileInfo ? fileInfo.path : "nie wybrano"; lx.classList.toggle("none", !fileInfo); }
   const el = document.getElementById("fileTag");
   if(!DESKTOP || !fileInfo){ el.hidden = true; return; }
   el.hidden = false; el.title = fileInfo.path + (syncErr.file ? "\n" + syncErr.file : "");
@@ -1274,8 +1279,10 @@ document.addEventListener("keydown", e => {
 
 
 /* ================= eksport / import ================= */
-const closeMenu = () => { dataMenu.open = false; };
-document.addEventListener("click", e => { if(!e.target.closest("#dataMenu")) closeMenu(); });
+const closeMenu = () => { if(filesdlg.open) filesdlg.close(); };
+dataBtn.onclick = () => { showFile(); showGroup(); if(!filesdlg.open) filesdlg.showModal(); };
+filesClose.onclick = closeMenu;
+filesdlg.addEventListener("click", e => { if(e.target === filesdlg) closeMenu(); });       // kliknięcie w tło zamyka okno
 const CAL_NAME = {local: "lokalnego", group: "grupowego"};
 async function doExport(cal){            // kopia zapasowa JSON (w aplikacji: jeden kalendarz)
   closeMenu();
@@ -1628,6 +1635,7 @@ async function boot(){
       tasks = d.tasks; people = d.people;
       if(r.tasks === null && !readOnly) save();
       note(r.warning || "");
+      dataPath = r.data_path || "";
       fileInfo = r.file || null; showFile();
       groupInfo = r.group || null; showGroup();
     } else {

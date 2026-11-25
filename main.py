@@ -199,6 +199,7 @@ class Api:
         result['people'] = data['people'] if data else None
         result['tasks'] = data['tasks'] if data else None
         result['prefs'] = self._storage.get_prefs()
+        result['data_path'] = str(self._storage.tasks_path.resolve())
         result['file'] = self._file_info(data) if data else self._file_info()
         result['group'] = self._group_info(data) if data else self._group_info()
         return result
