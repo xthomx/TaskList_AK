@@ -90,11 +90,12 @@
   <div class="spacer"></div>
   <div class="calsw" id="calSw" role="group" aria-label="Kalendarz">
     <div class="seg calseg" id="calSeg">
-      <button class="btn" data-cal="local" title="Kalendarz lokalny — zadania zapisane tylko na tym komputerze"><i data-ic="user"></i>Lokalny</button>
-      <button class="btn" data-cal="group" title="Kalendarz grupowy — zadania wspólne dla zespołu"><i data-ic="users"></i>Grupowy</button>
+      <button class="btn" data-cal="local" title="Pokaż / ukryj kalendarz lokalny — zadania zapisane tylko na tym komputerze (można włączyć oba kalendarze naraz)"><i data-ic="user"></i>Lokalny</button>
+      <button class="btn" data-cal="group" title="Pokaż / ukryj kalendarz grupowy — zadania wspólne dla zespołu (można włączyć oba kalendarze naraz)"><i data-ic="users"></i>Grupowy</button>
     </div>
-    <label class="calonly" title="Pokaż tylko zadania wybranego kalendarza"><input type="checkbox" id="calOnly"> tylko ten</label>
-    <label class="calonly" title="Pokaż albo ukryj zadania o statusie „Zrobione”"><input type="checkbox" id="showDone" checked> pokaż zakończone zadania</label>
+    <div class="seg calseg" id="doneSeg">
+      <button class="btn active" id="showDone" type="button" aria-pressed="true" title="Pokaż albo ukryj zadania zakończone (status „Zrobione”)"><i data-ic="check"></i>Zakończone</button>
+    </div>
   </div>
 </header>
 <main id="main"><div id="cal"></div><section id="list" aria-label="Lista zadań"></section></main>
