@@ -429,9 +429,11 @@ class Api:
     def set_notified(self, keys):
         return self._storage.set_notified(keys)
 
-    def attention(self):
-        """Przypomnienie: wyciągnij okno na wierzch. Tylko wywołania Win32 (bez pól formularza WinForms z innego wątku —
-        ustawianie TopMost / WindowState spoza wątku okna potrafiło zawiesić program). Błędy ignorujemy."""
+    def attention(self, on_top=True):
+        """Przypomnienie: wyciągnij okno nad wszystkie inne okna i zostaw je tam, dopóki przypomnienie jest na ekranie
+        (on_top=True); po zamknięciu przypomnienia interfejs woła attention(False), co zdejmuje znacznik „zawsze na wierzchu”.
+        Tylko wywołania Win32 (bez pól formularza WinForms z innego wątku — ustawianie TopMost / WindowState spoza wątku okna
+        potrafiło zawiesić program). Błędy ignorujemy."""
         if sys.platform != 'win32':
             return True
         try:
@@ -441,6 +443,10 @@ class Api:
             hwnd = user32.FindWindowW(None, 'TaskList AK')
             if not hwnd:
                 return True
+            flags = 0x0001 | 0x0002 | 0x0010 | 0x4000                                # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
+            if not on_top:
+                user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, flags)                     # HWND_NOTOPMOST — okno zostaje na wierzchu zwykłych okien
+                return True
             if user32.IsIconic(hwnd):
                 user32.ShowWindowAsync(hwnd, 9)                 # SW_RESTORE: wraca do poprzedniego stanu (także zmaksymalizowanego)
 
@@ -449,9 +455,21 @@ class Api:
                             ('uCount', wintypes.UINT), ('dwTimeout', wintypes.DWORD)]
             info = FLASHWINFO(ctypes.sizeof(FLASHWINFO), hwnd, 0x0000000F, 5, 0)     # FLASHW_ALL | FLASHW_TIMERNOFG
             user32.FlashWindowEx(ctypes.byref(info))
-            flags = 0x0001 | 0x0002 | 0x0010 | 0x4000                                # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
-            user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, flags)                         # HWND_TOPMOST
-            user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, flags)                         # HWND_NOTOPMOST — okno zostaje na wierzchu stosu
+            user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, flags)                         # HWND_TOPMOST — nad wszystkimi oknami
+            try:                                                                     # spróbuj też przejąć fokus (system bywa temu przeciwny — wtedy zostaje miganie na pasku)
+                kernel32 = ctypes.windll.kernel32
+                fg = user32.GetForegroundWindow()
+                fg_thread = user32.GetWindowThreadProcessId(fg, None) if fg else 0
+                my_thread = kernel32.GetCurrentThreadId()
+                attached = bool(fg_thread and fg_thread != my_thread and user32.AttachThreadInput(my_thread, fg_thread, True))
+                try:
+                    user32.BringWindowToTop(hwnd)
+                    user32.SetForegroundWindow(hwnd)
+                finally:
+                    if attached:
+                        user32.AttachThreadInput(my_thread, fg_thread, False)
+            except Exception:
+                pass
         except Exception:
             pass
         return True

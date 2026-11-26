@@ -1705,7 +1705,12 @@ function beep(){                                   // krótki sygnał dźwiękow
     setTimeout(() => ctxA.close(), 1000);
   }catch(e){}
 }
+let remTop = false;                                // okno programu jest „zawsze na wierzchu”, dopóki widać przypomnienie
+function syncRemTop(){                             // po zamknięciu ostatniego przypomnienia zdejmij znacznik „na wierzchu”
+  if(!remCards.size && remTop){ remTop = false; if(DESKTOP && api()) api().attention(false).catch(() => {}); }
+}
 function syncRemPopover(){                         // popover = warstwa nad oknami dialogowymi
+  syncRemTop();
   if(!remBox.showPopover) return;
   let open = false; try{ open = remBox.matches(":popover-open"); }catch(e){}
   try{ if(remCards.size && !open) remBox.showPopover(); else if(!remCards.size && open) remBox.hidePopover(); }catch(e){}
@@ -1731,7 +1736,7 @@ function showReminder(t){
     else if(act === "snooze") snoozed.set(key, Date.now() + 10 * 60 * 1000);
   });
   remBox.appendChild(el); remCards.set(key, el); syncRemPopover();
-  beep(); if(DESKTOP && api()) api().attention().catch(() => {});
+  beep(); remTop = true; if(DESKTOP && api()) api().attention(true).catch(() => {});      // okno nad wszystkimi oknami w systemie
 }
 function checkReminders(){
   if(!started) return;
