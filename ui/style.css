@@ -718,3 +718,23 @@ path.s-ln,g.s-ln path{fill:none}
 .floc code{display:block;font:12px/1.4 Consolas,"Cascadia Mono",monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:4px;overflow-wrap:anywhere;word-break:break-all;user-select:text}
 .floc code.none{color:var(--muted);font-style:italic}
 .fdlg .actions{display:flex;margin-top:12px}
+
+/* ===== telefon (PWA): panel boczny jako wysuwane menu ===== */
+#navBtn{display:none}
+@media (max-width:760px){
+  html,body.withside{height:auto;min-height:100%}
+  body.withside{height:100dvh;overflow:hidden}
+  .app{height:100dvh}
+  #navBtn{display:inline-flex;align-items:center;padding:6px 10px}
+  #side{position:fixed;z-index:50;top:0;bottom:0;left:0;width:84vw;max-width:320px;flex:none;transform:translateX(-105%);transition:transform .2s;box-shadow:none;padding-top:max(16px,env(safe-area-inset-top))}
+  body.navopen #side{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.45)}
+  header.top{flex-wrap:wrap;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));gap:6px}
+  #title{font-size:15px;flex:1 1 100%;order:5}
+  header.top .spacer{display:none}
+  .calsw{display:flex;gap:6px;flex-wrap:wrap;order:4}
+  .content{min-width:0}
+  dialog{max-width:100vw;width:100vw;max-height:100dvh;margin:0;border-radius:0}
+  .row{flex-direction:column}
+  input,select,textarea{font-size:16px}
+}
+.fdlg code{overflow-wrap:anywhere;word-break:break-all}

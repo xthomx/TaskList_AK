@@ -1862,3 +1862,10 @@ document.getElementById("side").addEventListener("keydown", e => {
   const head = e.target.closest(".sidesec[data-sec] > .sechead");
   if(head && e.target === head && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); toggleSection(head); }
 });
+
+/* ---- telefon: wysuwane menu boczne ---- */
+document.getElementById("navBtn").onclick = e => { e.stopPropagation(); document.body.classList.toggle("navopen"); };
+document.addEventListener("click", e => {
+  if(!document.body.classList.contains("navopen") || e.target.closest("#navBtn")) return;
+  if(!e.target.closest("#side") || e.target.closest("#side button")) setTimeout(() => document.body.classList.remove("navopen"), 0);
+});
