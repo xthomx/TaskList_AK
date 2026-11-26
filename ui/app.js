@@ -59,7 +59,7 @@ let started = false, readOnly = false, saveTimer = null, chain = Promise.resolve
 const api = () => window.pywebview && window.pywebview.api;
 const errText = e => (e && (e.message || e.toString())) || "nieznany błąd";
 function note(msg, ok){ const el = document.getElementById("note"); el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("ok", !!ok); }
-let dataPath = "", fileInfo = null, groupInfo = null, saveErr = false, syncErr = {file: "", group: ""}, rev = 0;     // zapamiętany plik Excela: {name, path, dirty}
+let dataPath = "", fileInfo = null, groupInfo = null, localInfo = null, saveErr = false, syncErr = {file: "", group: "", local: ""}, rev = 0;     // zapamiętany plik Excela: {name, path, dirty}
 function showGroup(){
   const g = groupInfo, tag = document.getElementById("groupTag");
   const lg = document.getElementById("locGroup");
@@ -73,6 +73,12 @@ function showGroup(){
     (g.offline ? "<br>⚠ plik niedostępny — pracujesz na kopii" : "");
   tag.title = g.path + (syncErr.group ? "\n" + syncErr.group : "");
   tag.classList.toggle("dirty", !!(syncErr.group || g.offline));
+}
+function showLocal(){
+  const l = localInfo, lj = document.getElementById("locJson");
+  if(lj){ lj.textContent = l ? l.path + (syncErr.local ? "  ⚠ " + syncErr.local : l.dirty ? "  ● zapisywanie…" : "  ✓ zapisano") : "nie połączono"; lj.classList.toggle("none", !l); }
+  for(const id of ["ljSave", "ljOff"]) document.getElementById(id).hidden = !l;
+  document.getElementById("ljOpen").hidden = !!l; document.getElementById("ljNew").hidden = !!l;
 }
 function showFile(){
   const ld = document.getElementById("locData"), lx = document.getElementById("locXls");
@@ -141,6 +147,7 @@ function flush(){
   chain = chain.then(() => api().save_data(snap)).then(res => {
     if(fileInfo && res && typeof res === "object"){ fileInfo.dirty = !!res.dirty; showFile(); }
     if(groupInfo && res && typeof res === "object"){ groupInfo.dirty = !!res.group_dirty; showGroup(); }
+    if(localInfo && res && typeof res === "object"){ localInfo.dirty = !!res.local_dirty; showLocal(); }
     if(saveErr){ saveErr = false; note(""); }
   }).catch(e => { saveErr = true; note("Zapis nie powiódł się: " + errText(e)); });
   return chain;
@@ -480,6 +487,7 @@ function renderBoard(main){
     boardKey = key; boardScrollX = 0;
     const t = board.querySelector(".bcol.today");
     if(t && view === "month") board.scrollLeft = Math.max(0, t.offsetLeft - board.querySelector(".bover").offsetWidth - 32);
+    else if(t && isPhone() && view === "week") board.scrollLeft = Math.max(0, t.getBoundingClientRect().left - board.getBoundingClientRect().left + board.scrollLeft - 8);    // telefon: od razu dzisiejszy dzień, zaległe są po lewej
   }
 
   // przeciąganie kart między dniami
@@ -983,8 +991,10 @@ function slotList(all){
   slots.push({key: "after", label: `Po ${DAY_END}:00`, sub: "wieczór", cls: "edge", start: pad2(DAY_END) + ":00"});
   return slots;
 }
-const HOUR_PX = 96, SNAP_MIN = 15;                    // wysokość godziny w siatce i krok czasu przy przeciąganiu / rozciąganiu
+const isPhone = () => !!(window.matchMedia && matchMedia("(max-width:760px)").matches);
+let HOUR_PX = 96; const SNAP_MIN = 15;                    // wysokość godziny w siatce i krok czasu przy przeciąganiu / rozciąganiu
 function timelineHTML(all, dayS, isToday){
+  HOUR_PX = isPhone() ? 64 : 96;
   const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
   const by = {};
   for(const t of all) (by[slotOf(t)] = by[slotOf(t)] || []).push(t);
@@ -1294,7 +1304,7 @@ document.addEventListener("keydown", e => {
 
 /* ================= eksport / import ================= */
 const closeMenu = () => { if(filesdlg.open) filesdlg.close(); };
-dataBtn.onclick = () => { showFile(); showGroup(); if(!filesdlg.open) filesdlg.showModal(); };
+dataBtn.onclick = () => { showFile(); showGroup(); showLocal(); if(!filesdlg.open) filesdlg.showModal(); };
 filesClose.onclick = closeMenu;
 filesdlg.addEventListener("click", e => { if(e.target === filesdlg) closeMenu(); });       // kliknięcie w tło zamyka okno
 const CAL_NAME = {local: "lokalnego", group: "grupowego"};
@@ -1397,6 +1407,48 @@ async function groupOff(){
   try{ await api().group_disconnect(); groupInfo = null; showGroup(); note("Odłączono plik grupowy.", true); }
   catch(e){ note("Nie udało się odłączyć: " + errText(e)); }
 }
+/* ---- plik lokalny w chmurze (JSON, np. w OneDrive): ten sam kalendarz lokalny na wielu urządzeniach jednego użytkownika ---- */
+function setFromLocal(r){ tasks = r.tasks.map(fixTask); people = r.people; localInfo = r.local_json; render(); showLocal(); }
+async function localOpen(){
+  closeMenu();
+  try{
+    await flush();
+    const r = await api().local_open(); if(!r) return;
+    const mine = tasks.filter(t => calOf(t) === "local").length;
+    if(!confirm(`Połączyć kalendarz lokalny z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania lokalne w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania grupowe nie są zmieniane.`)) return;
+    setFromLocal(await api().local_accept(r.token, currentData())); note("Połączono z plikiem lokalnym w chmurze: " + r.name, true);
+  }catch(e){ note("Nie połączono z plikiem lokalnym: " + errText(e)); }
+}
+async function localNew(){
+  closeMenu();
+  try{
+    await flush();
+    const g = await api().local_create(currentData()); if(!g) return;
+    localInfo = g; showLocal(); note("Utworzono plik lokalny w chmurze: " + g.name + " (zawiera tylko zadania lokalne).", true);
+  }catch(e){ note("Nie utworzono pliku lokalnego: " + errText(e)); }
+}
+async function localSync(auto){
+  if(!localInfo || groupBusy) return;
+  groupBusy = true;
+  try{
+    await flush();
+    const r = await api().local_sync(currentData());
+    setFromLocal(r);
+    const what = reportText(r.report);
+    if(auto){ if(what){ note("Zmiany w kalendarzu lokalnym (inne urządzenie) — " + what + ".", true); beep(); } }
+    else note("Zapisano w pliku lokalnym: " + r.local_json.name + (what ? " · zmiany z innego urządzenia: " + what : ""), true);
+  }catch(e){
+    if(auto){ if(localInfo){ localInfo.offline = true; showLocal(); } }
+    else note("Synchronizacja z plikiem lokalnym nie powiodła się: " + errText(e));
+  }finally{ groupBusy = false; }
+}
+async function localOff(){
+  closeMenu();
+  if(!confirm("Odłączyć plik lokalny w chmurze? Zadania lokalne zostaną w programie, ale przestaną być zapisywane do pliku.")) return;
+  try{ await api().local_disconnect(); localInfo = null; showLocal(); note("Odłączono plik lokalny w chmurze.", true); }
+  catch(e){ note("Nie udało się odłączyć: " + errText(e)); }
+}
+ljOpen.onclick = localOpen; ljNew.onclick = localNew; ljSave.onclick = () => { closeMenu(); localSync(false); }; ljOff.onclick = localOff;
 grpOpen.onclick = groupOpen; grpNew.onclick = groupNew; grpSave.onclick = groupSave; grpRefresh.onclick = groupRefresh; grpOff.onclick = groupOff;
 
 /* ================= zadanie z maila: przeciągnij wiadomość z Outlooka (lub .msg/.eml) na kalendarz ================= */
@@ -1528,12 +1580,12 @@ xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.oncli
 /* ---- zapis automatyczny: po każdej zmianie (z krótkim opóźnieniem) i co 30 s, gdy coś czeka na zapis ---- */
 let syncTimer = null, syncing = false, syncNote = false;
 function scheduleSync(ms){
-  if(!DESKTOP || !started || !(fileInfo || groupInfo)) return;
+  if(!DESKTOP || !started || !(fileInfo || groupInfo || localInfo)) return;
   clearTimeout(syncTimer); syncTimer = setTimeout(autoSync, ms || 1500);
 }
 async function autoSync(){
   clearTimeout(syncTimer);
-  if(!DESKTOP || !started || readOnly || !(fileInfo || groupInfo)) return null;
+  if(!DESKTOP || !started || readOnly || !(fileInfo || groupInfo || localInfo)) return null;
   if(syncing || groupBusy){ scheduleSync(2000); return null; }
   syncing = true; const my = rev;
   try{
@@ -1541,26 +1593,27 @@ async function autoSync(){
     const r = await api().sync_files(currentData());
     if(fileInfo) fileInfo = r.file || fileInfo;
     if(groupInfo) groupInfo = r.group || groupInfo;
-    syncErr = {file: (r.errors && r.errors.file) || "", group: (r.errors && r.errors.group) || ""};
-    const g = r.group_result, what = g ? reportText(g.report) : "";
+    if(localInfo) localInfo = r.local_json || localInfo;
+    syncErr = {file: (r.errors && r.errors.file) || "", group: (r.errors && r.errors.group) || "", local: (r.errors && r.errors.local) || ""};
+    const g = r.local_result || r.group_result, what = [r.group_result, r.local_result].map(x => x ? reportText(x.report) : "").filter(Boolean).join("; ");
     if(what){                                          // przy zapisie scalono zmiany innych osób
       if(rev === my && !dlg.open && !pdlg.open && !drag){ tasks = g.tasks.map(fixTask); people = g.people; render(); }
       else scheduleSync(3000);                         // użytkownik właśnie edytuje: pobierz zmiany później
-      note("Zmiany w kalendarzu grupowym — " + what + ".", true); beep(); syncNote = false;
+      note("Zmiany w kalendarzach z plików — " + what + ".", true); beep(); syncNote = false;
     }
-    const err = syncErr.file || syncErr.group;
+    const err = syncErr.file || syncErr.group || syncErr.local;
     if(err){ note(err); syncNote = true; }
     else if(syncNote){ note(""); syncNote = false; }
-    showFile(); showGroup();
+    showFile(); showGroup(); showLocal();
     return r;
   }catch(e){ note("Zapis automatyczny nie powiódł się: " + errText(e)); syncNote = true; return null; }
   finally{ syncing = false; }
 }
-setInterval(() => { if((fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty) || syncErr.file || syncErr.group) autoSync(); }, 30000);
+setInterval(() => { if((fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty) || (localInfo && localInfo.dirty) || syncErr.file || syncErr.group || syncErr.local) autoSync(); }, 30000);
 async function saveCurrent(){                       // Ctrl+S: zapisz teraz (bez połączonych plików: wskaż plik Excela)
-  if(!fileInfo && !groupInfo){ await saveXlsx(false); return; }
+  if(!fileInfo && !groupInfo && !localInfo){ await saveXlsx(false); return; }
   const r = await autoSync();
-  if(r && !syncErr.file && !syncErr.group) note("Zapisano.", true);
+  if(r && !syncErr.file && !syncErr.group && !syncErr.local) note("Zapisano.", true);
 }
 
 /* ---- kto zmienił zadania grupowe: sprawdzanie pliku co 30 s i po powrocie do okna ---- */
@@ -1575,8 +1628,17 @@ async function checkGroup(){
     else showGroup();
   }catch(e){ if(groupInfo){ groupInfo.offline = true; showGroup(); } }
 }
-setInterval(checkGroup, 30000);
-window.addEventListener("focus", () => setTimeout(checkGroup, 500));
+async function checkLocal(){                         // inne urządzenie (np. telefon) zmieniło plik w chmurze: scal
+  if(!DESKTOP || !localInfo || !started || groupBusy || readOnly || dlg.open || pdlg.open || drag) return;
+  try{
+    const c = await api().local_check();
+    if(!localInfo) return;
+    localInfo.offline = !!c.offline;
+    if(c.changed) await localSync(true);
+  }catch(e){ if(localInfo){ localInfo.offline = true; } }
+}
+setInterval(checkGroup, 30000); setInterval(checkLocal, 30000);
+window.addEventListener("focus", () => { setTimeout(checkGroup, 500); setTimeout(checkLocal, 900); });
 document.addEventListener("keydown", e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"){ e.preventDefault(); if(DESKTOP && started) saveCurrent(); }
 });
@@ -1617,7 +1679,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["mgExcel", "mgGroup", "mgMail"]) document.getElementById(id).hidden = false;
+  for(const id of ["mgExcel", "mgGroup", "mgMail", "mgLocalJson"]) document.getElementById(id).hidden = false;
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
@@ -1653,6 +1715,7 @@ async function boot(){
       dataPath = r.data_path || "";
       fileInfo = r.file || null; showFile();
       groupInfo = r.group || null; showGroup();
+      localInfo = r.local_json || null; showLocal();
     } else {
       let d = null;
       try{ d = normalize(JSON.parse(localStorage.getItem(KEY))); }catch(e){}

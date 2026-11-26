@@ -220,6 +220,7 @@ class Storage:
             path, fp = data.get('last_xlsx', ''), data.get('xlsx_fp', '')
             xs = data.get('xlsx_sig', '')
             gp, gs, gf = data.get('group_path', ''), data.get('group_sig', ''), data.get('group_fp', '')
+            lp, ls, lf = data.get('local_path', ''), data.get('local_sig', ''), data.get('local_fp', '')
             layout, theme = data.get('layout'), data.get('theme')
             notified = data.get('notified', [])
             notified = [k for k in notified if isinstance(k, str) and len(k) < 120][:300] if isinstance(notified, list) else []
@@ -235,12 +236,15 @@ class Storage:
                     'xlsx_sig': xs if isinstance(xs, str) and len(xs) <= 64 else '',
                     'group_path': gp if isinstance(gp, str) and len(gp) < 1000 else '',
                     'group_sig': gs if isinstance(gs, str) and len(gs) <= 64 else '',
-                    'group_fp': gf if isinstance(gf, str) and len(gf) <= 64 else ''}
+                    'group_fp': gf if isinstance(gf, str) and len(gf) <= 64 else '',
+                    'local_path': lp if isinstance(lp, str) and len(lp) < 1000 else '',
+                    'local_sig': ls if isinstance(ls, str) and len(ls) <= 64 else '',
+                    'local_fp': lf if isinstance(lf, str) and len(lf) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'show_done': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'xlsx_sig': '', 'group_path': '', 'group_sig': '', 'group_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'show_done': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'xlsx_sig': '', 'group_path': '', 'group_sig': '', 'group_fp': '', 'local_path': '', 'local_sig': '', 'local_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'show_done', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'xlsx_sig', 'group_path', 'group_sig', 'group_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'show_done', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'xlsx_sig', 'group_path', 'group_sig', 'group_fp', 'local_path', 'local_sig', 'local_fp'}:
             raise ValueError('Nieznane ustawienie.')
         if 'collapsed' in changes:
             c = changes['collapsed']

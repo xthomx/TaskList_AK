@@ -25,8 +25,10 @@ i (po skonfigurowaniu) synchronizowane z plikami JSON w Twoim OneDrive.
 * Kalendarz **grupowy**: `TaskListAK/grupowy.json` — ten sam format i to samo scalanie zmian co w programie na Windows.
   Na komputerze wskaż ten plik jako plik grupowy (Pliki → Grupowy → Otwórz), używając folderu zsynchronizowanego z OneDrive
   (np. `C:\Users\...\OneDrive\TaskListAK\grupowy.json`).
-* Kalendarz **lokalny**: domyślnie tylko w telefonie. Możesz wpisać ścieżkę (np. `TaskListAK/lokalny.json`),
-  wtedy będzie kopia zapasowa/synchronizacja między telefonami; program na Windows tego pliku nie używa.
+* Kalendarz **lokalny**: `TaskListAK/lokalny.json` (włączony domyślnie) — Twoje zadania na wielu urządzeniach.
+  Na komputerze: Pliki → Kalendarz lokalny → „Połącz z plikiem lokalnym w chmurze…" (lub „Utwórz…") i wskaż
+  `...\OneDrive\TaskListAK\lokalny.json`. Lokalizację możesz zmienić w dowolnej chwili (Odłącz i połącz z innym plikiem).
+  Excel (jeśli go używasz) działa jak dotąd, niezależnie od tego pliku.
 
 ## Ograniczenia
 

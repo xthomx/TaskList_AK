@@ -12,7 +12,7 @@ const SCOPE = "Files.ReadWrite offline_access";
 const FIELDS = [["title"], ["date", "end_date", "start", "end"], ["priority"], ["status", "progress"], ["notes"], ["color"], ["assignees"], ["series"]];
 const jget = (k, d) => { try{ const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; }catch(e){ return d; } };
 const jset = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
-let cfg = Object.assign({clientId: "", groupPath: "TaskListAK/grupowy.json", localPath: ""}, jget(CK, {}));
+let cfg = Object.assign({clientId: "", groupPath: "TaskListAK/grupowy.json", localPath: "TaskListAK/lokalny.json"}, jget(CK, {}));
 let busy = false, timer = null, status = "", lastOk = "";
 const redirectUri = () => location.origin + location.pathname;
 
@@ -87,7 +87,7 @@ async function writeRemote(path, doc, etag){            // false = ktoś zapisa�
 const calOf = t => t.calendar === "group" ? "group" : "local";
 function part(cal){
   const ts = tasks.filter(t => calOf(t) === cal), used = new Set(ts.flatMap(t => t.assignees || []));
-  return {people: people.filter(p => used.has(p.id)), tasks: ts};
+  return {people: cal === "local" ? people.slice() : people.filter(p => used.has(p.id)), tasks: ts};
 }
 function norm(p){
   const names = Object.fromEntries(p.people.map(x => [x.id, x.name])), out = new Map();
@@ -123,7 +123,8 @@ function merge(base, mine, theirs, cal){
   // z powrotem do postaci {people, tasks}: osoby łączone po nazwie
   const pid = {}; for(const p of theirs.people) pid[p.name] = p.id; for(const p of mine.people) pid[p.name] = p.id;
   const full = new Map(mine.tasks.map(x => [x.id, x])); for(const x of theirs.tasks) if(!full.has(x.id)) full.set(x.id, x);
-  const usedNames = [...new Set([...out.values()].flatMap(d => d.assignees))].sort();
+  let usedNames = [...new Set([...out.values()].flatMap(d => d.assignees))].sort();
+  if(cal === "local") usedNames = [...new Set([...usedNames, ...mine.people.map(p => p.name), ...theirs.people.map(p => p.name)])].sort();   // lokalny: wspólna lista osób, także bez zadań
   const ppl = usedNames.map(n => ({id: pid[n] || uid(), name: n})), idOf = Object.fromEntries(ppl.map(p => [p.name, p.id]));
   const list = [...out].map(([id, d]) => Object.assign({}, full.get(id), d, {id, calendar: cal, assignees: d.assignees.map(n => idOf[n])}));
   list.sort((x, y) => (x.date + x.start + x.title.toLowerCase() + x.id).localeCompare(y.date + y.start + y.title.toLowerCase() + y.id));
@@ -201,7 +202,7 @@ dlgC.innerHTML = `<form method="dialog"><h2>Synchronizacja z OneDrive</h2><div c
 <p class="hint">Zadania są zapisywane w plikach JSON w Twoim OneDrive i scalane ze zmianami z innych urządzeń. Wymagany jest Client ID aplikacji zarejestrowanej w Microsoft Entra (instrukcja: INSTRUKCJA_PWA.md w repozytorium).</p>
 <label>Client ID aplikacji</label><input type="text" id="cdId" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
 <label>Plik kalendarza grupowego (w OneDrive)</label><input type="text" id="cdGroup" autocomplete="off" autocapitalize="off" spellcheck="false">
-<label>Plik kalendarza lokalnego (opcjonalnie; puste = tylko na tym telefonie)</label><input type="text" id="cdLocal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="TaskListAK/lokalny.json">
+<label>Plik kalendarza lokalnego (ten sam co na komputerze; puste = tylko na tym telefonie)</label><input type="text" id="cdLocal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="TaskListAK/lokalny.json">
 <p class="hint">Adres powrotu do wpisania w Entra: <code id="cdUri"></code></p>
 <p id="cdStatus" role="status"></p></div>
 <div class="actions"><button class="btn primary" type="button" id="cdLogin">Zaloguj</button><button class="btn" type="button" id="cdSync">Synchronizuj teraz</button><button class="btn" type="button" id="cdOut">Wyloguj</button><button class="btn" type="submit" id="cdClose">Zamknij</button></div></form>`;

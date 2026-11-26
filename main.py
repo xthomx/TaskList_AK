@@ -81,7 +81,7 @@ def _norm(part):
     return out
 
 
-def merge_group(base, mine, theirs):
+def merge_group(base, mine, theirs, all_people=False):
     """base, mine, theirs: części grupowe {people, tasks} (base może być None). Zwraca (część, raport)."""
     b, m, t = (_norm(base) if base else None), _norm(mine), _norm(theirs)
     out, added, changed, conflicts = {}, [], [], []
@@ -127,6 +127,8 @@ def merge_group(base, mine, theirs):
     pid = {p['name']: p['id'] for p in theirs['people']}
     pid.update({p['name']: p['id'] for p in mine['people']})
     used = sorted({n for d in out.values() for n in d['assignees']})
+    if all_people:                                       # kalendarz lokalny: lista osób jest wspólna (także osoby bez zadań)
+        used = sorted(set(used) | {p['name'] for p in mine['people']} | {p['name'] for p in theirs['people']})
     people = [{'id': pid[n], 'name': n} for n in used]
     tasks = []
     for tid, d in out.items():
@@ -196,138 +198,240 @@ class Api:
         result['group'] = None
         if prefs['group_path']:
             data, result['warning'] = self._load_group(data, result.get('warning', ''))
+        result['local_json'] = None
+        if prefs['local_path']:
+            data, result['warning'] = self._load_cal('local', data, result.get('warning', ''))
         result['people'] = data['people'] if data else None
         result['tasks'] = data['tasks'] if data else None
         result['prefs'] = self._storage.get_prefs()
         result['data_path'] = str(self._storage.tasks_path.resolve())
         result['file'] = self._file_info(data) if data else self._file_info()
         result['group'] = self._group_info(data) if data else self._group_info()
+        result['local_json'] = self._local_info(data) if data else self._local_info()
         return result
 
-    # ---- plik grupowy (JSON, np. na dysku sieciowym) ----
-    def _group_info(self, data=None):
+    # ---- pliki JSON kalendarzy: grupowy (np. dysk sieciowy) i lokalny (np. folder OneDrive, wiele urządzeń jednego użytkownika) ----
+    LINKS = {'group': ('group_path', 'group_sig', 'group_fp', 'group_base.json', 'group', 'grupowy'),
+             'local': ('local_path', 'local_sig', 'local_fp', 'local_base.json', 'local_json', 'lokalny')}
+
+    def _link_info(self, cal, data=None):
+        pkey, _s, fkey = self.LINKS[cal][:3]
         prefs = self._storage.get_prefs()
-        path = prefs['group_path']
+        path = prefs[pkey]
         if not path:
             return None
         dirty = False
         if data is not None:
             try:
-                dirty = fingerprint(_part(validate_data(data), 'group')) != prefs['group_fp']
+                dirty = fingerprint(_part(validate_data(data), cal)) != prefs[fkey]
             except ValueError:
                 dirty = True
         return {'name': Path(path).name, 'path': str(path), 'dirty': dirty}
 
+    def _group_info(self, data=None):
+        return self._link_info('group', data)
+
+    def _local_info(self, data=None):
+        return self._link_info('local', data)
+
     @staticmethod
-    def _read_group(path):
+    def _read_doc(path, cal):
         path = Path(path)
         if path.stat().st_size > MAX_BYTES:
             raise ValueError('Plik przekracza 5 MB.')
         raw = path.read_bytes()
         try:
             doc = json.loads(raw.decode('utf-8-sig'))
-            clean = validate_data({'people': doc['people'], 'tasks': [dict(t, calendar='group') for t in doc['tasks']]})
+            clean = validate_data({'people': doc['people'], 'tasks': [dict(t, calendar=cal) for t in doc['tasks']]})
         except (ValueError, UnicodeError, KeyError, TypeError) as exc:
-            raise ValueError('To nie jest poprawny plik kalendarza grupowego.') from exc
+            raise ValueError('To nie jest poprawny plik kalendarza ' + Api.LINKS[cal][5] + 'ego.') from exc
         return clean, _sig(raw)
 
-    # baza scalania: zawartość pliku grupowego po ostatniej synchronizacji
+    @staticmethod
+    def _read_group(path):
+        return Api._read_doc(path, 'group')
+
+    @staticmethod
+    def _read_local(path):
+        return Api._read_doc(path, 'local')
+
+    def _read_link(self, cal, path):
+        return self._read_group(path) if cal == 'group' else self._read_local(path)
+
+    # baza scalania: zawartość pliku po ostatniej synchronizacji
+    def _base_file(self, cal):
+        return self._storage.folder / self.LINKS[cal][3]
+
     @property
     def _base_path(self):
-        return self._storage.folder / 'group_base.json'
+        return self._base_file('group')
 
-    def _read_base(self):
+    def _read_base(self, cal='group'):
         try:
-            doc = json.loads(self._base_path.read_text(encoding='utf-8'))
-            return validate_data({'people': doc['people'], 'tasks': [dict(t, calendar='group') for t in doc['tasks']]})
+            doc = json.loads(self._base_file(cal).read_text(encoding='utf-8'))
+            return validate_data({'people': doc['people'], 'tasks': [dict(t, calendar=cal) for t in doc['tasks']]})
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
-    def _write_base(self, part):
-        self._storage._atomic_write(self._base_path, json.dumps(part, ensure_ascii=False))
+    def _write_base(self, part, cal='group'):
+        self._storage._atomic_write(self._base_file(cal), json.dumps(part, ensure_ascii=False))
 
-    def _sync_group(self, data):
-        """Scal moje zadania grupowe z aktualnym plikiem, zapisz wynik w pliku (gdy się różni) i w kopii roboczej."""
+    def _sync_cal(self, cal, data):
+        """Scal moje zadania kalendarza z aktualnym plikiem, zapisz wynik w pliku (gdy się różni) i w kopii roboczej."""
+        pkey, skey, fkey, _b, infokey, adj = self.LINKS[cal]
         prefs = self._storage.get_prefs()
-        path = Path(prefs['group_path'])
+        path = Path(prefs[pkey])
         clean = validate_data(data)
-        mine = _part(clean, 'group')
+        mine = _part(clean, cal)
         for _ in range(4):
-            theirs, sig = self._read_group(path)
-            merged, report = merge_group(self._read_base(), mine, theirs)
-            if _norm(merged) == _norm(theirs):
+            theirs, sig = self._read_link(cal, path)
+            merged, report = merge_group(self._read_base(cal), mine, theirs, all_people=(cal == 'local'))
+            same_people = cal == 'group' or {p['name'] for p in merged['people']} <= {p['name'] for p in theirs['people']}
+            if _norm(merged) == _norm(theirs) and same_people:
                 new_sig = sig                                      # plik już zawiera wynik — bez zapisu
             else:
                 if _sig(path.read_bytes()) != sig:
                     continue                                       # ktoś zapisał w międzyczasie: scal jeszcze raz
                 new_sig = _sig(self._write_text(path, json.dumps(merged, ensure_ascii=False, indent=1)))
-            final = _replace(clean, 'group', merged)
+            final = _replace(clean, cal, merged)
             self._storage.save_data(final)
-            self._write_base(merged)
-            self._storage.set_prefs(group_sig=new_sig, group_fp=fingerprint(_part(final, 'group')))
-            return {'people': final['people'], 'tasks': final['tasks'], 'group': self._group_info(final), 'report': report}
-        raise ValueError('Plik grupowy jest zmieniany przez innych — spróbuj ponownie za chwilę.')
+            self._write_base(merged, cal)
+            self._storage.set_prefs(**{skey: new_sig, fkey: fingerprint(_part(final, cal))})
+            return {'people': final['people'], 'tasks': final['tasks'], infokey: self._link_info(cal, final), 'report': report}
+        raise ValueError('Plik ' + adj + ' jest zmieniany przez innych — spróbuj ponownie za chwilę.')
 
-    def _load_group(self, data, warning):
-        """Start: scal kopię roboczą z aktualnym plikiem grupowym; gdy plik niedostępny, zostaje kopia."""
-        name = Path(self._storage.get_prefs()['group_path']).name
+    def _sync_group(self, data):
+        return self._sync_cal('group', data)
+
+    def _load_cal(self, cal, data, warning):
+        """Start: scal kopię roboczą z aktualnym plikiem; gdy plik niedostępny, zostaje kopia."""
+        adj = self.LINKS[cal][5]
+        name = Path(self._storage.get_prefs()[self.LINKS[cal][0]]).name
         if data is None:
             data = {'people': [], 'tasks': []}
         try:
-            out = self._sync_group(data)
+            out = self._sync_cal(cal, data)
             return {'people': out['people'], 'tasks': out['tasks']}, warning
         except (OSError, ValueError) as exc:
-            return data, (warning + ' ' if warning else '') + ('Plik grupowy niedostępny (' + name + '): ' + str(exc)
-                                                               + ' Pokazano ostatnią kopię kalendarza grupowego.')
+            return data, (warning + ' ' if warning else '') + ('Plik ' + adj + ' niedostępny (' + name + '): ' + str(exc)
+                                                               + ' Pokazano ostatnią kopię kalendarza ' + adj + 'ego.')
 
-    def group_create(self, data):
+    def _load_group(self, data, warning):
+        return self._load_cal('group', data, warning)
+
+    def _cal_create(self, cal, data):
         clean = validate_data(data)
-        path = self._pick_save('zadania-grupowe.json', 'Kalendarz grupowy (*.json)', '.json')
+        pkey, skey, fkey = self.LINKS[cal][:3]
+        adj = self.LINKS[cal][5]
+        path = self._pick_save('zadania-' + adj + '.json', 'Kalendarz ' + adj + ' (*.json)', '.json')
         if not path:
             return None
-        part = _part(clean, 'group')
+        part = _part(clean, cal)
         raw = self._write_text(path, json.dumps(part, ensure_ascii=False, indent=1))
-        self._write_base(part)
-        self._storage.set_prefs(group_path=str(path.resolve()), group_sig=_sig(raw), group_fp=fingerprint(_part(clean, 'group')))
-        return self._group_info(clean)
+        self._write_base(part, cal)
+        self._storage.set_prefs(**{pkey: str(path.resolve()), skey: _sig(raw), fkey: fingerprint(_part(clean, cal))})
+        return self._link_info(cal, clean)
 
-    def group_open(self):
-        """Wybierz i sprawdź plik grupowy; zapamiętanie po group_accept (po potwierdzeniu w UI)."""
-        path = self._pick_open('Kalendarz grupowy (*.json)')
+    def _cal_open(self, cal):
+        """Wybierz i sprawdź plik; zapamiętanie po *_accept (po potwierdzeniu w UI)."""
+        path = self._pick_open('Kalendarz ' + self.LINKS[cal][5] + ' (*.json)')
         if not path:
             return None
-        extra, sig = self._read_group(path)
+        extra, sig = self._read_link(cal, path)
         token = uuid.uuid4().hex
-        self._pending_group = (token, path.resolve(), extra, sig)
+        pending = getattr(self, '_pending_links', None)
+        if pending is None:
+            pending = self._pending_links = {}
+        pending[cal] = (token, path.resolve(), extra, sig)
         return {'token': token, 'name': path.name, 'count': len(extra['tasks'])}
 
-    def group_accept(self, token, data):
-        pending = getattr(self, '_pending_group', None)
+    def _cal_accept(self, cal, token, data):
+        pending = getattr(self, '_pending_links', {}).get(cal)
         if not pending or pending[0] != token:
             raise ValueError('Nieaktualna operacja otwierania.')
+        pkey, skey, fkey, _b, infokey = self.LINKS[cal][:5]
         _, path, extra, sig = pending
-        self._pending_group = None
-        merged = _replace(validate_data(data), 'group', extra)
+        self._pending_links.pop(cal, None)
+        merged = _replace(validate_data(data), cal, extra)
         self._storage.save_data(merged)
-        self._write_base(_part(merged, 'group'))
-        self._storage.set_prefs(group_path=str(path), group_sig=sig, group_fp=fingerprint(_part(merged, 'group')))
-        return {'people': merged['people'], 'tasks': merged['tasks'], 'group': self._group_info(merged)}
+        self._write_base(_part(merged, cal), cal)
+        self._storage.set_prefs(**{pkey: str(path), skey: sig, fkey: fingerprint(_part(merged, cal))})
+        return {'people': merged['people'], 'tasks': merged['tasks'], infokey: self._link_info(cal, merged)}
+
+    def _cal_check(self, cal):
+        """Czy ktoś zmienił plik od naszego ostatniego odczytu/zapisu? Brak dostępu do pliku = tryb offline."""
+        pkey, skey = self.LINKS[cal][:2]
+        prefs = self._storage.get_prefs()
+        if not prefs[pkey]:
+            return {'changed': False, 'offline': False}
+        try:
+            path = Path(prefs[pkey])
+            if path.stat().st_size > MAX_BYTES:
+                return {'changed': False, 'offline': False}
+            raw = path.read_bytes()
+        except OSError:
+            return {'changed': False, 'offline': True}
+        return {'changed': _sig(raw) != prefs[skey], 'offline': False}
+
+    def _cal_disconnect(self, cal):
+        pkey, skey, fkey = self.LINKS[cal][:3]
+        self._storage.set_prefs(**{pkey: '', skey: '', fkey: ''})
+        try:
+            self._base_file(cal).unlink()
+        except OSError:
+            pass
+        return True
+
+    def group_create(self, data):
+        return self._cal_create('group', data)
+
+    def group_open(self):
+        return self._cal_open('group')
+
+    def group_accept(self, token, data):
+        return self._cal_accept('group', token, data)
 
     def group_sync(self, data):
         """Odśwież / zapisz / synchronizuj: scal zmiany obu stron (także gdy ktoś inny zmienił plik)."""
         if not self._storage.get_prefs()['group_path']:
             raise ValueError('Kalendarz grupowy nie jest połączony z plikiem.')
-        return self._sync_group(data)
+        return self._sync_cal('group', data)
 
     group_refresh = group_sync
     group_save = group_sync
 
+    def group_check(self):
+        return self._cal_check('group')
+
+    def group_disconnect(self):
+        return self._cal_disconnect('group')
+
+    def local_create(self, data):
+        return self._cal_create('local', data)
+
+    def local_open(self):
+        return self._cal_open('local')
+
+    def local_accept(self, token, data):
+        return self._cal_accept('local', token, data)
+
+    def local_sync(self, data):
+        if not self._storage.get_prefs()['local_path']:
+            raise ValueError('Kalendarz lokalny nie jest połączony z plikiem w chmurze.')
+        return self._sync_cal('local', data)
+
+    def local_check(self):
+        return self._cal_check('local')
+
+    def local_disconnect(self):
+        return self._cal_disconnect('local')
+
     def sync_files(self, data):
-        """Zapis automatyczny: wypisz zmiany do połączonych plików (Excel z zadaniami lokalnymi, plik grupowy z zadaniami
-        grupowymi — ze scaleniem). Błędy nie przerywają pracy: wracają w 'errors' i zapis jest ponawiany."""
+        """Zapis automatyczny: wypisz zmiany do połączonych plików (Excel z zadaniami lokalnymi, plik grupowy i plik lokalny JSON —
+        ze scaleniem). Błędy nie przerywają pracy: wracają w 'errors' i zapis jest ponawiany."""
         clean = validate_data(data)
         prefs = self._storage.get_prefs()
-        out = {'errors': {}, 'group_result': None}
+        out = {'errors': {}, 'group_result': None, 'local_result': None}
         if prefs['last_xlsx']:
             local = _part(clean, 'local')
             try:
@@ -344,40 +448,22 @@ class Api:
             except (OSError, ValueError) as exc:
                 out['errors']['file'] = 'Zapis do Excela nie powiódł się: ' + str(exc)
         final = clean
-        if prefs['group_path']:
+        for cal, reskey, label in (('group', 'group_result', 'pliku grupowego'), ('local', 'local_result', 'pliku lokalnego')):
+            pkey, _s, fkey = self.LINKS[cal][:3]
+            if not prefs[pkey]:
+                continue
             try:
-                if fingerprint(_part(clean, 'group')) != prefs['group_fp']:
-                    out['group_result'] = res = self._sync_group(clean)
+                if fingerprint(_part(final, cal)) != prefs[fkey]:
+                    out[reskey] = res = self._sync_cal(cal, final)
                     final = {'people': res['people'], 'tasks': res['tasks']}
             except (OSError, ValueError) as exc:
-                out['errors']['group'] = 'Zapis do pliku grupowego nie powiódł się: ' + str(exc)
+                out['errors'][cal] = 'Zapis do ' + label + ' nie powiódł się: ' + str(exc)
         for what, msg in out['errors'].items():
             applog(what + ': ' + msg)
         out['file'] = self._file_info(final)
         out['group'] = self._group_info(final)
+        out['local_json'] = self._local_info(final)
         return out
-
-    def group_check(self):
-        """Czy ktoś zmienił plik grupowy od naszego ostatniego odczytu/zapisu? Brak dostępu do pliku = tryb offline."""
-        prefs = self._storage.get_prefs()
-        if not prefs['group_path']:
-            return {'changed': False, 'offline': False}
-        try:
-            path = Path(prefs['group_path'])
-            if path.stat().st_size > MAX_BYTES:
-                return {'changed': False, 'offline': False}
-            raw = path.read_bytes()
-        except OSError:
-            return {'changed': False, 'offline': True}
-        return {'changed': _sig(raw) != prefs['group_sig'], 'offline': False}
-
-    def group_disconnect(self):
-        self._storage.set_prefs(group_path='', group_sig='', group_fp='')
-        try:
-            self._base_path.unlink()
-        except OSError:
-            pass
-        return True
 
     @staticmethod
     def _write_text(path, text):
@@ -403,6 +489,9 @@ class Api:
         group = self._group_info(data)
         if group:
             out['group_dirty'] = group['dirty']
+        local = self._local_info(data)
+        if local:
+            out['local_dirty'] = local['dirty']
         return out
 
     def set_view(self, view):
