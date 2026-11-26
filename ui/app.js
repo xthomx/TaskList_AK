@@ -63,10 +63,8 @@ let dataPath = "", fileInfo = null, groupInfo = null, localInfo = null, saveErr 
 function showGroup(){
   const g = groupInfo, tag = document.getElementById("groupTag");
   const lg = document.getElementById("locGroup");
-  if(lg){ lg.textContent = g ? g.path : "nie połączono"; lg.classList.toggle("none", !g); }
+  if(lg){ lg.textContent = g ? g.path : "nie wybrano — kliknij, aby wybrać"; lg.classList.toggle("none", !g); }
   showFile();
-  for(const id of ["grpSave", "grpRefresh", "grpOff"]) document.getElementById(id).hidden = !g;
-  document.getElementById("grpOpen").hidden = !!g; document.getElementById("grpNew").hidden = !!g;
   if(!DESKTOP || !g){ tag.hidden = true; return; }
   tag.hidden = false; tag.title = g.path;
   tag.innerHTML = GROUP_ICO + esc(g.name) + (syncErr.group ? " ⚠ nie zapisano" : g.dirty ? " ● zapisywanie…" : " ✓ zapisano") +
@@ -76,9 +74,7 @@ function showGroup(){
 }
 function showLocal(){
   const l = localInfo, lj = document.getElementById("locJson");
-  if(lj){ lj.textContent = l ? l.path + (syncErr.local ? "  ⚠ " + syncErr.local : l.dirty ? "  ● zapisywanie…" : "  ✓ zapisano") : "nie połączono"; lj.classList.toggle("none", !l); }
-  for(const id of ["ljSave", "ljOff"]) document.getElementById(id).hidden = !l;
-  document.getElementById("ljOpen").hidden = !!l; document.getElementById("ljNew").hidden = !!l;
+  if(lj){ lj.textContent = l ? l.path : "nie wybrano — kliknij, aby wybrać"; lj.classList.toggle("none", !l); }
 }
 function showFile(){
   const ld = document.getElementById("locData"), lx = document.getElementById("locXls");
@@ -122,7 +118,7 @@ function fixTask(t){               // wersje < 1.2 miały tylko pole done
   delete o.done;
   if(!o.end_date || o.end_date < o.date) o.end_date = o.date;       // zadanie wielodniowe: end_date > date
   if(o.end_date > o.date){ o.start = ""; o.end = ""; }
-  o.calendar = o.calendar === "group" ? "group" : "local";          // lokalny (domyślny) albo grupowy
+  o.calendar = o.calendar === "group" ? "group" : "local";          // prywatny (domyślny) albo grupowy
   o.series = typeof o.series === "string" ? o.series : "";
   o.color = /^#[0-9a-fA-F]{6}$/.test(o.color || "") ? o.color.toLowerCase() : "";   // pusty = kolor wg priorytetu
   if(o.status === "done") o.progress = 100; else if(!STEPS.includes(o.progress)) o.progress = 0;
@@ -195,7 +191,7 @@ const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.nam
 // osoby zapisujemy jako „Nazwisko Imię”; na kafelkach skrót: „Nazwisko I.”
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
 const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && calVisible(calOf(t)) && (showDone || t.status !== "done") && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
-/* ---- kalendarz: lokalny / grupowy — wybór decyduje, gdzie trafiają nowe zadania; zadania grupowe mają ikonę ---- */
+/* ---- kalendarz: prywatny / grupowy — wybór decyduje, gdzie trafiają nowe zadania; zadania grupowe mają ikonę ---- */
 let curCal = "local", calOnly = false, showDone = true;      // showDone: pokaż / ukryj zadania zakończone (zapamiętywane)
 const calOf = t => t.calendar === "group" ? "group" : "local";
 // widoczność kalendarzy: calOnly=false → oba naraz; calOnly=true → tylko curCal. curCal to też kalendarz dla nowych zadań.
@@ -211,7 +207,7 @@ function renderCalSwitch(){
   const sd = document.getElementById("showDone"); sd.classList.toggle("active", showDone); sd.setAttribute("aria-pressed", showDone);
   document.getElementById("calSw").dataset.cal = curCal;
   const add = document.getElementById("add");
-  if(add) add.title = "Nowe zadanie w kalendarzu: " + (curCal === "group" ? "grupowym" : "lokalnym");
+  if(add) add.title = "Nowe zadanie w kalendarzu: " + (curCal === "group" ? "grupowym" : "prywatnym");
 }
 const visibleTasks = () => tasks.filter(matchesFilter);
 /* ---- zadania wielodniowe i przesuwanie ---- */
@@ -1185,7 +1181,7 @@ function showCtx(id, x, y){
     `<div class="ctx-colors" title="Kolor zadania"><button type="button" class="swatch def${t.color ? "" : " on"}" data-cc="" title="Domyślny (wg priorytetu)">↺</button>` +
       PALETTE.map(c => `<button type="button" class="swatch${t.color === c ? " on" : ""}" data-cc="${c}" style="background:${c}" title="${c}"></button>`).join("") + `</div>` +
     `<hr><button type="button" class="ctx-item" data-act="next">${ic("calnext")}<span>Przenieś na przyszły tydzień</span></button>` +
-    `<button type="button" class="ctx-item" data-act="cal">${ic(calOf(t) === "group" ? "user" : "users")}<span>${calOf(t) === "group" ? "Przenieś do kalendarza lokalnego" : "Przenieś do kalendarza grupowego"}</span></button>` +
+    `<button type="button" class="ctx-item" data-act="cal">${ic(calOf(t) === "group" ? "user" : "users")}<span>${calOf(t) === "group" ? "Przenieś do kalendarza prywatnego" : "Przenieś do kalendarza grupowego"}</span></button>` +
     `<button type="button" class="ctx-item" data-act="edit">${ic("edit")}<span>Edytuj…</span></button>` +
     `<button type="button" class="ctx-item ctx-del" data-act="del">${ic("trash")}<span>Usuń zadanie</span></button>`;
   ctx.hidden = false;
@@ -1303,11 +1299,11 @@ document.addEventListener("keydown", e => {
 
 
 /* ================= eksport / import ================= */
-const closeMenu = () => { if(filesdlg.open) filesdlg.close(); };
+const closeMenu = () => { if(pathdlg.open) pathdlg.close(); if(filesdlg.open) filesdlg.close(); };
 dataBtn.onclick = () => { showFile(); showGroup(); showLocal(); if(!filesdlg.open) filesdlg.showModal(); };
 filesClose.onclick = closeMenu;
 filesdlg.addEventListener("click", e => { if(e.target === filesdlg) closeMenu(); });       // kliknięcie w tło zamyka okno
-const CAL_NAME = {local: "lokalnego", group: "grupowego"};
+const CAL_NAME = {local: "prywatnego", group: "grupowego"};
 async function doExport(cal){            // kopia zapasowa JSON (w aplikacji: jeden kalendarz)
   closeMenu();
   try{
@@ -1363,7 +1359,7 @@ async function groupOpen(){
     await flush();
     const r = await api().group_open(); if(!r) return;
     const mine = tasks.filter(t => calOf(t) === "group").length;
-    if(!confirm(`Połączyć kalendarz grupowy z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania grupowe w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania lokalne nie są zmieniane.`)) return;
+    if(!confirm(`Połączyć kalendarz grupowy z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania grupowe w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania prywatne nie są zmieniane.`)) return;
     setFromGroup(await api().group_accept(r.token, currentData())); note("Połączono z plikiem grupowym: " + r.name, true);
   }catch(e){ note("Nie połączono z plikiem grupowym: " + errText(e)); }
 }
@@ -1407,7 +1403,7 @@ async function groupOff(){
   try{ await api().group_disconnect(); groupInfo = null; showGroup(); note("Odłączono plik grupowy.", true); }
   catch(e){ note("Nie udało się odłączyć: " + errText(e)); }
 }
-/* ---- plik lokalny w chmurze (JSON, np. w OneDrive): ten sam kalendarz lokalny na wielu urządzeniach jednego użytkownika ---- */
+/* ---- plik prywatny w chmurze (JSON, np. w OneDrive): ten sam kalendarz prywatny na wielu urządzeniach jednego użytkownika ---- */
 function setFromLocal(r){ tasks = r.tasks.map(fixTask); people = r.people; localInfo = r.local_json; render(); showLocal(); }
 async function localOpen(){
   closeMenu();
@@ -1415,17 +1411,17 @@ async function localOpen(){
     await flush();
     const r = await api().local_open(); if(!r) return;
     const mine = tasks.filter(t => calOf(t) === "local").length;
-    if(!confirm(`Połączyć kalendarz lokalny z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania lokalne w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania grupowe nie są zmieniane.`)) return;
-    setFromLocal(await api().local_accept(r.token, currentData())); note("Połączono z plikiem lokalnym w chmurze: " + r.name, true);
-  }catch(e){ note("Nie połączono z plikiem lokalnym: " + errText(e)); }
+    if(!confirm(`Połączyć kalendarz prywatny z plikiem „${r.name}” (${r.count} zadań)? Obecne zadania prywatne w programie (${mine}) zostaną zastąpione zadaniami z pliku. Zadania grupowe nie są zmieniane.`)) return;
+    setFromLocal(await api().local_accept(r.token, currentData())); note("Połączono z plikiem prywatnym w chmurze: " + r.name, true);
+  }catch(e){ note("Nie połączono z plikiem prywatnym: " + errText(e)); }
 }
 async function localNew(){
   closeMenu();
   try{
     await flush();
     const g = await api().local_create(currentData()); if(!g) return;
-    localInfo = g; showLocal(); note("Utworzono plik lokalny w chmurze: " + g.name + " (zawiera tylko zadania lokalne).", true);
-  }catch(e){ note("Nie utworzono pliku lokalnego: " + errText(e)); }
+    localInfo = g; showLocal(); note("Utworzono plik prywatny w chmurze: " + g.name + " (zawiera tylko zadania prywatne).", true);
+  }catch(e){ note("Nie utworzono pliku prywatnego: " + errText(e)); }
 }
 async function localSync(auto){
   if(!localInfo || groupBusy) return;
@@ -1435,21 +1431,40 @@ async function localSync(auto){
     const r = await api().local_sync(currentData());
     setFromLocal(r);
     const what = reportText(r.report);
-    if(auto){ if(what){ note("Zmiany w kalendarzu lokalnym (inne urządzenie) — " + what + ".", true); beep(); } }
-    else note("Zapisano w pliku lokalnym: " + r.local_json.name + (what ? " · zmiany z innego urządzenia: " + what : ""), true);
+    if(auto){ if(what){ note("Zmiany w kalendarzu prywatnym (inne urządzenie) — " + what + ".", true); beep(); } }
+    else note("Zapisano w pliku prywatnym: " + r.local_json.name + (what ? " · zmiany z innego urządzenia: " + what : ""), true);
   }catch(e){
     if(auto){ if(localInfo){ localInfo.offline = true; showLocal(); } }
-    else note("Synchronizacja z plikiem lokalnym nie powiodła się: " + errText(e));
+    else note("Synchronizacja z plikiem prywatnym nie powiodła się: " + errText(e));
   }finally{ groupBusy = false; }
 }
 async function localOff(){
   closeMenu();
-  if(!confirm("Odłączyć plik lokalny w chmurze? Zadania lokalne zostaną w programie, ale przestaną być zapisywane do pliku.")) return;
-  try{ await api().local_disconnect(); localInfo = null; showLocal(); note("Odłączono plik lokalny w chmurze.", true); }
+  if(!confirm("Odłączyć plik prywatny w chmurze? Zadania prywatne zostaną w programie, ale przestaną być zapisywane do pliku.")) return;
+  try{ await api().local_disconnect(); localInfo = null; showLocal(); note("Odłączono plik prywatny w chmurze.", true); }
   catch(e){ note("Nie udało się odłączyć: " + errText(e)); }
 }
-ljOpen.onclick = localOpen; ljNew.onclick = localNew; ljSave.onclick = () => { closeMenu(); localSync(false); }; ljOff.onclick = localOff;
-grpOpen.onclick = groupOpen; grpNew.onclick = groupNew; grpSave.onclick = groupSave; grpRefresh.onclick = groupRefresh; grpOff.onclick = groupOff;
+/* ---- okno wyboru lokalizacji pliku kalendarza (Prywatny / Grupowy): kliknięcie w ścieżkę w oknie „Pliki” ---- */
+let pathCal = "local";
+function openPathDlg(cal){
+  pathCal = cal;
+  const info = cal === "group" ? groupInfo : localInfo, name = cal === "group" ? "Grupowy" : "Prywatny";
+  pdTitle.textContent = "Plik kalendarza: " + name;
+  pdCur.textContent = info ? info.path : "nie wybrano"; pdCur.classList.toggle("none", !info);
+  pdHint.textContent = cal === "group"
+    ? "Plik wspólny dla zespołu (np. na dysku sieciowym). Zawiera tylko zadania grupowe. Wybrana lokalizacja jest zapamiętana."
+    : "Plik tylko dla Ciebie, na wielu urządzeniach (np. w folderze OneDrive). Zawiera tylko zadania prywatne. Wybrana lokalizacja jest zapamiętana.";
+  pdSave.hidden = !info; pdOff.hidden = !info;
+  if(!pathdlg.open) pathdlg.showModal();
+}
+pathLocal.onclick = () => openPathDlg("local"); pathGroup.onclick = () => openPathDlg("group");
+pdOpen.onclick = () => pathCal === "group" ? groupOpen() : localOpen();
+pdNew.onclick = () => pathCal === "group" ? groupNew() : localNew();
+pdSave.onclick = () => { closeMenu(); pathCal === "group" ? groupSync(false) : localSync(false); };
+pdOff.onclick = () => pathCal === "group" ? groupOff() : localOff();
+pdClose.onclick = () => pathdlg.close();
+pathdlg.addEventListener("click", e => { if(e.target === pathdlg) pathdlg.close(); });
+xlsExpL.onclick = () => exportXlsxCal("local"); xlsImpL.onclick = () => importCal("xlsx", "local");
 
 /* ================= zadanie z maila: przeciągnij wiadomość z Outlooka (lub .msg/.eml) na kalendarz ================= */
 function ext(e){                    // czy przeciągany jest obiekt z zewnątrz (plik / tekst), a nie zadanie z kalendarza
@@ -1515,7 +1530,7 @@ async function mailToDialog(mail, date, start, dropped){
   note("Zadanie z wiadomości — ustaw termin, osoby i zapisz.", true);
 }
 function addAppointments(items){                        // plik .ics z wieloma terminami: dodaj wszystkie po potwierdzeniu
-  if(!confirm(`W pliku jest ${items.length} terminów. Dodać je jako zadania w dniach i godzinach z kalendarza (do kalendarza: ${curCal === "group" ? "grupowego" : "lokalnego"})?`)) return;
+  if(!confirm(`W pliku jest ${items.length} terminów. Dodać je jako zadania w dniach i godzinach z kalendarza (do kalendarza: ${curCal === "group" ? "grupowego" : "prywatnego"})?`)) return;
   for(const m of items) tasks.push({id: uid(), title: m.subject, date: m.date, end_date: m.end_date || m.date, start: m.start || "", end: m.end || "", priority: 1,
     status: "pending", progress: 0, notes: m.notes || "", assignees: [], series: "", color: "", calendar: curCal});
   save(); render(); note(`Dodano ${items.length} zadań z kalendarza.`, true);
@@ -1559,7 +1574,7 @@ async function openXlsx(){
     const r = await api().open_xlsx(); if(!r) return;
     const d = normalize(r.data);
     const warn = fileInfo && fileInfo.dirty ? `\n\nUwaga: plik ${fileInfo.name} ma niezapisane zmiany, które zostaną utracone.` : "";
-    if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne zadania kalendarza lokalnego zostaną zastąpione (kalendarz grupowy nie jest zmieniany). Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
+    if(!confirm(`Otworzyć „${r.name}” (${d.tasks.length} zadań, ${d.people.length} osób)? Obecne zadania kalendarza prywatnego zostaną zastąpione (kalendarz grupowy nie jest zmieniany). Program zapamięta ten plik i wczyta go przy następnym uruchomieniu.${warn}`)) return;
     await flush();                                  // nie pozwól, by starszy zapis nadpisał nowy plik
     const acc = await api().accept_xlsx(r.token);
     fileInfo = {name: acc.name, path: acc.path, dirty: acc.dirty};
@@ -1576,7 +1591,7 @@ async function saveXlsx(asNew){
     if(f){ fileInfo = f; showFile(); note("Zapisano w pliku: " + f.name, true); }
   }catch(e){ note("Zapis do Excela nie powiódł się: " + errText(e)); }
 }
-xlsImp.onclick = openXlsx; xlsSave.onclick = () => saveXlsx(false); xlsExp.onclick = () => saveXlsx(true);
+
 /* ---- zapis automatyczny: po każdej zmianie (z krótkim opóźnieniem) i co 30 s, gdy coś czeka na zapis ---- */
 let syncTimer = null, syncing = false, syncNote = false;
 function scheduleSync(ms){
@@ -1611,7 +1626,7 @@ async function autoSync(){
 }
 setInterval(() => { if((fileInfo && fileInfo.dirty) || (groupInfo && groupInfo.dirty) || (localInfo && localInfo.dirty) || syncErr.file || syncErr.group || syncErr.local) autoSync(); }, 30000);
 async function saveCurrent(){                       // Ctrl+S: zapisz teraz (bez połączonych plików: wskaż plik Excela)
-  if(!fileInfo && !groupInfo && !localInfo){ await saveXlsx(false); return; }
+  if(!fileInfo && !groupInfo && !localInfo){ await flush(); note("Zapisano.", true); return; }
   const r = await autoSync();
   if(r && !syncErr.file && !syncErr.group && !syncErr.local) note("Zapisano.", true);
 }
@@ -1679,7 +1694,7 @@ install.onclick = async () => {
 function initUpdates(){
   if(!DESKTOP) return;
   document.getElementById("updatebox").hidden = false;
-  for(const id of ["mgExcel", "mgGroup", "mgMail", "mgLocalJson"]) document.getElementById(id).hidden = false;
+  document.querySelectorAll(".deskonly").forEach(e => { e.hidden = false; });
   api().get_version().then(v => { ver.textContent = "v" + v; }).catch(() => {});
   if(!updateChecked){ updateChecked = true; setTimeout(() => chk.click(), 2500); }
 }
@@ -1713,7 +1728,8 @@ async function boot(){
       if(r.tasks === null && !readOnly) save();
       note(r.warning || "");
       dataPath = r.data_path || "";
-      fileInfo = r.file || null; showFile();
+      if(r.file){ try{ await api().xlsx_disconnect(); note("Plik Excela nie jest już zapisywany automatycznie — Excel służy teraz tylko do eksportu i importu (Pliki).", true); }catch(e){} }
+      fileInfo = null; showFile();
       groupInfo = r.group || null; showGroup();
       localInfo = r.local_json || null; showLocal();
     } else {

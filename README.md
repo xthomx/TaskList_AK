@@ -2,7 +2,7 @@
 
 Menedżer zadań dla Windows z kalendarzem (widoki **miesiąc / tydzień / dzień**) i przeciąganiem zadań.
 Zbudowany tak jak [HarmonogramAK](https://github.com/xthomx/HarmonogramAK): aplikacja okienkowa (Python + pywebview),
-lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualizacje z GitHub Releases**.
+prywatny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualizacje z GitHub Releases**.
 
 ## Funkcje
 - **Widoki:** Miesiąc / Tydzień oraz podsumowanie dnia „Zadania na dziś” (podział godzinowy z przypisywaniem zadań do godzin albo sekcje). Klawisze `m`, `w`, `d`, strzałki ←/→; kółko myszy przewija daty (w miesiącu co tydzień); numery tygodni (ISO).
@@ -13,7 +13,7 @@ lokalny interfejs w `ui/`, wersja EXE budowana przez GitHub Actions i **aktualiz
 - **Przenoszenie:** zaległe → na dziś, zaznaczone → przyszły tydzień, pojedyncze zadanie na przyszły tydzień.
 - **Przypomnienia** o zadaniach z godziną: okienko, sygnał dźwiękowy, miganie na pasku zadań, odłożenie o 10 min.
 - **Zadanie z maila:** przeciągnij wiadomość z Outlooka (albo plik `.msg` / `.eml`) na kalendarz.
-- **Kalendarz lokalny i grupowy:** przyciski Lokalny / Grupowy na górnej belce wybierają, gdzie trafiają nowe zadania; zadania grupowe mają ikonę osób. Plik grupowy (JSON, np. na dysku sieciowym) zawiera tylko zadania grupowe; zmiany kilku osób **scalają się automatycznie** (porównanie trzech wersji, raport zmian i konfliktów), program sprawdza plik co 30 s i działa na kopii, gdy sieć jest niedostępna.
+- **Kalendarz prywatny i grupowy:** przyciski Prywatny / Grupowy na górnej belce wybierają, gdzie trafiają nowe zadania; zadania grupowe mają ikonę osób. Plik grupowy (JSON, np. na dysku sieciowym) zawiera tylko zadania grupowe; zmiany kilku osób **scalają się automatycznie** (porównanie trzech wersji, raport zmian i konfliktów), program sprawdza plik co 30 s i działa na kopii, gdy sieć jest niedostępna.
 - **Zapis automatyczny:** kopia robocza w `dane\` obok programu, a połączone pliki (Excel z zadaniami lokalnymi, plik grupowy) zapisują się po każdej zmianie; Ctrl+S zapisuje natychmiast. Zapis działa też na folderach bez podmiany plików (np. folder współdzielony VMware). Logi w `logi\`.
 - **Excel i JSON:** otwieranie zapamiętywanego pliku Excela, eksport i import osobno dla każdego kalendarza.
 - **Jak używać:** wbudowana strona pomocy z opisem wszystkich funkcji i rysunkami (przycisk w lewym dolnym rogu panelu).

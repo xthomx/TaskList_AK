@@ -12,7 +12,8 @@ const SCOPE = "Files.ReadWrite offline_access";
 const FIELDS = [["title"], ["date", "end_date", "start", "end"], ["priority"], ["status", "progress"], ["notes"], ["color"], ["assignees"], ["series"]];
 const jget = (k, d) => { try{ const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; }catch(e){ return d; } };
 const jset = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
-let cfg = Object.assign({clientId: "", groupPath: "TaskListAK/grupowy.json", localPath: "TaskListAK/lokalny.json"}, jget(CK, {}));
+let cfg = Object.assign({clientId: "", groupPath: "TaskListAK/grupowy.json", localPath: "TaskListAK/prywatny.json"}, jget(CK, {}));
+if(cfg.localPath === "TaskListAK/lokalny.json") cfg.localPath = "TaskListAK/prywatny.json";
 let busy = false, timer = null, status = "", lastOk = "";
 const redirectUri = () => location.origin + location.pathname;
 
@@ -124,7 +125,7 @@ function merge(base, mine, theirs, cal){
   const pid = {}; for(const p of theirs.people) pid[p.name] = p.id; for(const p of mine.people) pid[p.name] = p.id;
   const full = new Map(mine.tasks.map(x => [x.id, x])); for(const x of theirs.tasks) if(!full.has(x.id)) full.set(x.id, x);
   let usedNames = [...new Set([...out.values()].flatMap(d => d.assignees))].sort();
-  if(cal === "local") usedNames = [...new Set([...usedNames, ...mine.people.map(p => p.name), ...theirs.people.map(p => p.name)])].sort();   // lokalny: wspólna lista osób, także bez zadań
+  if(cal === "local") usedNames = [...new Set([...usedNames, ...mine.people.map(p => p.name), ...theirs.people.map(p => p.name)])].sort();   // prywatny: wspólna lista osób, także bez zadań
   const ppl = usedNames.map(n => ({id: pid[n] || uid(), name: n})), idOf = Object.fromEntries(ppl.map(p => [p.name, p.id]));
   const list = [...out].map(([id, d]) => Object.assign({}, full.get(id), d, {id, calendar: cal, assignees: d.assignees.map(n => idOf[n])}));
   list.sort((x, y) => (x.date + x.start + x.title.toLowerCase() + x.id).localeCompare(y.date + y.start + y.title.toLowerCase() + y.id));
@@ -202,7 +203,7 @@ dlgC.innerHTML = `<form method="dialog"><h2>Synchronizacja z OneDrive</h2><div c
 <p class="hint">Zadania są zapisywane w plikach JSON w Twoim OneDrive i scalane ze zmianami z innych urządzeń. Wymagany jest Client ID aplikacji zarejestrowanej w Microsoft Entra (instrukcja: INSTRUKCJA_PWA.md w repozytorium).</p>
 <label>Client ID aplikacji</label><input type="text" id="cdId" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
 <label>Plik kalendarza grupowego (w OneDrive)</label><input type="text" id="cdGroup" autocomplete="off" autocapitalize="off" spellcheck="false">
-<label>Plik kalendarza lokalnego (ten sam co na komputerze; puste = tylko na tym telefonie)</label><input type="text" id="cdLocal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="TaskListAK/lokalny.json">
+<label>Plik kalendarza prywatnego (ten sam co na komputerze; puste = tylko na tym telefonie)</label><input type="text" id="cdLocal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="TaskListAK/prywatny.json">
 <p class="hint">Adres powrotu do wpisania w Entra: <code id="cdUri"></code></p>
 <p id="cdStatus" role="status"></p></div>
 <div class="actions"><button class="btn primary" type="button" id="cdLogin">Zaloguj</button><button class="btn" type="button" id="cdSync">Synchronizuj teraz</button><button class="btn" type="button" id="cdOut">Wyloguj</button><button class="btn" type="submit" id="cdClose">Zamknij</button></div></form>`;

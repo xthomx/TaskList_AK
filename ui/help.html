@@ -13,7 +13,7 @@
   <a href="#h-powt">10. Wielodniowe i cykliczne</a>
   <a href="#h-przyp">11. Przypomnienia</a>
   <a href="#h-mail">12. Zadanie z maila lub terminu</a>
-  <a href="#h-kal">13. Kalendarz lokalny i grupowy</a>
+  <a href="#h-kal">13. Kalendarz prywatny i grupowy</a>
   <a href="#h-pliki">14. Pliki i zapis automatyczny</a>
   <a href="#h-scal">15. Praca w grupie</a>
   <a href="#h-eksport">16. Eksport i import</a>
@@ -38,7 +38,7 @@
 <rect x="16" y="222" width="126" height="46" rx="8" class="s-panel s-ln"/><text x="26" y="242" class="s-tx">Konfiguracja</text>
 <rect x="16" y="274" width="126" height="40" rx="8" class="s-panel s-ln"/><text x="26" y="294" class="s-tx">Pliki</text>
 <rect x="154" y="4" width="522" height="38" class="s-panel s-ln"/><text x="168" y="28" class="s-tx">‹  Dziś  ›    Listopad 2026</text>
-<rect x="540" y="12" width="120" height="22" rx="6" class="s-bg s-ln"/><text x="600" y="27" text-anchor="middle" class="s-tx">Lokalny | Grupowy</text>
+<rect x="540" y="12" width="120" height="22" rx="6" class="s-bg s-ln"/><text x="600" y="27" text-anchor="middle" class="s-tx">Prywatny | Grupowy</text>
 <g class="s-ln"><path d="M154 80h522M154 118h522M154 156h522M154 194h522M154 232h522M240 42v190M326 42v190M412 42v190M498 42v190M584 42v190"/></g>
 <rect x="162" y="86" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p3) 25%,var(--panel))"/><rect x="334" y="124" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p1) 25%,var(--panel))"/><rect x="420" y="162" width="66" height="14" rx="4" style="fill:color-mix(in srgb,var(--p2) 25%,var(--panel))"/>
 <rect x="154" y="238" width="522" height="88" class="s-panel s-ln"/><text x="168" y="258" class="s-tx">Lista zadań (posortowana wg terminu)</text><path d="M168 272h480M168 290h480M168 308h480" class="s-ln"/>
@@ -50,7 +50,7 @@
 </svg><figcaption>Układ okna: 1 – panel boczny, 2 – belka nawigacji z wyborem kalendarza, 3 – kalendarz, 4 – lista zadań.</figcaption></figure>
 <ul>
 <li><b class="hn">1</b> <b>Panel boczny</b> — przycisk „Nowe zadanie”, Przestrzeń robocza (Zadania na dziś, Miesiąc / Tydzień), Przenieś zadania, Filtry, Konfiguracja, Pliki oraz na dole wersja programu, aktualizacje i komunikaty. Sekcje Filtry i Konfiguracja można zwinąć klikając ich nagłówek.</li>
-<li><b class="hn">2</b> <b>Górna belka</b> — przyciski ‹ Dziś › do poruszania się po datach, tytuł okresu oraz przełącznik kalendarza <b>Lokalny / Grupowy</b>.</li>
+<li><b class="hn">2</b> <b>Górna belka</b> — przyciski ‹ Dziś › do poruszania się po datach, tytuł okresu oraz przełącznik kalendarza <b>Prywatny / Grupowy</b>.</li>
 <li><b class="hn">3</b> <b>Kalendarz</b> — zawsze widoczny; gdy zadań jest dużo, przewija się tylko jego część z zadaniami.</li>
 <li><b class="hn">4</b> <b>Lista zadań</b> pod kalendarzem (miesiąc, tydzień) — zadania w kolejności wykonania; tytuł możesz edytować wprost w komórce. Przycisk „Ukryj / Pokaż listę zadań” w Konfiguracji daje kalendarzowi całe okno.</li>
 </ul></section>
@@ -60,7 +60,7 @@
 <figure class="hfig"><div class="hdlg">
 <h3>Nowe zadanie</h3>
 <label>Tytuł</label><input type="text" value="Spotkanie z klientem" disabled>
-<label>Kalendarz</label><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div>
+<label>Kalendarz</label><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Prywatny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div>
 <div class="hrow"><div><label>Data</label><input type="text" value="2026-11-18" disabled></div><div><label>Do dnia (wielodniowe)</label><input type="text" value="" disabled></div><div><label>Priorytet</label><input type="text" value="Wysoki" disabled></div></div>
 <div class="hrow"><div><label>Od (puste = cały dzień)</label><input type="text" value="10:00" disabled></div><div><label>Do</label><input type="text" value="11:00" disabled></div><div><label>Status</label><input type="text" value="⚪ Oczekujące" disabled></div></div>
 <label>Kolor zadania (domyślnie wg priorytetu)</label><div class="hsw"><span class="swatch def">↺</span><span class="swatch" style="background:#d9453d"></span><span class="swatch" style="background:#e8833a"></span><span class="swatch on" style="background:#2e9e5b"></span><span class="swatch" style="background:#3b6cf6"></span><span class="swatch" style="background:#a855c7"></span></div>
@@ -93,7 +93,7 @@
 <li><b>Klik w numer tygodnia</b> (kolumna „Tydz.”) otwiera ten tydzień; <b>klik w numer dnia</b> otwiera podsumowanie tego dnia; klik w nagłówek dnia w tygodniu — też.</li>
 <li>Klawisze: <kbd>←</kbd> <kbd>→</kbd> zmieniają okres, <kbd>m</kbd> miesiąc, <kbd>w</kbd> tydzień, <kbd>d</kbd> dzień.</li>
 </ul>
-<figure class="hfig"><div class="hbar"><span class="btn">‹</span><span class="btn">Dziś</span><span class="btn">›</span><span class="htitle">Listopad 2026</span><span class="spacer"></span><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn active"><i data-ic="users"></i>Grupowy</span></div><div class="seg calseg"><span class="btn active"><i data-ic="check"></i>Zakończone</span></div></div><figcaption>Górna belka z nawigacją i przełącznikiem kalendarza.</figcaption></figure>
+<figure class="hfig"><div class="hbar"><span class="btn">‹</span><span class="btn">Dziś</span><span class="btn">›</span><span class="htitle">Listopad 2026</span><span class="spacer"></span><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Prywatny</span><span class="btn active"><i data-ic="users"></i>Grupowy</span></div><div class="seg calseg"><span class="btn active"><i data-ic="check"></i>Zakończone</span></div></div><figcaption>Górna belka z nawigacją i przełącznikiem kalendarza.</figcaption></figure>
 </section>
 
 <section id="h-dnd"><h2>4. Przeciąganie zadań</h2>
@@ -194,19 +194,19 @@
 <ul>
 <li><b>Termin całodniowy lub wielodniowy</b> staje się zadaniem całodniowym (wielodniowym, jeśli trwa kilka dni).</li>
 <li><b>Termin cykliczny</b> — Outlook przekazuje całą serię z datą pierwszego wystąpienia, więc program odczytuje wzorzec powtarzania (dni, tygodnie, miesiące, lata, wyjątki) i wybiera właściwe wystąpienie: gdy upuścisz termin na dzień, w którym faktycznie występuje, ustawia ten dzień; gdy na inny — pyta, czy użyć najbliższego wystąpienia (zalecane), czy dnia upuszczenia; gdy upuścisz poza dniem kalendarza — bierze najbliższe nadchodzące wystąpienie. Godziny zawsze są z terminu.</li>
-<li><b>Plik .ics</b> (Outlook: Plik → Zapisz kalendarz / Zapisz jako iCalendar): wybierz go w <b>Pliki → Zadanie z maila lub terminu…</b> albo przeciągnij na okno. Jeśli zawiera wiele terminów, program po potwierdzeniu doda wszystkie jako zadania do wybranego kalendarza (lokalnego lub grupowego).</li>
+<li><b>Plik .ics</b> (Outlook: Plik → Zapisz kalendarz / Zapisz jako iCalendar): wybierz go w <b>Pliki → Zadanie z maila lub terminu…</b> albo przeciągnij na okno. Jeśli zawiera wiele terminów, program po potwierdzeniu doda wszystkie jako zadania do wybranego kalendarza (prywatnego lub grupowego).</li>
 <li>Terminy są czytane lokalnie z przeciągniętego pliku — program nie łączy się z Outlookiem ani z serwerem i niczego tam nie zmienia.</li>
 </ul>
 <p>Alternatywa dla maila: <b>Pliki → Zadanie z maila lub terminu…</b> (wybór pliku .msg, .eml lub .ics). Ustaw osoby i priorytet, a potem zapisz.</p></section>
 
-<section id="h-kal"><h2>13. Kalendarz lokalny i grupowy</h2>
+<section id="h-kal"><h2>13. Kalendarz prywatny i grupowy</h2>
 <p>Program ma dwa kalendarze widoczne razem:</p>
 <ul>
-<li><b>Lokalny</b> — Twoje prywatne zadania, zapisane tylko na tym komputerze (i w Twoim pliku Excela).</li>
+<li><b>Prywatny</b> — Twoje prywatne zadania, zapisane tylko na tym komputerze (i w Twoim pliku Excela).</li>
 <li><b>Grupowy</b> — zadania wspólne dla zespołu, zapisywane w pliku na dysku sieciowym, który widzą wszyscy.</li>
 </ul>
-<p>Przyciski <b>Lokalny</b> i <b>Grupowy</b> na górnej belce działają jak przełączniki: każdy pokazuje albo ukrywa zadania swojego kalendarza, więc możesz mieć włączone <b>oba naraz</b> (co najmniej jeden musi zostać włączony). Gdy włączony jest tylko jeden, nowe zadania trafiają do niego; gdy oba, trafiają do kalendarza, który był włączony jako ostatni pojedynczy — kalendarz zmienisz w oknie zadania. Przycisk <b>Zakończone</b> pokazuje albo ukrywa zadania o statusie „Zrobione” w kalendarzu i na liście. Program pamięta wszystkie te wybory przy następnym uruchomieniu. Zadania grupowe mają małą <b>fioletową ikonę osób</b>; lokalne są bez ikony. Kalendarz zadania zmienisz w oknie zadania lub w menu prawego przycisku („Przenieś do kalendarza…”).</p>
-<figure class="hfig"><div class="hflex"><span class="chip p2 st-pending">Przegląd budżetu (lokalne)</span><span class="chip p3 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>09:00 Zebranie zespołu (grupowe)</span><span class="chip p1 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>Szkolenie BHP (grupowe)</span></div><div class="hbar" style="margin-top:10px"><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Lokalny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div><div class="seg calseg"><span class="btn active"><i data-ic="check"></i>Zakończone</span></div></div><figcaption>Zadania z ikoną osób należą do kalendarza grupowego.</figcaption></figure>
+<p>Przyciski <b>Prywatny</b> i <b>Grupowy</b> na górnej belce działają jak przełączniki: każdy pokazuje albo ukrywa zadania swojego kalendarza, więc możesz mieć włączone <b>oba naraz</b> (co najmniej jeden musi zostać włączony). Gdy włączony jest tylko jeden, nowe zadania trafiają do niego; gdy oba, trafiają do kalendarza, który był włączony jako ostatni pojedynczy — kalendarz zmienisz w oknie zadania. Przycisk <b>Zakończone</b> pokazuje albo ukrywa zadania o statusie „Zrobione” w kalendarzu i na liście. Program pamięta wszystkie te wybory przy następnym uruchomieniu. Zadania grupowe mają małą <b>fioletową ikonę osób</b>; prywatne są bez ikony. Kalendarz zadania zmienisz w oknie zadania lub w menu prawego przycisku („Przenieś do kalendarza…”).</p>
+<figure class="hfig"><div class="hflex"><span class="chip p2 st-pending">Przegląd budżetu (prywatne)</span><span class="chip p3 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>09:00 Zebranie zespołu (grupowe)</span><span class="chip p1 st-pending"><svg class="gmk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14a5.5 5.5 0 0 1 3 5"/></svg>Szkolenie BHP (grupowe)</span></div><div class="hbar" style="margin-top:10px"><div class="seg calseg"><span class="btn active"><i data-ic="user"></i>Prywatny</span><span class="btn"><i data-ic="users"></i>Grupowy</span></div><div class="seg calseg"><span class="btn active"><i data-ic="check"></i>Zakończone</span></div></div><figcaption>Zadania z ikoną osób należą do kalendarza grupowego.</figcaption></figure>
 </section>
 
 <section id="h-pliki"><h2>14. Pliki i zapis automatyczny</h2>
@@ -214,23 +214,24 @@
 <figure class="hfig"><svg viewBox="0 0 680 250" class="hsvg" role="img" aria-label="Pliki programu">
 <rect x="250" y="95" width="180" height="60" rx="10" class="s-acc"/><text x="340" y="121" text-anchor="middle" class="s-wh" style="font-weight:700;font-size:14px">TaskList AK</text><text x="340" y="140" text-anchor="middle" class="s-wh">twoje zadania</text>
 <rect x="10" y="20" width="200" height="62" rx="8" class="s-panel s-ln"/><text x="20" y="40" class="s-tx" style="font-weight:700">dane\tasks.json</text><text x="20" y="58" class="s-tx">kopia robocza (zawsze),</text><text x="20" y="72" class="s-tx">obok programu</text>
-<rect x="10" y="168" width="200" height="62" rx="8" class="s-panel s-ln"/><text x="20" y="188" class="s-tx" style="font-weight:700">Plik Excela (.xlsx)</text><text x="20" y="206" class="s-tx">zadania lokalne,</text><text x="20" y="220" class="s-tx">opcjonalny, w wybranym miejscu</text>
+<rect x="10" y="168" width="200" height="62" rx="8" class="s-panel s-ln"/><text x="20" y="188" class="s-tx" style="font-weight:700">Plik Excela (.xlsx)</text><text x="20" y="206" class="s-tx">zadania prywatne,</text><text x="20" y="220" class="s-tx">opcjonalny, w wybranym miejscu</text>
 <rect x="470" y="95" width="200" height="62" rx="8" class="s-panel s-ln" style="stroke:var(--grp)"/><text x="480" y="115" class="s-tx" style="font-weight:700">Plik grupowy (.json)</text><text x="480" y="133" class="s-tx">zadania grupowe,</text><text x="480" y="147" class="s-tx">na dysku sieciowym</text>
 <path d="M210 52C240 52 250 80 270 95" class="s-arrow"/><path d="M210 198C240 198 250 170 270 155" class="s-arrow"/><path d="M430 126H468M468 126l-8-5M468 126l-8 5" class="s-arrow"/><path d="M468 136H432M432 136l8-5M432 136l8 5" class="s-arrow"/>
 <g><circle cx="540" cy="205" r="12" class="s-panel s-ln"/><circle cx="575" cy="205" r="12" class="s-panel s-ln"/><circle cx="610" cy="205" r="12" class="s-panel s-ln"/><text x="540" y="240" text-anchor="middle" class="s-tx" style="font-size:11px">Ty i koledzy</text></g>
 <path d="M560 160v28" class="s-arrow"/>
 </svg><figcaption>Skąd i dokąd zapisują się dane.</figcaption></figure>
 <h3>Okno „Pliki”</h3>
-<p>Przycisk <b>Pliki</b> w panelu bocznym otwiera okno, w którym widać dokładne lokalizacje plików: plik danych (zapis automatyczny), plik Excela kalendarza lokalnego i plik kalendarza grupowego. Ścieżki można zaznaczyć i skopiować. Okno zamykasz przyciskiem „Zamknij”, klawiszem Esc albo kliknięciem w tło.</p>
+<p>Przycisk <b>Pliki</b> w panelu bocznym otwiera okno z dwiema sekcjami: <b>Prywatny</b> i <b>Grupowy</b>. W każdej widać ścieżkę do pliku kalendarza. <b>Kliknij ścieżkę</b>, a pojawi się okienko, w którym wybierzesz istniejący plik, utworzysz nowy, zsynchronizujesz go od razu albo odłączysz. Wybrana lokalizacja jest zapamiętana.</p>
 <ul>
-<li><b>Kalendarz lokalny</b> — <i>Otwórz plik Excela…</i> wskazuje plik, który program zapamięta i będzie wczytywał przy starcie oraz automatycznie zapisywał; <i>Zapisz do Excela</i>, <i>Zapisz Excel jako…</i>; eksport/import JSON.</li>
-<li><b>Kalendarz grupowy</b> — <i>Utwórz plik grupowy…</i> (pierwsza osoba) i <i>Połącz z plikiem grupowym…</i> (pozostałe). Potem: <i>Zapisz do pliku grupowego</i>, <i>Odśwież z pliku grupowego</i>, <i>Odłącz</i>; eksport/import do Excela i JSON.</li>
-<li>Obok nazw plików w panelu: <b>✓ zapisano</b>, <b>● zapisywanie…</b> albo <b>⚠ nie zapisano</b> (dymek podaje powód; zapis jest ponawiany co 30 s).</li>
-<li><b>Ctrl+S</b> zapisuje wszystko natychmiast. Gdy żaden plik nie jest połączony, Ctrl+S pyta o plik Excela.</li>
+<li><b>Prywatny</b> — plik tylko dla Ciebie (zadania prywatne), np. w folderze OneDrive, dzięki czemu te same zadania są na komputerze i w telefonie.</li>
+<li><b>Grupowy</b> — plik wspólny dla zespołu (zadania grupowe), np. na dysku sieciowym. Pierwsza osoba tworzy plik, pozostałe wybierają istniejący.</li>
+<li><b>Excel</b> służy tylko do eksportu i importu na żądanie (przyciski <i>Eksport do Excela…</i> i <i>Import z Excela…</i> w każdej sekcji); program nie zapisuje do Excela automatycznie. Są też eksport i import JSON.</li>
+<li>Zmiany w plikach są zapisywane i scalane automatycznie. Gdy plik jest niedostępny (np. brak sieci), program pracuje na kopii roboczej i scala zmiany po powrocie dostępu.</li>
+<li><b>Ctrl+S</b> zapisuje wszystko natychmiast.</li>
 </ul>
 <h3>Gdzie są dane</h3>
 <p>Dane robocze (<code>dane\</code>) i dzienniki (<code>logi\</code>) leżą w folderze, z którego uruchamiasz program. Przy pierwszym uruchomieniu dawne dane z <code>%LOCALAPPDATA%\TaskListAK</code> są kopiowane. Jeśli folder programu jest tylko do odczytu, program używa dawnej lokalizacji. Folder <code>dane\</code> warto objąć kopią zapasową; aktualizacje programu go nie ruszają.</p>
-<p>Jeśli plik Excela zmieniono poza programem, automatyczny zapis jest wstrzymany (żeby nie nadpisać cudzych zmian) — wybierz „Otwórz plik Excela…” albo „Zapisz Excel jako…”.</p></section>
+</section>
 
 <section id="h-scal"><h2>15. Praca w grupie i scalanie zmian</h2>
 <p>Gdy plik grupowy jest połączony, program sprawdza co 30 sekund (i po powrocie do okna), czy ktoś go zmienił. Zmiany kilku osób łączą się <b>automatycznie</b>: program porównuje trzy wersje — stan po ostatniej synchronizacji, Twoją i aktualny plik — i zapisuje wynik.</p>
@@ -255,9 +256,9 @@
 <section id="h-eksport"><h2>16. Eksport i import</h2>
 <ul>
 <li><b>Excel</b> — arkusze „Zadania” (Tytuł, Data, Data do, Od, Do, Priorytet, Status, Postęp (%), Osoby, Notatki, Seria, Kolor, Kalendarz) i „Osoby”. Kolumny możesz edytować w Excelu; przy wczytaniu program zrozumie polskie nazwy statusów i priorytetów.</li>
-<li><b>JSON</b> — kopia zapasowa jednego kalendarza (lokalnego lub grupowego).</li>
+<li><b>JSON</b> — kopia zapasowa jednego kalendarza (prywatnego lub grupowego).</li>
 <li><b>Import</b> zastępuje zadania wskazanego kalendarza (po potwierdzeniu); drugi kalendarz zostaje bez zmian. Osoby łączą się po nazwie.</li>
-<li>Do pliku grupowego i jego eksportu trafiają <b>tylko zadania grupowe</b> i osoby z nich — zadania lokalne są prywatne.</li>
+<li>Do pliku grupowego i jego eksportu trafiają <b>tylko zadania grupowe</b> i osoby z nich — zadania prywatne są prywatne.</li>
 </ul></section>
 
 <section id="h-konf"><h2>17. Konfiguracja i wygląd</h2>

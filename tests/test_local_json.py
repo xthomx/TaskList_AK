@@ -24,14 +24,14 @@ class LocalJsonTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.api = Api(Storage(self.root / 'dane'))
-        self.file = self.root / 'OneDrive' / 'lokalny.json'
+        self.file = self.root / 'OneDrive' / 'prywatny.json'
         self.file.parent.mkdir()
         self.api._pick_save = lambda *a: self.file
 
     def test_create_writes_only_local_tasks_but_all_local_people(self):
         data = D(T('a', 'Mój', 'local', ['p1']), T('b', 'Zespół', 'group', ['p2']))
         info = self.api.local_create(data)
-        self.assertEqual(info['name'], 'lokalny.json')
+        self.assertEqual(info['name'], 'prywatny.json')
         doc = json.loads(self.file.read_text('utf-8'))
         self.assertEqual([t['title'] for t in doc['tasks']], ['Mój'])
         self.assertIn('Kowalski Jan', [p['name'] for p in doc['people']])

@@ -775,3 +775,20 @@ path.s-ln,g.s-ln path{fill:none}
   .card.big .cmeta{font-size:11px;margin-top:4px}
   .today-screen .tsec h3{font-size:14px}
 }
+
+/* ===== okno Pliki: sekcje Prywatny / Grupowy ===== */
+.fsec{margin-bottom:16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.fsec .mhead{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-bottom:8px}
+.fpath{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);cursor:pointer;font:inherit}
+.fpath:hover{border-color:var(--accent);background:var(--today)}
+.fpath .fplabel{flex:0 0 auto;color:var(--muted);font-size:12px}
+.fpath code{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:12.5px}
+.fpath code.none{color:var(--muted);font-style:italic}
+.fpath .ic{flex:0 0 auto;color:var(--accent)}
+.fbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fbtns .btn{display:inline-flex;align-items:center;gap:6px}
+.fbtns.fcolumn{flex-direction:column;align-items:stretch}
+.fbtns.fcolumn .btn{justify-content:flex-start}
+.fnote{margin:4px 2px 0;font-size:12px}
+.fdlg .fnote code{overflow-wrap:anywhere}
+.fdlg [hidden],.fbtns [hidden],.fpath[hidden]{display:none!important}

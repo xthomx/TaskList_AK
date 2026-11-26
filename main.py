@@ -25,8 +25,8 @@ def _used(tasks):
 
 
 def _part(data, cal):
-    """Zadania jednego kalendarza z osobami. Plik grupowy zawiera tylko osoby z zadań grupowych (nic z lokalnych);
-    część lokalna nie zawiera osób występujących wyłącznie w zadaniach grupowych."""
+    """Zadania jednego kalendarza z osobami. Plik grupowy zawiera tylko osoby z zadań grupowych (nic z prywatnych);
+    część prywatna nie zawiera osób występujących wyłącznie w zadaniach grupowych."""
     tasks = [t for t in data['tasks'] if _cal(t) == cal]
     group_only = _used([t for t in data['tasks'] if _cal(t) == 'group']) - _used([t for t in data['tasks'] if _cal(t) == 'local'])
     if cal == 'group':
@@ -127,7 +127,7 @@ def merge_group(base, mine, theirs, all_people=False):
     pid = {p['name']: p['id'] for p in theirs['people']}
     pid.update({p['name']: p['id'] for p in mine['people']})
     used = sorted({n for d in out.values() for n in d['assignees']})
-    if all_people:                                       # kalendarz lokalny: lista osób jest wspólna (także osoby bez zadań)
+    if all_people:                                       # kalendarz prywatny: lista osób jest wspólna (także osoby bez zadań)
         used = sorted(set(used) | {p['name'] for p in mine['people']} | {p['name'] for p in theirs['people']})
     people = [{'id': pid[n], 'name': n} for n in used]
     tasks = []
@@ -210,9 +210,9 @@ class Api:
         result['local_json'] = self._local_info(data) if data else self._local_info()
         return result
 
-    # ---- pliki JSON kalendarzy: grupowy (np. dysk sieciowy) i lokalny (np. folder OneDrive, wiele urządzeń jednego użytkownika) ----
+    # ---- pliki JSON kalendarzy: grupowy (np. dysk sieciowy) i prywatny (np. folder OneDrive, wiele urządzeń jednego użytkownika) ----
     LINKS = {'group': ('group_path', 'group_sig', 'group_fp', 'group_base.json', 'group', 'grupowy'),
-             'local': ('local_path', 'local_sig', 'local_fp', 'local_base.json', 'local_json', 'lokalny')}
+             'local': ('local_path', 'local_sig', 'local_fp', 'local_base.json', 'local_json', 'prywatny')}
 
     def _link_info(self, cal, data=None):
         pkey, _s, fkey = self.LINKS[cal][:3]
@@ -244,7 +244,7 @@ class Api:
             doc = json.loads(raw.decode('utf-8-sig'))
             clean = validate_data({'people': doc['people'], 'tasks': [dict(t, calendar=cal) for t in doc['tasks']]})
         except (ValueError, UnicodeError, KeyError, TypeError) as exc:
-            raise ValueError('To nie jest poprawny plik kalendarza ' + Api.LINKS[cal][5] + 'ego.') from exc
+            raise ValueError('To nie jest poprawny plik kalendarza ' + Api.LINKS[cal][5][:-1] + 'ego.') from exc
         return clean, _sig(raw)
 
     @staticmethod
@@ -314,7 +314,7 @@ class Api:
             return {'people': out['people'], 'tasks': out['tasks']}, warning
         except (OSError, ValueError) as exc:
             return data, (warning + ' ' if warning else '') + ('Plik ' + adj + ' niedostępny (' + name + '): ' + str(exc)
-                                                               + ' Pokazano ostatnią kopię kalendarza ' + adj + 'ego.')
+                                                               + ' Pokazano ostatnią kopię kalendarza ' + adj[:-1] + 'ego.')
 
     def _load_group(self, data, warning):
         return self._load_cal('group', data, warning)
@@ -323,7 +323,7 @@ class Api:
         clean = validate_data(data)
         pkey, skey, fkey = self.LINKS[cal][:3]
         adj = self.LINKS[cal][5]
-        path = self._pick_save('zadania-' + adj + '.json', 'Kalendarz ' + adj + ' (*.json)', '.json')
+        path = self._pick_save('zadania-' + ('grupowe' if cal == 'group' else 'prywatne') + '.json', 'Kalendarz ' + adj + ' (*.json)', '.json')
         if not path:
             return None
         part = _part(clean, cal)
@@ -406,6 +406,11 @@ class Api:
     def group_disconnect(self):
         return self._cal_disconnect('group')
 
+    def xlsx_disconnect(self):
+        """Excel tylko na żądanie (eksport / import): usuń zapamiętany plik, który był zapisywany automatycznie."""
+        self._storage.set_prefs(last_xlsx='', xlsx_fp='', xlsx_sig='')
+        return True
+
     def local_create(self, data):
         return self._cal_create('local', data)
 
@@ -417,7 +422,7 @@ class Api:
 
     def local_sync(self, data):
         if not self._storage.get_prefs()['local_path']:
-            raise ValueError('Kalendarz lokalny nie jest połączony z plikiem w chmurze.')
+            raise ValueError('Kalendarz prywatny nie jest połączony z plikiem w chmurze.')
         return self._sync_cal('local', data)
 
     def local_check(self):
@@ -427,7 +432,7 @@ class Api:
         return self._cal_disconnect('local')
 
     def sync_files(self, data):
-        """Zapis automatyczny: wypisz zmiany do połączonych plików (Excel z zadaniami lokalnymi, plik grupowy i plik lokalny JSON —
+        """Zapis automatyczny: wypisz zmiany do połączonych plików (Excel z zadaniami lokalnymi, plik grupowy i plik prywatny JSON —
         ze scaleniem). Błędy nie przerywają pracy: wracają w 'errors' i zapis jest ponawiany."""
         clean = validate_data(data)
         prefs = self._storage.get_prefs()
@@ -448,7 +453,7 @@ class Api:
             except (OSError, ValueError) as exc:
                 out['errors']['file'] = 'Zapis do Excela nie powiódł się: ' + str(exc)
         final = clean
-        for cal, reskey, label in (('group', 'group_result', 'pliku grupowego'), ('local', 'local_result', 'pliku lokalnego')):
+        for cal, reskey, label in (('group', 'group_result', 'pliku grupowego'), ('local', 'local_result', 'pliku prywatnego')):
             pkey, _s, fkey = self.LINKS[cal][:3]
             if not prefs[pkey]:
                 continue
@@ -674,9 +679,9 @@ class Api:
         return cal
 
     def export_json(self, data, cal='local'):
-        """Kopia JSON jednego kalendarza (lokalnego lub grupowego)."""
+        """Kopia JSON jednego kalendarza (prywatnego lub grupowego)."""
         part = _part(validate_data(data), self._cal_arg(cal))
-        path = self._pick_save('zadania-%s.json' % ('grupowe' if cal == 'group' else 'lokalne'), 'Zadania (*.json)', '.json')
+        path = self._pick_save('zadania-%s.json' % ('grupowe' if cal == 'group' else 'prywatne'), 'Zadania (*.json)', '.json')
         if not path:
             return None
         path.write_text(json.dumps(part, ensure_ascii=False, indent=1), encoding='utf-8')
@@ -686,7 +691,7 @@ class Api:
         """Jednorazowy eksport kalendarza do Excela (nie zmienia zapamiętanego pliku)."""
         import xlsx_format
         part = _part(validate_data(data), self._cal_arg(cal))
-        path = self._pick_save('zadania-%s.xlsx' % ('grupowe' if cal == 'group' else 'lokalne'), 'Excel (*.xlsx)', '.xlsx')
+        path = self._pick_save('zadania-%s.xlsx' % ('grupowe' if cal == 'group' else 'prywatne'), 'Excel (*.xlsx)', '.xlsx')
         if not path:
             return None
         path.write_bytes(xlsx_format.dumps(part))
