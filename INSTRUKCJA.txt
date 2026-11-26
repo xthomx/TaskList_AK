@@ -75,6 +75,7 @@ PUBLIKOWANIE NOWEJ WERSJI (dla autora)
 
 - Terminy cykliczne z Outlooka (od 1.19.0): program odczytuje wzorzec powtarzania i dobiera właściwe wystąpienie serii — upuszczenie na dzień wystąpienia ustawia ten dzień, na inny dzień daje pytanie z najbliższym wystąpieniem, a poza kalendarzem wybiera najbliższe nadchodzące. Gdy wzorca nie da się odczytać, działa pytanie o datę z 1.18.1.
 
+- Zmiana (od 1.19.7): przypomnienie o terminie zadania odtwarza sygnał dźwiękowy Windows (trzy rosnące tony; gdy się nie uda — dźwięk systemowy), także gdy Windows nie odda fokusu oknu programu.
 - Zmiana (od 1.19.6): okno z przypomnieniem o terminie zadania pojawia się nad wszystkimi oknami w Windows i zostaje na wierzchu, dopóki przypomnienie nie zostanie zamknięte (Otwórz / Zrobione / Za 10 min / X); zminimalizowany program jest przywracany.
 - Zmiana (od 1.19.5): przyciski „Lokalny” i „Grupowy” są niezależnymi przełącznikami — można włączyć oba naraz (pole „tylko ten” usunięto; co najmniej jeden kalendarz zostaje włączony). Nowe zadania trafiają do jedynego włączonego kalendarza, a przy obu — do ostatnio wybranego pojedynczo (kalendarz zmienisz w oknie zadania). Pole „pokaż zakończone zadania” zastąpił przycisk „Zakończone”.
 - Zmiana (od 1.19.4): na górnej belce jest pole „pokaż zakończone zadania” — pokazuje lub ukrywa zadania zrobione; wybór jest pamiętany przy następnym uruchomieniu.

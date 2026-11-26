@@ -429,6 +429,22 @@ class Api:
     def set_notified(self, keys):
         return self._storage.set_notified(keys)
 
+    @staticmethod
+    def _play_alert():
+        """Trzy rosnące tony (natywnie, przez Windows — działa niezależnie od przeglądarki w oknie programu i od fokusu).
+        W osobnym wątku, bo winsound.Beep blokuje. Gdy się nie uda, dźwięk systemowy „wykrzyknik”."""
+        def run():
+            try:
+                import winsound
+                try:
+                    for freq, ms in ((880, 180), (1175, 180), (1568, 350)):
+                        winsound.Beep(freq, ms)
+                except Exception:
+                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+            except Exception:
+                pass
+        threading.Thread(target=run, daemon=True).start()
+
     def attention(self, on_top=True):
         """Przypomnienie: wyciągnij okno nad wszystkie inne okna i zostaw je tam, dopóki przypomnienie jest na ekranie
         (on_top=True); po zamknięciu przypomnienia interfejs woła attention(False), co zdejmuje znacznik „zawsze na wierzchu”.
@@ -436,6 +452,8 @@ class Api:
         potrafiło zawiesić program). Błędy ignorujemy."""
         if sys.platform != 'win32':
             return True
+        if on_top:
+            self._play_alert()                                  # sygnał dźwiękowy także wtedy, gdy Windows nie odda fokusu
         try:
             import ctypes
             from ctypes import wintypes

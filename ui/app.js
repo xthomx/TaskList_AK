@@ -1736,7 +1736,8 @@ function showReminder(t){
     else if(act === "snooze") snoozed.set(key, Date.now() + 10 * 60 * 1000);
   });
   remBox.appendChild(el); remCards.set(key, el); syncRemPopover();
-  beep(); remTop = true; if(DESKTOP && api()) api().attention(true).catch(() => {});      // okno nad wszystkimi oknami w systemie
+  if(!DESKTOP) beep();                              // w programie dźwięk gra natywnie (attention); WebAudio tylko w przeglądarce
+  remTop = true; if(DESKTOP && api()) api().attention(true).catch(() => {});      // okno nad wszystkimi oknami w systemie
 }
 function checkReminders(){
   if(!started) return;
