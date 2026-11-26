@@ -1733,7 +1733,10 @@ function showReminder(t){
     closeReminder(key);
     if(act === "open") openDialog(t.id);
     else if(act === "done"){ applyStatus(t, "done"); save(); render(); }
-    else if(act === "snooze") snoozed.set(key, Date.now() + 10 * 60 * 1000);
+    else if(act === "snooze"){
+      snoozed.set(key, Date.now() + 10 * 60 * 1000);
+      setTimeout(checkReminders, 10 * 60 * 1000 + 500);   // niezależny zegar: nie polegaj tylko na cyklicznym sprawdzaniu (bywa wstrzymywane przy zminimalizowanym oknie)
+    }
   });
   remBox.appendChild(el); remCards.set(key, el); syncRemPopover();
   if(!DESKTOP) beep();                              // w programie dźwięk gra natywnie (attention); WebAudio tylko w przeglądarce
@@ -1750,7 +1753,7 @@ function checkReminders(){
   for(const t of tasks){
     if(!t.start || t.status === "done" || t.date !== todayS) continue;
     const key = remKey(t), due = snoozed.get(key);
-    if(due){ if(Date.now() >= due){ snoozed.delete(key); showReminder(t); } continue; }
+    if(due){ if(Date.now() >= due){ snoozed.delete(key); showReminder(t); } continue; }   // odłożone: wraca po upływie czasu, niezależnie od okna godzin zadania
     if(notified.has(key)) continue;
     const s = toMin(t.start), e = t.end ? toMin(t.end) : s + 15;      // okno: od godziny rozpoczęcia do końca zadania (bez godziny końca: 15 min)
     if(nowMin >= s && nowMin <= e){ notified.add(key); persistNotified(); showReminder(t); }
@@ -1766,6 +1769,7 @@ remBtn.onclick = () => {
 setInterval(checkReminders, 15000);
 setTimeout(checkReminders, 2500);
 window.addEventListener("focus", checkReminders);
+document.addEventListener("visibilitychange", () => { if(!document.hidden) checkReminders(); });
 
 /* ================= pokaż / ukryj listę zadań pod kalendarzem (miesiąc, tydzień) ================= */
 function updateListBtn(){
