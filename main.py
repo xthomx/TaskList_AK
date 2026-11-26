@@ -445,6 +445,12 @@ class Api:
                 pass
         threading.Thread(target=run, daemon=True).start()
 
+    def alert_sound(self):
+        """Powtórzenie sygnału, dopóki przypomnienie jest na ekranie."""
+        if sys.platform == 'win32':
+            self._play_alert()
+        return True
+
     def attention(self, on_top=True):
         """Przypomnienie: wyciągnij okno nad wszystkie inne okna i zostaw je tam, dopóki przypomnienie jest na ekranie
         (on_top=True); po zamknięciu przypomnienia interfejs woła attention(False), co zdejmuje znacznik „zawsze na wierzchu”.

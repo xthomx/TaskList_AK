@@ -1742,6 +1742,11 @@ function showReminder(t){
   if(!DESKTOP) beep();                              // w programie dźwięk gra natywnie (attention); WebAudio tylko w przeglądarce
   remTop = true; if(DESKTOP && api()) api().attention(true).catch(() => {});      // okno nad wszystkimi oknami w systemie
 }
+setInterval(() => {                                 // dopóki przypomnienie jest otwarte, sygnał co 10 s
+  if(!remCards.size) return;
+  if(DESKTOP){ if(api() && api().alert_sound) api().alert_sound().catch(() => {}); }
+  else beep();
+}, 10000);
 function checkReminders(){
   if(!started) return;
   const now = new Date(), todayS = iso(now), nowMin = now.getHours() * 60 + now.getMinutes();
