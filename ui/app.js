@@ -192,7 +192,7 @@ const sortedPeople = () => [...people].sort((a, b) => a.name.localeCompare(b.nam
 const shortName = n => { const w = n.split(/\s+/).filter(Boolean); return w.length > 1 ? w[0] + " " + w[1][0].toUpperCase() + "." : (w[0] || ""); };
 const matchesFilter = t => {  const as = t.assignees || [];  const personOk = !filterPersons.size || as.some(a => filterPersons.has(a)) || (filterPersons.has("__none") && !as.length);  return personOk && calVisible(calOf(t)) && (showDone || t.status !== "done") && (!filterPrios.size || filterPrios.has(t.priority)) && (!filterProgs.size || filterProgs.has(t.progress));};
 /* ---- kalendarz: prywatny / grupowy — wybór decyduje, gdzie trafiają nowe zadania; zadania grupowe mają ikonę ---- */
-let curCal = "local", calOnly = false, showDone = true;      // showDone: pokaż / ukryj zadania zakończone (zapamiętywane)
+let curCal = "local", calOnly = false, showDone = true, showOver = true;      // showDone: pokaż / ukryj zadania zakończone (zapamiętywane)
 const calOf = t => t.calendar === "group" ? "group" : "local";
 // widoczność kalendarzy: calOnly=false → oba naraz; calOnly=true → tylko curCal. curCal to też kalendarz dla nowych zadań.
 const calVisible = c => !calOnly || curCal === c;
@@ -205,6 +205,7 @@ function saveCal(){
 function renderCalSwitch(){
   document.querySelectorAll("#calSeg .btn").forEach(b => { const on = calVisible(b.dataset.cal); b.classList.toggle("active", on); b.setAttribute("aria-pressed", on); });
   const sd = document.getElementById("showDone"); sd.classList.toggle("active", showDone); sd.setAttribute("aria-pressed", showDone);
+  const so = document.getElementById("showOver"); so.classList.toggle("active", showOver); so.setAttribute("aria-pressed", showOver);
   document.getElementById("calSw").dataset.cal = curCal;
   const add = document.getElementById("add");
   if(add) add.title = "Nowe zadanie w kalendarzu: " + (curCal === "group" ? "grupowym" : "prywatnym");
@@ -298,6 +299,12 @@ document.getElementById("showDone").onclick = () => {
   showDone = !showDone;
   if(DESKTOP){ if(api()) api().set_show_done(showDone).catch(() => {}); }
   else { try{ localStorage.setItem(KEY + "_done", showDone ? "1" : "0"); }catch(err){} }
+  render();
+};
+document.getElementById("showOver").onclick = () => {
+  showOver = !showOver;
+  if(DESKTOP){ if(api()) api().set_show_overdue(showOver).catch(() => {}); }
+  else { try{ localStorage.setItem(KEY + "_over", showOver ? "1" : "0"); }catch(err){} }
   render();
 };
 fClear.onclick = () => { clearFilters(); render(); };
@@ -466,7 +473,7 @@ function renderBoard(main){
   const todayS = iso(new Date());
   const overdue = visibleTasks().filter(t => t.status !== "done" && endOf(t) < todayS).sort(byDue);
   let h = `<div class="board${view === "month" ? " bmonth" : ""}">`;
-  h += `<section class="bcol bover"><header><b>Zaległe</b><span class="bcount">${overdue.length}</span>` +
+  if(showOver) h += `<section class="bcol bover"><header><b>Zaległe</b><span class="bcount">${overdue.length}</span>` +
        (overdue.length ? `<button class="blink" id="bResched" type="button">Zmień termin</button>` : "") + `</header>` +
        `<div class="bcards">${overdue.map(t => cardHTML(t, null, true)).join("") || `<div class="bempty">Brak zaległych zadań 🎉</div>`}</div></section>`;
   for(const d of days){
@@ -482,7 +489,7 @@ function renderBoard(main){
   else {                                                                   // nowy okres: w miesiącu przewiń do dzisiaj
     boardKey = key; boardScrollX = 0;
     const t = board.querySelector(".bcol.today");
-    if(t && view === "month") board.scrollLeft = Math.max(0, t.offsetLeft - board.querySelector(".bover").offsetWidth - 32);
+    if(t && view === "month") board.scrollLeft = Math.max(0, t.offsetLeft - (board.querySelector(".bover") ? board.querySelector(".bover").offsetWidth : 0) - 32);
     else if(t && isPhone() && view === "week") board.scrollLeft = Math.max(0, t.getBoundingClientRect().left - board.getBoundingClientRect().left + board.scrollLeft - 8);    // telefon: od razu dzisiejszy dzień, zaległe są po lewej
   }
 
@@ -1722,6 +1729,7 @@ async function boot(){
       reminders = !(r.prefs && r.prefs.reminders === false); notified = new Set((r.prefs && r.prefs.notified) || []); updateRemBtn();
       curCal = (r.prefs && r.prefs.cal) === "group" ? "group" : "local"; calOnly = !!(r.prefs && r.prefs.cal_only);
       showDone = !(r.prefs && r.prefs.show_done === false);
+      showOver = !(r.prefs && r.prefs.show_overdue === false);
       readOnly = !!r.readonly;                       // nie nadpisuj pliku, którego nie da się odczytać
       const d = r.tasks ? normalize({people: r.people, tasks: r.tasks}) : (readOnly ? {people: [], tasks: []} : seed());
       tasks = d.tasks; people = d.people;
@@ -1741,6 +1749,7 @@ async function boot(){
       try{ reminders = localStorage.getItem(KEY + "_rem") !== "0"; }catch(e){} updateRemBtn();
       try{ showList = localStorage.getItem(KEY + "_list") !== "0"; }catch(e){}
       try{ showDone = localStorage.getItem(KEY + "_done") !== "0"; }catch(e){}
+      try{ showOver = localStorage.getItem(KEY + "_over") !== "0"; }catch(e){}
       try{ const c = localStorage.getItem(KEY + "_cal") || ""; curCal = c.startsWith("group") ? "group" : "local"; calOnly = c.endsWith("|only"); }catch(e){}
       try{ dayMode = localStorage.getItem(KEY + "_daymode") === "sections" ? "sections" : "hours"; }catch(e){}
       try{ collapsedSecs = new Set(JSON.parse(localStorage.getItem(KEY + "_collapsed") || "[]")); }catch(e){} applyCollapsed();

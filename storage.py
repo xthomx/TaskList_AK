@@ -228,6 +228,7 @@ class Storage:
                     'reminders': data.get('reminders') is not False, 'notified': notified,
                     'show_list': data.get('show_list') is not False,
                     'show_done': data.get('show_done') is not False,
+                    'show_overdue': data.get('show_overdue') is not False,
                     'cal': data.get('cal') if data.get('cal') in CALENDARS else 'local', 'cal_only': data.get('cal_only') is True,
                     'day_mode': data.get('day_mode') if data.get('day_mode') in DAY_MODES else 'hours',
                     'collapsed': [k for k in data.get('collapsed', []) if k in SECTIONS] if isinstance(data.get('collapsed', []), list) else [],
@@ -241,10 +242,10 @@ class Storage:
                     'local_sig': ls if isinstance(ls, str) and len(ls) <= 64 else '',
                     'local_fp': lf if isinstance(lf, str) and len(lf) <= 64 else ''}
         except (OSError, ValueError, UnicodeError, AttributeError):
-            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'show_done': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'xlsx_sig': '', 'group_path': '', 'group_sig': '', 'group_fp': '', 'local_path': '', 'local_sig': '', 'local_fp': ''}
+            return {'view': 'month', 'layout': 'board', 'theme': '', 'reminders': True, 'notified': [], 'show_list': True, 'show_done': True, 'show_overdue': True, 'cal': 'local', 'cal_only': False, 'day_mode': 'hours', 'collapsed': [], 'last_xlsx': '', 'xlsx_fp': '', 'xlsx_sig': '', 'group_path': '', 'group_sig': '', 'group_fp': '', 'local_path': '', 'local_sig': '', 'local_fp': ''}
 
     def set_prefs(self, **changes):
-        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'show_done', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'xlsx_sig', 'group_path', 'group_sig', 'group_fp', 'local_path', 'local_sig', 'local_fp'}:
+        if set(changes) - {'view', 'layout', 'theme', 'reminders', 'notified', 'show_list', 'show_done', 'show_overdue', 'cal', 'cal_only', 'day_mode', 'collapsed', 'last_xlsx', 'xlsx_fp', 'xlsx_sig', 'group_path', 'group_sig', 'group_fp', 'local_path', 'local_sig', 'local_fp'}:
             raise ValueError('Nieznane ustawienie.')
         if 'collapsed' in changes:
             c = changes['collapsed']
@@ -259,6 +260,8 @@ class Storage:
             raise ValueError('Nieprawidłowy tryb dnia.')
         if 'show_list' in changes and not isinstance(changes['show_list'], bool):
             raise ValueError('Nieprawidłowe ustawienie listy zadań.')
+        if 'show_overdue' in changes and not isinstance(changes['show_overdue'], bool):
+            raise ValueError('Nieprawidłowe ustawienie zaległych zadań.')
         if 'show_done' in changes and not isinstance(changes['show_done'], bool):
             raise ValueError('Nieprawidłowe ustawienie zakończonych zadań.')
         if 'reminders' in changes and not isinstance(changes['reminders'], bool):
@@ -297,6 +300,9 @@ class Storage:
 
     def set_show_done(self, visible):
         self.set_prefs(show_done=bool(visible))
+
+    def set_show_overdue(self, visible):
+        self.set_prefs(show_overdue=bool(visible))
         return True
 
     def set_reminders(self, enabled):

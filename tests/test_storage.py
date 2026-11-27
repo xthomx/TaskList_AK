@@ -169,6 +169,16 @@ class StorageTests(unittest.TestCase):
                 self.store.set_collapsed(bad)
         self.assertEqual(self.store.get_prefs()['collapsed'], ['filters', 'config'])
 
+    def test_show_overdue_preference(self):
+        self.assertTrue(self.store.get_prefs()['show_overdue'])       # domyślnie kolumna „Zaległe” jest widoczna
+        self.store.set_show_overdue(False)
+        self.assertFalse(self.store.get_prefs()['show_overdue'])
+        self.assertFalse(Storage(self.store.folder).get_prefs()['show_overdue'])
+        self.store.set_show_overdue(True)
+        self.assertTrue(self.store.get_prefs()['show_overdue'])
+        with self.assertRaises(ValueError):
+            self.store.set_prefs(show_overdue='tak')
+
     def test_show_done_preference(self):
         self.assertTrue(self.store.get_prefs()['show_done'])          # domyślnie zakończone są widoczne
         self.store.set_show_done(False)
